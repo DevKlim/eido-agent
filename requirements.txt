@@ -1,0 +1,29 @@
+# Core Frameworks
+fastapi>=0.104.0 # Bumped minor version
+uvicorn[standard]>=0.24.0 # Bumped minor version
+streamlit>=1.30.0 # Bumped minor version - important for potential fixes related to watchers
+pydantic>=2.5.0 # Bumped minor version
+pydantic-settings>=2.0.0 # Bumped minor version
+
+# LLM & Embeddings
+# Explicitly add torch and transformers, as they are key dependencies for sentence-transformers
+# and version mismatches can cause issues (like the Streamlit file watcher conflict).
+torch>=2.0.1 # Explicit dependency for sentence-transformers - Use a specific stable version if needed
+transformers>=4.30.0 # Explicit dependency for sentence-transformers - Use a specific stable version if needed
+sentence-transformers>=2.2.2 # Bumped patch version
+openai>=1.3.0 # For OpenRouter/OpenAI API access
+google-generativeai>=0.3.0 # For Google Gemini API access
+# accelerate, bitsandbytes - Add if running local LLM requiring them
+
+# Geospatial
+geopy>=2.4.0 # Bumped minor version
+
+# Data & Visualization
+pandas>=2.0.0 # Bumped major version
+plotly>=5.15.0 # Bumped minor version
+
+# Utilities
+python-dotenv>=1.0.0
+# uuid is a built-in Python module, no need to list it here.
+numpy>=1.24.0 # Often needed by pandas, torch, etc. Bumped minor version
+datamodel-code-generator>=0.25.0 # Bumped minor version
