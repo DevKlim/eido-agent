@@ -4,7 +4,7 @@ import json
 import os
 import pandas as pd
 import time
-from datetime import datetime
+from datetime import datetime, timezone # Import timezone explicitly
 import sys
 import uuid
 import logging # Import logging
@@ -42,7 +42,7 @@ try:
     # Now import other modules
     from agent.agent_core import eido_agent_instance
     from services.storage import incident_store
-    from data_models.schemas import Incident
+    from data_models.schemas import Incident # Keep Incident import
 
 except ImportError as e:
     modules_imported_successfully = False
@@ -73,7 +73,7 @@ if not modules_imported_successfully:
     st.markdown("- You are running the app from the project's root directory (`eido-sentinel/`).")
     st.markdown("- You have installed all dependencies (`./install_dependencies.sh` or `pip install -r requirements.txt`).")
     st.markdown("- The project structure matches the `README.md`.")
-    st.markdown("- Python files (`agent/agent_core.py`, `services/storage.py`, `data_models/schemas.py`, `agent/llm_interface.py`, `config/settings.py` etc.) are present and syntactically correct.")
+    st.markdown("- Python files (`agent/agent_core.py`, `services/storage.py`, `data_models/schemas.py`, `agent/llm_interface.py`, `config/settings.py`, `agent/alert_parser.py` etc.) are present and syntactically correct.")
     st.info("Expected command: `streamlit run ui/app.py`")
     st.stop() # Stop execution if core components can't be loaded
 
@@ -167,16 +167,17 @@ def update_dashboard_data():
     data = []
     map_points = []
     active_count = 0
-    # Use the same definition as in matching.py
+    # Use the same definition as in matching.py or a robust status check
     active_statuses = [
         "active", "updated", "received", "rcvd",
         "dispatched", "dsp", "acknowledged", "ack",
-        "enroute", "enr", "onscene", "onscn"
+        "enroute", "enr", "onscene", "onscn",
+        "monitoring" # Added monitoring as active
     ]
 
     for inc in incidents:
         try:
-            # Make status check robust
+            # Make status check robust and case-insensitive
             is_active = inc.status and isinstance(inc.status, str) and inc.status.lower() in active_statuses
             if is_active:
                 active_count += 1
@@ -238,7 +239,7 @@ def update_dashboard_data():
 
 # Header Section
 st.title("🚨 EIDO Sentinel")
-st.caption("AI-Powered Emergency Incident Processor (NENA EIDO Compliant Input)")
+st.caption("AI-Powered Emergency Incident Processor")
 
 st.divider()
 
@@ -249,38 +250,50 @@ dashboard = st.container()
 # --- Sidebar for Inputs ---
 with sidebar:
     st.header("📥 Report Ingestion")
-    st.markdown("Provide EIDO **Messages** (JSON format) via file upload, text input, or load samples.")
 
-    uploaded_files = st.file_uploader(
-        "Upload EIDO Message file(s)", type="json", accept_multiple_files=True, key="file_uploader",
-        help="Upload files containing single EIDO Messages (JSON object) or lists of Messages (JSON array)."
-    )
-    json_input_area = st.text_area(
-        "Paste EIDO Message JSON", height=150, key="json_input_area",
-        placeholder='{\n  "eidoMessageIdentifier": "...",\n  "incidentComponent": [ ... ],\n  ...\n}',
-        help="Paste a single EIDO Message object or a list of Message objects."
-    )
+    # --- Input Method Tabs ---
+    input_tab1, input_tab2 = st.tabs(["EIDO JSON Input", "Raw Alert Text Input"])
 
-    st.markdown("---")
-    st.subheader("Sample Reports")
-    available_samples = list_sample_files()
-    if available_samples:
-        sample_options = ["-- Select a Sample --"] + available_samples
-        selected_sample = st.selectbox(
-            "Load a sample EIDO Message:", options=sample_options, key="sample_select", index=0,
-            help="Select a sample file conforming to the EidoMessage schema."
+    with input_tab1:
+        st.markdown("Provide EIDO **Messages** (JSON format) via file upload, text input, or load samples.")
+        uploaded_files = st.file_uploader(
+            "Upload EIDO Message file(s)", type="json", accept_multiple_files=True, key="file_uploader",
+            help="Upload files containing single EIDO Messages (JSON object) or lists of Messages (JSON array)."
         )
-    else:
-        st.info("No sample files found in 'sample_eido/'. Ensure samples use the EidoMessage structure.")
-        selected_sample = None
+        json_input_area = st.text_area(
+            "Paste EIDO Message JSON", height=150, key="json_input_area",
+            placeholder='{\n  "eidoMessageIdentifier": "...",\n  "incidentComponent": [ ... ],\n  ...\n}',
+            help="Paste a single EIDO Message object or a list of Message objects."
+        )
+        st.markdown("---")
+        st.subheader("Sample Reports")
+        available_samples = list_sample_files()
+        if available_samples:
+            sample_options = ["-- Select a Sample --"] + available_samples
+            selected_sample = st.selectbox(
+                "Load a sample EIDO Message:", options=sample_options, key="sample_select", index=0,
+                help="Select a sample file conforming to the EidoMessage schema."
+            )
+        else:
+            st.info("No sample files found in 'sample_eido/'. Ensure samples use the EidoMessage structure.")
+            selected_sample = None
 
-    st.markdown("---")
+    with input_tab2:
+        st.markdown("Paste raw alert text (e.g., from CAD, SMS, transcript snippet) below.")
+        alert_text_input_area = st.text_area(
+            "Paste Raw Alert Text", height=200, key="alert_text_input_area",
+            placeholder='Example:\nALERT: Vehicle collision reported at Main St / Elm Ave around 3:30 PM...\nIncident # CAD-2024-98765...',
+            help="Enter unstructured or semi-structured alert text for the AI to parse."
+        )
+
+    st.markdown("---") # Separator before the button
 
     if st.button("🚀 Process Inputs", type="primary", use_container_width=True):
-        reports_to_process_from_sources = [] # Holds loaded data (dict or list)
-        input_sources_names = [] # Tracks source names
+        reports_to_process_from_sources = [] # Holds loaded EIDO JSON data (dict or list)
+        input_sources_names = [] # Tracks EIDO JSON source names
+        alert_text_to_process = None # Holds raw alert text
 
-        # 1. Gather data (same logic as before)
+        # 1. Gather EIDO JSON data (from files, text area, samples)
         if uploaded_files:
             for uploaded_file in uploaded_files:
                 try:
@@ -288,7 +301,7 @@ with sidebar:
                     loaded_data = json.loads(string_data)
                     reports_to_process_from_sources.append(loaded_data)
                     input_sources_names.append(f"File: {uploaded_file.name}")
-                    logger_ui.debug(f"Loaded data from file: {uploaded_file.name}")
+                    logger_ui.debug(f"Loaded EIDO JSON data from file: {uploaded_file.name}")
                 except json.JSONDecodeError as e:
                     st.error(f"Invalid JSON in {uploaded_file.name}: {e}")
                     logger_ui.error(f"Invalid JSON in {uploaded_file.name}: {e}")
@@ -300,14 +313,14 @@ with sidebar:
             try:
                 loaded_data = json.loads(json_input_area)
                 reports_to_process_from_sources.append(loaded_data)
-                input_sources_names.append("Pasted Text")
-                logger_ui.debug("Loaded data from pasted text.")
+                input_sources_names.append("Pasted EIDO JSON")
+                logger_ui.debug("Loaded EIDO JSON data from pasted text.")
             except json.JSONDecodeError as e:
-                 st.error(f"Invalid JSON in text area: {e}")
-                 logger_ui.error(f"Processing pasted JSON failed: {e}")
+                 st.error(f"Invalid JSON in EIDO text area: {e}")
+                 logger_ui.error(f"Processing pasted EIDO JSON failed: {e}")
             except Exception as e:
-                 st.error(f"Error processing pasted JSON: {e}")
-                 logger_ui.error(f"Error processing pasted JSON: {e}", exc_info=True)
+                 st.error(f"Error processing pasted EIDO JSON: {e}")
+                 logger_ui.error(f"Error processing pasted EIDO JSON: {e}", exc_info=True)
 
         elif selected_sample and selected_sample != "-- Select a Sample --":
             try:
@@ -316,7 +329,7 @@ with sidebar:
                     loaded_data = json.load(f)
                     reports_to_process_from_sources.append(loaded_data)
                     input_sources_names.append(f"Sample: {selected_sample}")
-                    logger_ui.info(f"Loaded data from sample: {selected_sample}")
+                    logger_ui.info(f"Loaded EIDO JSON data from sample: {selected_sample}")
             except FileNotFoundError:
                 st.error(f"Sample file not found: {selected_sample}")
                 logger_ui.error(f"Sample file not found: {selected_sample}")
@@ -327,97 +340,141 @@ with sidebar:
                 st.error(f"Error loading sample {selected_sample}: {e}")
                 logger_ui.error(f"Failed loading sample {selected_sample}: {e}", exc_info=True)
 
-        # 2. Flatten and Process
-        if not reports_to_process_from_sources:
-            st.warning("No EIDO messages were provided or selected.")
-            logger_ui.warning("Processing button clicked, but no valid EIDO messages found.")
+        # 2. Gather Raw Alert Text
+        if alert_text_input_area:
+            alert_text_to_process = alert_text_input_area.strip()
+            if alert_text_to_process:
+                 logger_ui.debug("Gathered raw alert text from input area.")
+
+        # 3. Check if any input was provided
+        if not reports_to_process_from_sources and not alert_text_to_process:
+            st.warning("No EIDO messages or alert text were provided.")
+            logger_ui.warning("Processing button clicked, but no valid inputs found.")
         else:
-            final_reports_list = [] # Holds individual EIDO Message dicts
-            error_count_loading = 0
+            total_processed_count = 0
+            total_error_count = 0
+            total_start_time = time.time()
+            status_messages = [] # Collect status messages
 
-            for idx, loaded_data in enumerate(reports_to_process_from_sources):
-                source_name = input_sources_names[idx] if idx < len(input_sources_names) else "Unknown Source"
-                if isinstance(loaded_data, list):
-                    logger_ui.debug(f"Source '{source_name}' contained a list of {len(loaded_data)} items. Expanding.")
-                    for item_index, item in enumerate(loaded_data):
-                        if isinstance(item, dict):
-                            final_reports_list.append(item)
-                        else:
-                            logger_ui.warning(f"Skipping non-dictionary item #{item_index+1} within list from source '{source_name}'. Type: {type(item)}")
-                            error_count_loading += 1
-                elif isinstance(loaded_data, dict):
-                    final_reports_list.append(loaded_data)
-                else:
-                    logger_ui.error(f"Skipping invalid data type from source '{source_name}'. Expected dict or list, got {type(loaded_data)}.")
-                    error_count_loading += 1
-
-            num_reports_to_process = len(final_reports_list)
-            if num_reports_to_process == 0:
-                 msg = f"No valid individual EIDO message dictionaries found to process."
-                 if error_count_loading > 0:
-                     msg += f" {error_count_loading} items were skipped during loading."
-                 st.warning(msg)
-                 logger_ui.warning(msg)
-            else:
-                logger_ui.info(f"Starting processing for {num_reports_to_process} individual EIDO message(s).")
-                st.info(f"Processing {num_reports_to_process} EIDO message(s)...")
-                progress_bar = st.progress(0)
-                processed_count = 0
-                error_count_processing = 0
-                start_time = time.time()
-
-                try:
-                    for i, report_dict in enumerate(final_reports_list):
-                        progress_val = (i + 1) / num_reports_to_process
-                        progress_bar.progress(progress_val, text=f"Processing message {i+1}/{num_reports_to_process}")
-                        # Use $id as fallback identifier if eidoMessageIdentifier is missing
-                        msg_id_for_log = report_dict.get('eidoMessageIdentifier', report_dict.get('$id', f"unknown_{i+1}"))
-
-                        try:
-                            # --- >>> CORRECTED HANDLING OF AGENT RESPONSE <<< ---
-                            # Call the agent with a SINGLE EIDO Message dictionary
-                            result_dict = eido_agent_instance.process_report_json(report_dict)
-
-                            # Extract results from the dictionary
-                            incident_id = result_dict.get('incident_id')
-                            status_msg = result_dict.get('status', 'Unknown status from agent')
-                            is_success = status_msg.lower() == "success"
-                            # --- >>> END CORRECTION <<< ---
-
-                        except Exception as agent_call_error:
-                             # Catch critical errors during the agent call itself
-                             incident_id = None
-                             is_success = False
-                             status_msg = f"Agent processing failed critically: {agent_call_error}"
-                             logger_ui.critical(f"CRITICAL ERROR calling agent for Msg ID '{msg_id_for_log}': {agent_call_error}", exc_info=True)
-
-                        # Log based on success/failure
-                        if is_success and incident_id:
-                            processed_count += 1
-                            logger_ui.info(f"Msg '{msg_id_for_log}': Successfully processed. Status: {status_msg}")
-                        else:
-                            error_count_processing += 1
-                            # Error should have been logged within agent or in the critical catch block above
-                            logger_ui.error(f"Msg '{msg_id_for_log}': Failed processing. Status: {status_msg}")
-
-                    end_time = time.time()
-                    duration = end_time - start_time
-                    progress_bar.empty()
-
-                    # Display summary message
-                    if error_count_processing > 0:
-                         st.warning(f"Processed {processed_count}/{num_reports_to_process} messages. {error_count_processing} failed processing. Took {duration:.2f}s.")
-                    elif error_count_loading > 0:
-                         st.warning(f"Successfully processed {processed_count}/{num_reports_to_process} messages. {error_count_loading} items skipped during loading. Took {duration:.2f}s.")
+            # --- Process EIDO JSON First ---
+            if reports_to_process_from_sources:
+                final_reports_list = [] # Holds individual EIDO Message dicts
+                error_count_loading = 0
+                for idx, loaded_data in enumerate(reports_to_process_from_sources):
+                    source_name = input_sources_names[idx] if idx < len(input_sources_names) else "Unknown Source"
+                    if isinstance(loaded_data, list):
+                        logger_ui.debug(f"Source '{source_name}' contained a list of {len(loaded_data)} items. Expanding.")
+                        for item_index, item in enumerate(loaded_data):
+                            if isinstance(item, dict):
+                                final_reports_list.append(item)
+                            else:
+                                logger_ui.warning(f"Skipping non-dictionary item #{item_index+1} within list from source '{source_name}'. Type: {type(item)}")
+                                error_count_loading += 1
+                    elif isinstance(loaded_data, dict):
+                        final_reports_list.append(loaded_data)
                     else:
-                         st.success(f"Successfully processed {processed_count}/{num_reports_to_process} messages in {duration:.2f}s.")
+                        logger_ui.error(f"Skipping invalid data type from source '{source_name}'. Expected dict or list, got {type(loaded_data)}.")
+                        error_count_loading += 1
 
-                    update_dashboard_data() # Refresh dashboard view and capture logs
+                num_reports_to_process = len(final_reports_list)
+                if num_reports_to_process > 0:
+                    logger_ui.info(f"Starting processing for {num_reports_to_process} individual EIDO message(s).")
+                    st.info(f"Processing {num_reports_to_process} EIDO message(s)...")
+                    progress_bar_json = st.progress(0)
+                    processed_count_json = 0
+                    error_count_json = 0
 
-                except Exception as agent_loop_error:
-                     st.error(f"An unexpected error occurred during the agent processing loop: {agent_loop_error}")
-                     logger_ui.critical(f"Agent processing loop failed unexpectedly: {agent_loop_error}", exc_info=True)
-                     if 'progress_bar' in locals() and progress_bar: progress_bar.empty()
+                    try:
+                        for i, report_dict in enumerate(final_reports_list):
+                            progress_val = (i + 1) / num_reports_to_process
+                            progress_bar_json.progress(progress_val, text=f"Processing EIDO message {i+1}/{num_reports_to_process}")
+                            msg_id_for_log = report_dict.get('eidoMessageIdentifier', report_dict.get('$id', f"unknown_json_{i+1}"))
+
+                            try:
+                                result_dict = eido_agent_instance.process_report_json(report_dict)
+                                incident_id = result_dict.get('incident_id')
+                                status_msg = result_dict.get('status', 'Unknown status from agent')
+                                is_success = status_msg.lower() == "success"
+                            except Exception as agent_call_error:
+                                incident_id = None
+                                is_success = False
+                                status_msg = f"Agent processing failed critically: {agent_call_error}"
+                                logger_ui.critical(f"CRITICAL ERROR calling agent for EIDO Msg ID '{msg_id_for_log}': {agent_call_error}", exc_info=True)
+
+                            if is_success and incident_id:
+                                processed_count_json += 1
+                                logger_ui.info(f"EIDO Msg '{msg_id_for_log}': Successfully processed. Status: {status_msg}")
+                            else:
+                                error_count_json += 1
+                                logger_ui.error(f"EIDO Msg '{msg_id_for_log}': Failed processing. Status: {status_msg}")
+                                status_messages.append(f"EIDO Error (Msg: {msg_id_for_log[:15]}...): {status_msg}")
+
+                        progress_bar_json.empty()
+                        total_processed_count += processed_count_json
+                        total_error_count += error_count_json
+                        if error_count_json > 0:
+                             status_messages.append(f"Processed {processed_count_json}/{num_reports_to_process} EIDO messages. {error_count_json} failed.")
+                        elif error_count_loading > 0:
+                             status_messages.append(f"Processed {processed_count_json}/{num_reports_to_process} EIDO messages. {error_count_loading} items skipped during loading.")
+                        else:
+                             status_messages.append(f"Processed {processed_count_json}/{num_reports_to_process} EIDO messages successfully.")
+
+                    except Exception as agent_loop_error:
+                         st.error(f"An unexpected error occurred during the EIDO processing loop: {agent_loop_error}")
+                         logger_ui.critical(f"EIDO processing loop failed unexpectedly: {agent_loop_error}", exc_info=True)
+                         if 'progress_bar_json' in locals() and progress_bar_json: progress_bar_json.empty()
+                         total_error_count += num_reports_to_process - processed_count_json # Assume remaining failed
+                         status_messages.append(f"EIDO processing loop failed: {agent_loop_error}")
+
+            # --- Process Raw Alert Text Second ---
+            if alert_text_to_process:
+                 logger_ui.info("Starting processing for raw alert text.")
+                 st.info("Processing raw alert text...")
+                 progress_bar_text = st.progress(0, text="Parsing alert text...")
+                 processed_count_text = 0
+                 error_count_text = 0
+                 try:
+                     # Call the new agent method for text processing
+                     result_dict = eido_agent_instance.process_alert_text(alert_text_to_process)
+                     progress_bar_text.progress(1.0, text="Alert text processing complete.")
+
+                     incident_id = result_dict.get('incident_id')
+                     status_msg = result_dict.get('status', 'Unknown status from agent')
+                     is_success = status_msg.lower() == "success"
+
+                     if is_success and incident_id:
+                         processed_count_text += 1
+                         logger_ui.info(f"Raw Alert Text: Successfully processed. Status: {status_msg}")
+                         status_messages.append(f"Raw Alert Text processed successfully.")
+                     else:
+                         error_count_text += 1
+                         logger_ui.error(f"Raw Alert Text: Failed processing. Status: {status_msg}")
+                         status_messages.append(f"Raw Alert Text Error: {status_msg}")
+
+                 except Exception as agent_text_call_error:
+                      error_count_text += 1
+                      status_msg = f"Agent text processing failed critically: {agent_text_call_error}"
+                      logger_ui.critical(f"CRITICAL ERROR calling agent for Raw Alert Text: {agent_text_call_error}", exc_info=True)
+                      status_messages.append(f"Raw Alert Text Error: {status_msg}")
+
+                 progress_bar_text.empty()
+                 total_processed_count += processed_count_text
+                 total_error_count += error_count_text
+
+            # --- Display Overall Summary Message ---
+            total_end_time = time.time()
+            total_duration = total_end_time - total_start_time
+            if total_error_count > 0:
+                 st.warning(f"Processing finished. {total_processed_count} item(s) succeeded, {total_error_count} failed. Took {total_duration:.2f}s.")
+                 with st.expander("Show Processing Status Details"):
+                     for msg in status_messages: st.write(msg)
+            else:
+                 st.success(f"Processing finished. {total_processed_count} item(s) succeeded. Took {total_duration:.2f}s.")
+                 # Optionally show success messages too
+                 # with st.expander("Show Processing Status Details"):
+                 #    for msg in status_messages: st.write(msg)
+
+            update_dashboard_data() # Refresh dashboard view and capture logs
 
         # --- Capture any final logs from processing ---
         get_captured_logs()
@@ -462,13 +519,11 @@ with sidebar:
 # --- Dashboard Area ---
 with dashboard:
     st.header("📊 Incident Dashboard")
-
     # Key Metrics Row
     metric_col1, metric_col2, metric_col3 = st.columns(3)
     metric_col1.metric("Total Incidents Tracked", st.session_state.total_incidents)
     metric_col2.metric("Currently Active Incidents", st.session_state.active_incidents)
     try:
-        # Ensure calculation is robust against empty dataframe or missing columns
         if not st.session_state.incidents_df.empty and 'Reports' in st.session_state.incidents_df.columns and st.session_state.incidents_df['Reports'].notna().any():
              avg_reports = st.session_state.incidents_df['Reports'].mean()
              metric_col3.metric("Avg. Reports / Incident", f"{avg_reports:.1f}")
@@ -501,7 +556,7 @@ with dashboard:
                     "ID": st.column_config.TextColumn("Incident ID", help="Short unique identifier", width="small"),
                     "Type": st.column_config.TextColumn("Type", width="medium"),
                     "Status": st.column_config.TextColumn("Status", width="small"),
-                    "Reports": st.column_config.NumberColumn("Reports", format="%d", help="Number of associated EIDO messages processed for this incident", width="small"),
+                    "Reports": st.column_config.NumberColumn("Reports", format="%d", help="Number of associated reports processed for this incident", width="small"),
                     "Last Update": st.column_config.DatetimeColumn("Last Update (UTC)", format="YYYY-MM-DD HH:mm:ss", timezone="UTC"),
                     "Actions": st.column_config.TextColumn("Recommended Actions", width="large"),
                     "Locations": st.column_config.NumberColumn("Unique Locations", help="Number of unique geocoded locations", format="%d", width="small"),
@@ -509,25 +564,22 @@ with dashboard:
                 }
             )
         else:
-            st.info("No incidents processed yet. Use the sidebar to ingest EIDO messages.")
+            st.info("No incidents processed yet. Use the sidebar to ingest EIDO messages or alert text.")
 
     # Geographic Map Tab
     with tab_map:
         st.subheader("Incident Locations")
         if not st.session_state.map_data.empty:
              try:
-                 # Calculate center only if data is valid
                  valid_map_data = st.session_state.map_data.dropna(subset=['lat', 'lon'])
                  if not valid_map_data.empty:
                      center_lat = valid_map_data['lat'].median()
                      center_lon = valid_map_data['lon'].median()
-                     # Use only valid data for display
                      map_df_display = valid_map_data.copy()
-                     map_df_display['size'] = 25 # Constant size for visibility
-                     st.map(map_df_display, latitude='lat', longitude='lon', size='size', zoom=10) # Adjust zoom as needed
+                     map_df_display['size'] = 25
+                     st.map(map_df_display, latitude='lat', longitude='lon', size='size', zoom=10)
                  else:
                       st.info("No valid geocoded location data available to display.")
-
              except Exception as map_error:
                  st.error(f"Error displaying map: {map_error}")
                  logger_ui.error(f"Map display error: {map_error}", exc_info=True)
@@ -548,7 +600,6 @@ with dashboard:
             trends_col1, trends_col2 = st.columns(2)
             with trends_col1:
                 st.markdown("##### Incident Types Distribution")
-                # Code for type distribution chart remains the same
                 if 'Type' in st.session_state.incidents_df.columns:
                     type_counts = st.session_state.incidents_df['Type'].value_counts()
                     if not type_counts.empty:
@@ -560,14 +611,11 @@ with dashboard:
 
             with trends_col2:
                 st.markdown("##### Report Activity Over Time")
-                # Code for activity trend chart needs careful check on timestamp source
                 all_report_timestamps = []
                 try:
-                    # Iterate through incidents in the store to get accurate report timestamps
                     for inc_obj in incident_store.get_all_incidents():
                         if inc_obj.reports_core_data:
                             for report_core in inc_obj.reports_core_data:
-                                # Ensure timestamp is valid before conversion
                                 if report_core.timestamp:
                                     ts = pd.to_datetime(report_core.timestamp, errors='coerce', utc=True)
                                     if pd.notna(ts):
@@ -576,7 +624,6 @@ with dashboard:
                                         logger_ui.warning(f"Skipping invalid report timestamp {report_core.timestamp} for trends (Report Core ID: {report_core.report_id[:8]}).")
                                 else:
                                      logger_ui.warning(f"Skipping null report timestamp for trends (Report Core ID: {report_core.report_id[:8]}).")
-
 
                     if all_report_timestamps:
                         ts_series = pd.Series(1, index=pd.DatetimeIndex(all_report_timestamps)).sort_index()
@@ -597,7 +644,7 @@ with dashboard:
         else:
              st.info("Process incidents to view trends.")
 
-    # Details View Tab
+    # Details View Tab - MODIFIED
     with tab_details:
         st.subheader("Detailed Incident Information")
         # Get current incidents directly from store for the selector
@@ -617,8 +664,8 @@ with dashboard:
                 if selected_incident_obj:
                     st.markdown(f"#### Details for Incident `{selected_incident_obj.incident_id}`")
 
+                    # --- Display Incident Details ---
                     detail_col1, detail_col2 = st.columns(2)
-                    # Display logic for incident details remains largely the same
                     with detail_col1:
                         st.markdown(f"**Type:** `{selected_incident_obj.incident_type or 'N/A'}`")
                         st.markdown(f"**Status:** `{selected_incident_obj.status or 'Unknown'}`")
@@ -627,7 +674,6 @@ with dashboard:
                         loc_count = len(selected_incident_obj.locations)
                         st.markdown(f"**Unique Locations:** {loc_count}")
                     with detail_col2:
-                         # Format timestamps robustly
                          created_dt_str = pd.to_datetime(selected_incident_obj.created_at, errors='coerce', utc=True).strftime('%Y-%m-%d %H:%M:%S %Z') if pd.notna(selected_incident_obj.created_at) else "N/A"
                          updated_dt_str = pd.to_datetime(selected_incident_obj.last_updated_at, errors='coerce', utc=True).strftime('%Y-%m-%d %H:%M:%S %Z') if pd.notna(selected_incident_obj.last_updated_at) else "N/A"
                          st.markdown(f"**Created At (UTC):** {created_dt_str}")
@@ -649,45 +695,40 @@ with dashboard:
                          st.markdown("_No specific actions recommended by the agent._")
 
                     st.divider()
+
+                    # --- Associated Report Core Data Expander ---
                     reports_core_list = selected_incident_obj.reports_core_data or []
                     with st.expander(f"Show Associated Report Core Data ({len(reports_core_list)})", expanded=False):
                          if reports_core_list:
                               report_data_display = []
                               try:
-                                   # Sort by timestamp, newest first, handle potential errors
                                    sorted_core_data = sorted(
                                        reports_core_list,
-                                       key=lambda r: pd.to_datetime(r.timestamp, errors='coerce', utc=True) if r.timestamp else pd.Timestamp.min.replace(tzinfo=datetime.timezone.utc), # Handle None timestamps
+                                       key=lambda r: pd.to_datetime(r.timestamp, errors='coerce', utc=True) if r.timestamp else pd.Timestamp.min.replace(tzinfo=timezone.utc),
                                        reverse=True
                                    )
                               except Exception as sort_e:
                                    logger_ui.warning(f"Error sorting report core data for incident {selected_id_short}: {sort_e}", exc_info=True)
-                                   sorted_core_data = reports_core_list # Fallback to unsorted
+                                   sorted_core_data = reports_core_list
 
                               for i, r_core in enumerate(sorted_core_data):
                                   loc_display = "Unknown"
                                   addr = r_core.location_address
                                   coords_str = f"({r_core.coordinates[0]:.4f}, {r_core.coordinates[1]:.4f})" if r_core.coordinates and isinstance(r_core.coordinates, tuple) and len(r_core.coordinates)==2 else None
-
                                   if addr and coords_str: loc_display = f"{addr} {coords_str}"
                                   elif addr: loc_display = addr
                                   elif coords_str: loc_display = f"Coord: {coords_str}"
-
                                   ts_display = pd.to_datetime(r_core.timestamp, errors='coerce', utc=True)
-
                                   report_data_display.append({
-                                      "#": i + 1,
-                                      "Timestamp": ts_display,
+                                      "#": i + 1, "Timestamp": ts_display,
                                       "Report Core ID": r_core.report_id[:8] if r_core.report_id else "N/A",
                                       "Orig EIDO Msg ID": r_core.original_document_id or "N/A",
                                       "Source Info": r_core.source or 'N/A',
                                       "Description/Notes": r_core.description or "N/A",
                                       "Location Info": loc_display
                                   })
-
                               st.dataframe(
-                                    pd.DataFrame(report_data_display),
-                                    use_container_width=True, hide_index=True,
+                                    pd.DataFrame(report_data_display), use_container_width=True, hide_index=True,
                                     column_order=("#", "Timestamp", "Report Core ID", "Orig EIDO Msg ID", "Source Info", "Location Info", "Description/Notes"),
                                     column_config={
                                          "#": st.column_config.NumberColumn("Order", width="small", format="%d"),
@@ -701,16 +742,71 @@ with dashboard:
                                   )
                          else:
                               st.info("No report core data is associated with this incident record.")
+
+
+                    # --- >>> NEW SECTION: Original EIDO JSON <<< ---
+                    st.markdown("---") # Separator
+                    st.markdown("##### 📜 Original EIDO Message(s) JSON")
+
+                    original_eido_dicts = []
+                    if reports_core_list:
+                         # Sort reports by timestamp before extracting dicts to maintain order
+                         try:
+                              sorted_core_data_for_json = sorted(
+                                  reports_core_list,
+                                  key=lambda r: pd.to_datetime(r.timestamp, errors='coerce', utc=True) if r.timestamp else pd.Timestamp.min.replace(tzinfo=timezone.utc),
+                                  reverse=False # Oldest first for list view
+                              )
+                         except Exception as sort_e:
+                              logger_ui.warning(f"Error sorting report core data for JSON view: {sort_e}", exc_info=True)
+                              sorted_core_data_for_json = reports_core_list # Fallback
+
+                         for report_core in sorted_core_data_for_json:
+                             if report_core.original_eido_dict and isinstance(report_core.original_eido_dict, dict):
+                                 original_eido_dicts.append(report_core.original_eido_dict)
+
+                    if original_eido_dicts:
+                        # Prepare JSON string for display and download
+                        # If only one message, display it as an object, otherwise as a list
+                        display_data = original_eido_dicts[0] if len(original_eido_dicts) == 1 else original_eido_dicts
+                        try:
+                            json_string_all = json.dumps(display_data, indent=2)
+                        except TypeError as json_err:
+                             logger_ui.error(f"Failed to serialize original EIDO dicts for incident {selected_id_short}: {json_err}")
+                             json_string_all = f'{{"error": "Could not serialize original EIDO data", "details": "{json_err}"}}'
+
+                        st.text_area(
+                            label="JSON Content (Copy from here):",
+                            value=json_string_all,
+                            height=300,
+                            key=f"eido_json_display_{selected_id_short}",
+                            help="Displays the original EIDO JSON message(s) associated with this incident. If multiple messages are associated, they are shown as a list.",
+                            disabled=True # Make it read-only, user copies manually
+                        )
+
+                        # Download Button
+                        st.download_button(
+                            label="📥 Download All EIDO JSON",
+                            data=json_string_all.encode('utf-8'), # Encode string to bytes
+                            file_name=f"incident_{selected_id_short}_eido_messages.json",
+                            mime="application/json",
+                            key=f"download_eido_{selected_id_short}",
+                            help="Download all associated original EIDO messages as a single JSON file (list if multiple)."
+                        )
+                    else:
+                        st.info("No original EIDO JSON data found stored for this incident's reports.")
+                    # --- >>> END NEW SECTION <<< ---
+
                 else:
                     st.warning(f"Could not retrieve details for incident ID {selected_id_short}. It might have been cleared.")
             elif available_short_ids:
                  st.info("Select an Incident ID from the dropdown above to view its details.")
         else:
-            st.info("Process EIDO messages via the sidebar to view incident details.")
+            st.info("Process EIDO messages or alert text via the sidebar to view incident details.")
 
 # --- Footer ---
 st.divider()
-st.caption(f"EIDO Sentinel POC | v0.4.1 | Streamlit v{st.__version__} | Python {sys.version.split()[0]}")
+st.caption(f"EIDO Sentinel POC | v0.5.1 | Streamlit v{st.__version__} | Python {sys.version.split()[0]}") # Bump patch version
 
 # Final log capture at the end of the run
 get_captured_logs()

@@ -6,27 +6,13 @@ import json
 
 # Import settings INSTANCE and necessary LLM client libraries
 try:
-    # --->>> CHANGE IMPORT HERE <<<---
-    # Import the 'settings' instance directly, AFTER it's created in config/settings.py
     from config.settings import settings
-    # --->>> END CHANGE <<<---
-
-    # Log provider AFTER import succeeds using the instance
-    llm_provider_setting = getattr(settings, 'llm_provider', 'Attribute Missing')
-    print(f"--- Settings Instance Accessed in llm_interface.py ---")
-    print(f"--- Settings Instance: LLM Provider = {llm_provider_setting} ---")
-
 except ImportError as e:
      print(f"--- FAILED to import settings INSTANCE in llm_interface.py: {e} ---")
-     # This likely means config.settings itself failed earlier
      raise SystemExit(f"llm_interface failed to import settings instance: {e}") from e
-except AttributeError as e:
-     # This might happen if 'settings' isn't defined in config.settings (shouldn't occur)
-     print(f"--- FAILED: 'settings' instance not found in config.settings module?: {e} ---")
-     raise SystemExit(f"llm_interface failed to find settings instance: {e}") from e
-
 
 from data_models.schemas import ReportCoreData
+
 
 # Conditional imports based on provider
 llm_client = None
@@ -270,3 +256,81 @@ Output only the list of actions.
     else:
         logger.warning(f"LLM call for actions returned None or empty string.")
         return None
+    
+def extract_eido_from_alert_text(alert_text: str) -> Optional[str]:
+    """
+    Uses the configured LLM to extract structured information from raw alert text,
+    aiming for a JSON output resembling key EIDO fields.
+
+    Args:
+        alert_text: The raw alert text.
+
+    Returns:
+        A JSON string containing the extracted information, or None if failed.
+    """
+    if not llm_client:
+        logger.error("LLM client not configured. Cannot extract data from alert text.")
+        return None
+
+    # Define the desired JSON structure in the prompt for the LLM
+    # Keep it relatively simple, focusing on fields needed by the parser
+    prompt = f"""
+You are an AI assistant specialized in parsing emergency alert text messages.
+Your task is to extract key information from the provided alert text and format it as a JSON object.
+
+**Instructions:**
+1. Analyze the alert text carefully.
+2. Extract the following pieces of information if available:
+    - `incident_type`: A concise description of the incident (e.g., "Structure Fire", "Traffic Collision", "Medical Aid").
+    - `timestamp_iso`: The date and time of the incident or report, formatted as an ISO 8601 string with timezone (e.g., "YYYY-MM-DDTHH:MM:SSZ" or "YYYY-MM-DDTHH:MM:SS+HH:MM"). If only time is mentioned, assume today's date. If no time/date is found, use the current time in UTC.
+    - `location_address`: The street address or intersection (e.g., "123 Main St, Anytown", "Elm St / Oak Ave").
+    - `location_description`: Any additional location details (e.g., "near the park entrance", "Floor 3, Room 301"). Use this if a precise address isn't available.
+    - `coordinates`: Geographic coordinates if explicitly mentioned, as a list `[latitude, longitude]` (e.g., `[34.0522, -118.2437]`). Return `null` if not found.
+    - `description`: The main narrative or details about what happened (e.g., "Caller reports smoke from building", "Two vehicles involved, airbags deployed").
+    - `source_agency`: The reporting party, agency, or unit mentioned (e.g., "CHP", "Unit 101", "Caller"). Return `null` if not identifiable.
+    - `external_id`: Any incident number or call ID mentioned (e.g., "CAD-12345", "Incident #XYZ"). Return `null` if not found.
+3. Format the extracted information STRICTLY as a JSON object containing these keys.
+4. If a piece of information is not found, use `null` as the value for that key in the JSON output.
+5. Output ONLY the JSON object, nothing else before or after it.
+
+**Alert Text:**
+--- START ALERT ---
+{alert_text}
+--- END ALERT ---
+
+**JSON Output:**
+"""
+    logger.info("Calling LLM to extract structured data from alert text.")
+    # Use the existing _call_llm function
+    response_text = _call_llm(prompt)
+
+    if not response_text:
+        logger.error("LLM call for alert parsing returned no response.")
+        return None
+
+    # Basic validation: Check if the response looks like JSON
+    response_text = response_text.strip()
+    # Handle potential markdown code blocks ```json ... ```
+    if response_text.startswith("```json"):
+        response_text = response_text[7:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+        response_text = response_text.strip()
+    elif response_text.startswith("```"): # Handle ``` ... ```
+         response_text = response_text[3:]
+         if response_text.endswith("```"):
+             response_text = response_text[:-3]
+         response_text = response_text.strip()
+
+
+    if response_text.startswith("{") and response_text.endswith("}"):
+        logger.info("LLM returned a response that looks like JSON.")
+        # Further validation (actual JSON parsing) happens in alert_parser.py
+        return response_text
+    else:
+        logger.warning(f"LLM response for alert parsing does not appear to be valid JSON.")
+        logger.debug(f"LLM Raw Response:\n{response_text}")
+        # Return the raw text anyway, maybe the parser can handle it or log it
+        # Or return None if strict JSON is required:
+        # return None
+        return response_text # Let the caller try parsing

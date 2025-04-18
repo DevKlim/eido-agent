@@ -25,6 +25,10 @@ class ReportCoreData(BaseModel):
     coordinates: Optional[Tuple[float, float]] = Field(None, description="Latitude and Longitude tuple.")
     source: Optional[str] = Field(None, description="Originating system or agency identifier.")
     original_document_id: Optional[str] = Field(None, description="Identifier of the original EIDO message (e.g., eidoMessageIdentifier).")
+    # --- >>> NEW FIELD <<< ---
+    original_eido_dict: Optional[Dict[str, Any]] = Field(None, description="The original EIDO JSON dictionary this core data was extracted from.")
+    # --- >>> END NEW FIELD <<< ---
+
 
     # Ensure timestamps are timezone-aware (UTC)
     @field_validator('timestamp', mode='before')
@@ -32,20 +36,17 @@ class ReportCoreData(BaseModel):
     def ensure_timezone_aware(cls, v):
         if isinstance(v, str):
             try:
-                # Attempt parsing ISO format, including timezone offset
                 dt = datetime.fromisoformat(v)
-                # If naive, assume UTC (or configure a default timezone if needed)
                 if dt.tzinfo is None:
-                    logger.warning(f"Timestamp '{v}' was naive, assuming UTC.")
+                    # logger.warning(f"Timestamp '{v}' was naive, assuming UTC.") # Reduce noise
                     return dt.replace(tzinfo=timezone.utc)
-                # Convert to UTC for consistency
                 return dt.astimezone(timezone.utc)
             except ValueError:
                 logger.error(f"Could not parse timestamp string: {v}. Using current UTC time.")
                 return datetime.now(timezone.utc) # Fallback
         elif isinstance(v, datetime):
             if v.tzinfo is None:
-                logger.warning(f"Timestamp '{v}' was naive, assuming UTC.")
+                # logger.warning(f"Timestamp '{v}' was naive, assuming UTC.") # Reduce noise
                 return v.replace(tzinfo=timezone.utc)
             return v.astimezone(timezone.utc)
         logger.error(f"Unexpected type for timestamp: {type(v)}. Using current UTC time.")
@@ -55,7 +56,7 @@ class ReportCoreData(BaseModel):
 
 
 # --- Consolidated Incident Object ---
-
+# (Incident class remains the same, no changes needed here)
 class Incident(BaseModel):
     """
     Represents a consolidated view of an emergency incident, potentially
@@ -107,18 +108,17 @@ class Incident(BaseModel):
 
         # Update unique locations and addresses
         if core_data.coordinates:
-            # Ensure coordinates are valid before adding
             if isinstance(core_data.coordinates, tuple) and len(core_data.coordinates) == 2 and all(isinstance(c, (float, int)) for c in core_data.coordinates):
                 coords_tuple = (float(core_data.coordinates[0]), float(core_data.coordinates[1]))
                 if coords_tuple not in self.locations:
                     self.locations.append(coords_tuple)
-                    logger.debug(f"Added unique location {coords_tuple} to Incident {self.incident_id[:8]}.")
+                    # logger.debug(f"Added unique location {coords_tuple} to Incident {self.incident_id[:8]}.") # Reduce noise
             else:
                  logger.warning(f"Report {core_data.report_id[:8]} had invalid coordinates format: {core_data.coordinates}. Not added to incident locations.")
 
         if core_data.location_address and core_data.location_address not in self.addresses:
             self.addresses.append(core_data.location_address)
-            logger.debug(f"Added unique address '{core_data.location_address}' to Incident {self.incident_id[:8]}.")
+            # logger.debug(f"Added unique address '{core_data.location_address}' to Incident {self.incident_id[:8]}.") # Reduce noise
 
         # Update trend data
         self.trend_data['report_count'] = len(self.reports_core_data)
@@ -143,26 +143,19 @@ class Incident(BaseModel):
         reports_to_include = self.reports_core_data[:-1] if exclude_latest else self.reports_core_data
 
         # Sort by timestamp just in case they weren't added chronologically
-        sorted_reports = sorted(reports_to_include, key=lambda r: r.timestamp)
+        try:
+            sorted_reports = sorted(
+                reports_to_include,
+                key=lambda r: r.timestamp if r.timestamp else datetime.min.replace(tzinfo=timezone.utc) # Handle None ts
+            )
+        except Exception as sort_e:
+            logger.warning(f"Error sorting reports for history: {sort_e}")
+            sorted_reports = reports_to_include # fallback to original order
 
         for report in sorted_reports:
             if report.description:
-                ts_str = report.timestamp.strftime('%Y-%m-%d %H:%M:%S Z')
+                ts_str = report.timestamp.strftime('%Y-%m-%d %H:%M:%S Z') if report.timestamp else "Unknown Time"
                 source_str = f" (Source: {report.source})" if report.source else ""
                 history_entries.append(f"[{ts_str}{source_str}]: {report.description}")
 
         return "\n---\n".join(history_entries) if history_entries else "No description history available."
-
-# --- Removed complex EidoMessage and Component Models ---
-# We will parse the input JSON dictionary directly in agent_core.py
-# This avoids validation failures due to mismatches between the schema and real-world EIDO samples.
-
-# Example (Optional): PidfLoModel if needed for locationByValue parsing,
-# but keep it simple or handle XML directly in agent_core.py
-# class PidfLoModel(BaseModel):
-#     # Define only the fields you absolutely need to extract
-#     # Make them all Optional to avoid validation errors
-#     civicAddress: Optional[Dict[str, Any]] = None # Or define a nested CivicAddress model
-#     geodetic: Optional[Dict[str, Any]] = None # Or define a nested Geodetic model
-#     # ... other potential PIDF-LO fields
-#     model_config = ConfigDict(extra='ignore') # Ignore fields not defined here
