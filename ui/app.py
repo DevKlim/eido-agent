@@ -196,6 +196,21 @@ def update_dashboard_data():
                 "Locations": len(inc.locations) if inc.locations else 0
             })
 
+            if inc.reports_core_data:
+                for report_core in inc.reports_core_data:
+                    total_reports_checked_geo += 1
+                    # Check if coordinates exist and are valid
+                    if report_core.coordinates and isinstance(report_core.coordinates, tuple) and len(report_core.coordinates) == 2:
+                         try:
+                             # Attempt conversion to float to catch potential non-numeric values
+                             lat = float(report_core.coordinates[0])
+                             lon = float(report_core.coordinates[1])
+                             # Basic range check (optional but good practice)
+                             if -90 <= lat <= 90 and -180 <= lon <= 180:
+                                 reports_with_coords += 1
+                         except (ValueError, TypeError):
+                             pass # Invalid coordinate format, don't count as success
+
             if inc.locations:
                 for lat, lon in inc.locations:
                     # Validate coordinates before adding

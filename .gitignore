@@ -76,6 +76,9 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+#Streamlit
+.streamlit/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
