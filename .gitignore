@@ -99,6 +99,11 @@ dmypy.json
 # Log files
 *.log
 
+#EIDO-JSON
+EIDO-JSON/Samples/
+EIDO-JSON/Documentation/
+EIDO-JSON/Schema/
+
 # Local data / models (if large and shouldn't be committed)
 # models/
 # data/

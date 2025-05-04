@@ -1,161 +1,122 @@
 # data_models/schemas.py
 import logging
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime, timezone
 import uuid
-from collections import Counter
 
 logger = logging.getLogger(__name__)
 
 # --- Core Data Extracted from Individual Reports ---
 
 class ReportCoreData(BaseModel):
-    """
-    A simplified, flattened representation of the essential information
-    extracted from a single incoming EIDO report/message.
-    This is used as input for matching and updating incidents.
-    """
-    report_id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique internal ID for this processed report data.")
-    external_incident_id: Optional[str] = Field(None, description="Incident Tracking ID from the source system (e.g., CAD ID).")
-    timestamp: datetime = Field(..., description="Timestamp associated with the report (e.g., last update time).")
-    incident_type: Optional[str] = Field(None, description="Type of incident (e.g., 'Traffic Collision', 'Structure Fire').")
-    description: Optional[str] = Field(None, description="Narrative or description text from the report.")
-    location_address: Optional[str] = Field(None, description="Civic address associated with the report.")
-    coordinates: Optional[Tuple[float, float]] = Field(None, description="Latitude and Longitude tuple.")
-    source: Optional[str] = Field(None, description="Originating system or agency identifier.")
-    original_document_id: Optional[str] = Field(None, description="Identifier of the original EIDO message (e.g., eidoMessageIdentifier).")
-    # --- >>> NEW FIELD <<< ---
-    original_eido_dict: Optional[Dict[str, Any]] = Field(None, description="The original EIDO JSON dictionary this core data was extracted from.")
-    # --- >>> END NEW FIELD <<< ---
+    """ Simplified representation of essential info from a single report. """
+    report_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    external_incident_id: Optional[str] = Field(None)
+    timestamp: datetime
+    incident_type: Optional[str] = Field(None)
+    description: Optional[str] = Field(None)
+    location_address: Optional[str] = Field(None)
+    coordinates: Optional[Tuple[float, float]] = Field(None)
+    # --- NEW FIELD ---
+    zip_code: Optional[str] = Field(None, description="Postal/ZIP code associated with the report.")
+    # --- END NEW FIELD ---
+    source: Optional[str] = Field(None)
+    original_document_id: Optional[str] = Field(None)
+    original_eido_dict: Optional[Dict[str, Any]] = Field(None)
 
-
-    # Ensure timestamps are timezone-aware (UTC)
     @field_validator('timestamp', mode='before')
     @classmethod
     def ensure_timezone_aware(cls, v):
+        # (Keep existing implementation)
         if isinstance(v, str):
             try:
-                dt = datetime.fromisoformat(v)
-                if dt.tzinfo is None:
-                    # logger.warning(f"Timestamp '{v}' was naive, assuming UTC.") # Reduce noise
-                    return dt.replace(tzinfo=timezone.utc)
+                dt = datetime.fromisoformat(v.replace('Z', '+00:00')) # Handle Z properly
+                if dt.tzinfo is None: return dt.replace(tzinfo=timezone.utc)
                 return dt.astimezone(timezone.utc)
-            except ValueError:
-                logger.error(f"Could not parse timestamp string: {v}. Using current UTC time.")
-                return datetime.now(timezone.utc) # Fallback
+            except ValueError: return datetime.now(timezone.utc)
         elif isinstance(v, datetime):
-            if v.tzinfo is None:
-                # logger.warning(f"Timestamp '{v}' was naive, assuming UTC.") # Reduce noise
-                return v.replace(tzinfo=timezone.utc)
+            if v.tzinfo is None: return v.replace(tzinfo=timezone.utc)
             return v.astimezone(timezone.utc)
-        logger.error(f"Unexpected type for timestamp: {type(v)}. Using current UTC time.")
-        return datetime.now(timezone.utc) # Fallback
+        return datetime.now(timezone.utc)
 
-    model_config = ConfigDict(extra='allow') # Allow extra fields if needed internally
+    model_config = ConfigDict(extra='allow')
 
 
-# --- Consolidated Incident Object ---
-# (Incident class remains the same, no changes needed here)
 class Incident(BaseModel):
-    """
-    Represents a consolidated view of an emergency incident, potentially
-    synthesized from multiple EIDO reports over time.
-    """
-    incident_id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique internal identifier for the consolidated incident.")
-    incident_type: Optional[str] = Field(None, description="The determined type of the incident.")
-    status: str = Field("Active", description="Current status of the incident (e.g., Active, Updated, Closed).")
-    created_at: Optional[datetime] = Field(None, description="Timestamp when the incident was first created in this system.")
-    last_updated_at: Optional[datetime] = Field(None, description="Timestamp when the incident was last updated by a new report.")
-
-    summary: str = Field("Summary not yet generated.", description="AI-generated summary of the incident's current state.")
-    recommended_actions: List[str] = Field(default_factory=list, description="AI-generated list of recommended next actions.")
-
-    # Store the history of core data from each report contributing to this incident
-    reports_core_data: List[ReportCoreData] = Field(default_factory=list, description="List of core data extracted from each contributing report.")
-
-    # Store unique locations associated with this incident
-    locations: List[Tuple[float, float]] = Field(default_factory=list, description="List of unique geographic coordinates associated with the incident.")
-    addresses: List[str] = Field(default_factory=list, description="List of unique addresses associated with the incident.")
-
-    # Store trend/meta data
-    trend_data: Dict[str, Any] = Field(default_factory=dict, description="Dictionary to store trend analysis data (e.g., report count, duration, match info).")
-
-    # Allow extra fields during model creation/validation if needed
+    """ Consolidated view of an emergency incident. """
+    incident_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    incident_type: Optional[str] = Field(None)
+    status: str = Field("Active")
+    created_at: Optional[datetime] = Field(None)
+    last_updated_at: Optional[datetime] = Field(None)
+    summary: str = Field("Summary not yet generated.")
+    recommended_actions: List[str] = Field(default_factory=list)
+    reports_core_data: List[ReportCoreData] = Field(default_factory=list)
+    locations: List[Tuple[float, float]] = Field(default_factory=list) # Unique coordinates
+    addresses: List[str] = Field(default_factory=list) # Unique addresses
+    # --- NEW FIELD ---
+    zip_codes: List[str] = Field(default_factory=list, description="List of unique ZIP codes associated with the incident.")
+    # --- END NEW FIELD ---
+    trend_data: Dict[str, Any] = Field(default_factory=dict)
     model_config = ConfigDict(extra='allow')
 
     def add_report_core_data(self, core_data: ReportCoreData, match_info: Optional[str] = None):
-        """Adds core data from a new report, updates timestamps, locations, and trend data."""
+        """Adds core data, updates timestamps, locations, addresses, zip codes, trends."""
         if not isinstance(core_data, ReportCoreData):
-            logger.error(f"Attempted to add non-ReportCoreData object to Incident {self.incident_id[:8]}. Type: {type(core_data)}")
+            logger.error(f"Invalid type added to Incident {self.incident_id[:8]}: {type(core_data)}")
             return
 
         logger.debug(f"Adding Report {core_data.report_id[:8]} to Incident {self.incident_id[:8]}.")
         self.reports_core_data.append(core_data)
 
         # Update timestamps
-        report_ts = core_data.timestamp # Already validated to be timezone-aware UTC
-        if self.created_at is None or report_ts < self.created_at:
-            self.created_at = report_ts
-        if self.last_updated_at is None or report_ts > self.last_updated_at:
-            self.last_updated_at = report_ts
+        report_ts = core_data.timestamp # Assumed UTC
+        if self.created_at is None or report_ts < self.created_at: self.created_at = report_ts
+        if self.last_updated_at is None or report_ts > self.last_updated_at: self.last_updated_at = report_ts
 
-        # Update incident type if not set or if new report has a more specific one?
-        # Simple logic: take the first non-null type, or the latest non-null type.
+        # Update incident type (simple logic)
         if core_data.incident_type and (not self.incident_type or self.incident_type == "Unknown"):
              self.incident_type = core_data.incident_type
-             logger.debug(f"Incident {self.incident_id[:8]} type updated to '{self.incident_type}' from report {core_data.report_id[:8]}.")
 
-        # Update unique locations and addresses
-        if core_data.coordinates:
-            if isinstance(core_data.coordinates, tuple) and len(core_data.coordinates) == 2 and all(isinstance(c, (float, int)) for c in core_data.coordinates):
+        # Update unique locations
+        if core_data.coordinates and isinstance(core_data.coordinates, tuple) and len(core_data.coordinates) == 2:
+            try:
                 coords_tuple = (float(core_data.coordinates[0]), float(core_data.coordinates[1]))
-                if coords_tuple not in self.locations:
-                    self.locations.append(coords_tuple)
-                    # logger.debug(f"Added unique location {coords_tuple} to Incident {self.incident_id[:8]}.") # Reduce noise
-            else:
-                 logger.warning(f"Report {core_data.report_id[:8]} had invalid coordinates format: {core_data.coordinates}. Not added to incident locations.")
+                if coords_tuple not in self.locations: self.locations.append(coords_tuple)
+            except (ValueError, TypeError): logger.warning(f"Invalid coords format in report {core_data.report_id[:8]}: {core_data.coordinates}")
 
+        # Update unique addresses
         if core_data.location_address and core_data.location_address not in self.addresses:
             self.addresses.append(core_data.location_address)
-            # logger.debug(f"Added unique address '{core_data.location_address}' to Incident {self.incident_id[:8]}.") # Reduce noise
+
+        # --- Update unique zip codes ---
+        if core_data.zip_code and isinstance(core_data.zip_code, str) and core_data.zip_code not in self.zip_codes:
+            self.zip_codes.append(core_data.zip_code)
+            logger.debug(f"Added unique ZIP code '{core_data.zip_code}' to Incident {self.incident_id[:8]}.")
+        # --- End update ---
 
         # Update trend data
         self.trend_data['report_count'] = len(self.reports_core_data)
         if self.created_at and self.last_updated_at:
              duration_seconds = (self.last_updated_at - self.created_at).total_seconds()
              self.trend_data['duration_minutes'] = round(duration_seconds / 60.0, 1)
-        if match_info:
-             self.trend_data['match_info'] = match_info # Store how the last report was matched
+        if match_info: self.trend_data['match_info'] = match_info
 
-        # Update status (simple logic: mark as 'Updated' if not new)
-        if len(self.reports_core_data) > 1:
-            self.status = "Updated"
+        # Update status
+        if len(self.reports_core_data) > 1 and self.status == "Active": self.status = "Updated"
 
-        logger.info(f"Incident {self.incident_id[:8]} updated with Report {core_data.report_id[:8]}. Total reports: {self.trend_data['report_count']}.")
-
+        logger.info(f"Incident {self.incident_id[:8]} updated by Report {core_data.report_id[:8]}. Reports: {self.trend_data['report_count']}.")
 
     def get_full_description_history(self, exclude_latest=False) -> str:
-        """
-        Constructs a chronological history of descriptions from associated reports.
-        """
+        # (Keep existing implementation)
         history_entries = []
         reports_to_include = self.reports_core_data[:-1] if exclude_latest else self.reports_core_data
-
-        # Sort by timestamp just in case they weren't added chronologically
-        try:
-            sorted_reports = sorted(
-                reports_to_include,
-                key=lambda r: r.timestamp if r.timestamp else datetime.min.replace(tzinfo=timezone.utc) # Handle None ts
-            )
-        except Exception as sort_e:
-            logger.warning(f"Error sorting reports for history: {sort_e}")
-            sorted_reports = reports_to_include # fallback to original order
-
+        try: sorted_reports = sorted(reports_to_include, key=lambda r: r.timestamp if r.timestamp else datetime.min.replace(tzinfo=timezone.utc))
+        except Exception as sort_e: logger.warning(f"Error sorting reports history: {sort_e}"); sorted_reports = reports_to_include
         for report in sorted_reports:
             if report.description:
-                ts_str = report.timestamp.strftime('%Y-%m-%d %H:%M:%S Z') if report.timestamp else "Unknown Time"
-                source_str = f" (Source: {report.source})" if report.source else ""
+                ts_str = report.timestamp.strftime('%Y-%m-%d %H:%M Z') if report.timestamp else "Unknown Time"
+                source_str = f" (Src: {report.source})" if report.source else ""
                 history_entries.append(f"[{ts_str}{source_str}]: {report.description}")
-
-        return "\n---\n".join(history_entries) if history_entries else "No description history available."
+        return "\n---\n".join(history_entries) if history_entries else "No description history."

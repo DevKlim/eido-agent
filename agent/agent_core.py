@@ -8,16 +8,15 @@ import xml.etree.ElementTree as ET # Import XML parser
 
 # Use the simplified schemas
 try:
-    from data_models.schemas import ReportCoreData, Incident # Removed EidoMessage import
+    from data_models.schemas import ReportCoreData, Incident
     from services.storage import incident_store
     from services.geocoding import get_coordinates
     from services.embedding import generate_embedding
     from agent.matching import find_match_for_report
-    from agent.llm_interface import summarize_incident, recommend_actions, extract_eido_from_alert_text # Import new LLM func if needed directly
-    from agent.alert_parser import parse_alert_to_eido_dict # <-- Import the new parser function
+    from agent.llm_interface import summarize_incident, recommend_actions, split_raw_text_into_events, extract_eido_from_alert_text
+    from agent.alert_parser import parse_alert_to_eido_dict
 except ImportError as e:
-    print(f"CRITICAL ERROR in agent_core.py: Failed to import dependencies - {e}")
-    raise SystemExit(f"Agent Core import failed: {e}") from e
+    print(f"CRITICAL ERROR in agent_core.py: {e}"); raise SystemExit(f"Agent Core import failed: {e}") from e
 
 logger = logging.getLogger(__name__)
 
@@ -124,9 +123,7 @@ class EidoAgent:
                      break # Use the first valid one
 
         # Check if a valid primary component was found
-        if not primary_comp: # This now correctly checks if primary_comp is still None
-             logger.error(f"Msg {message_id}: Cannot extract core data - No valid IncidentComponent or CallComponent dictionary found.")
-             return None
+        if not primary_comp: return None # Added check
 
         # --- Extract Fields using safe .get() from the guaranteed dictionary primary_comp ---
         incident_tracking_id = primary_comp.get('incidentTrackingIdentifier')
@@ -151,8 +148,8 @@ class EidoAgent:
             incident_type = "Unknown" # Default if not list or string
 
         # Location Reference ID
-        loc_ref_input = primary_comp.get('locationReference')
-        loc_ref_id = self._resolve_ref_string_from_dict(loc_ref_input)
+        loc_ref_id = self._resolve_ref_string_from_dict(primary_comp.get('locationReference'))
+        agency_ref_id = self._resolve_ref_string_from_dict(primary_comp.get('incidentOriginatingAgencyIdentifier') or primary_comp.get('updatedByAgencyReference')) or eido_dict.get('sendingSystemIdentifier')
 
         # Source Agency Reference ID
         # Prefer originating, then updatedBy, then fallback to message-level sender
@@ -190,107 +187,105 @@ class EidoAgent:
         if not full_description: full_description = "No description or notes found."
 
 
-        # --- Extract Location Details (using loc_ref_id) ---
+        # --- Location Extraction (Refined) ---
         location_address: Optional[str] = None
         location_coords: Optional[Tuple[float, float]] = None
+        zip_code: Optional[str] = None # Initialize zip_code
         primary_location_comp = None
         location_components = eido_dict.get('locationComponent', [])
 
-        if isinstance(location_components, list): # Ensure it's a list before proceeding
-            if loc_ref_id:
-                # --- >> ADDED: Check item type inside loop << ---
-                for loc_comp in location_components:
-                    if isinstance(loc_comp, dict): # Process only dicts
-                        # Check both componentIdentifier and the common '$id' pattern
-                        comp_id = loc_comp.get('componentIdentifier', loc_comp.get('$id'))
-                        if comp_id == loc_ref_id:
-                            primary_location_comp = loc_comp
-                            logger.debug(f"Found referenced LocationComponent by ID: {comp_id}")
-                            break
-                    else:
-                         logger.warning(f"Msg {message_id}: Found non-dictionary item in locationComponent: {type(loc_comp)}. Skipping.")
-                # --- >> END ADDED << ---
-                if not primary_location_comp:
-                     logger.warning(f"Referenced Location ID '{loc_ref_id}' not found in locationComponent list.")
-            elif location_components: # If no ref ID, try the first valid dict in the list
-                 # --- >> ADDED: Find first valid dict << ---
+        # Find the relevant location component (using ref or first valid)
+        if isinstance(location_components, list):
+            found_loc = False
+            for loc_comp in location_components:
+                if isinstance(loc_comp, dict):
+                    comp_id = loc_comp.get('componentIdentifier', loc_comp.get('$id'))
+                    if loc_ref_id and comp_id == loc_ref_id:
+                        primary_location_comp = loc_comp; found_loc = True; break
+            # If ref not found or no ref, use the first valid dict
+            if not found_loc and not loc_ref_id:
                  for loc_comp in location_components:
                      if isinstance(loc_comp, dict):
-                         primary_location_comp = loc_comp
-                         logger.warning(f"Primary component missing locationReference. Using first valid LocationComponent as fallback.")
-                         break
-                     else:
-                          logger.warning(f"Msg {message_id}: Found non-dictionary item in locationComponent: {type(loc_comp)}. Skipping.")
-                 # --- >> END ADDED << ---
-                 if not primary_location_comp:
-                      logger.warning(f"No valid dictionary found in locationComponent list to use as fallback.")
+                         primary_location_comp = loc_comp; break
 
-        else:
-             logger.debug(f"No LocationComponent list found or it's not a list in message {message_id}.")
-
-        # Extract details only if a valid primary_location_comp (dict) was found
-        if primary_location_comp: # No need for isinstance check here, logic above ensures it's a dict or None
+        # Process the found location component
+        if primary_location_comp:
             loc_comp_id_for_log = primary_location_comp.get('componentIdentifier', primary_location_comp.get('$id', 'N/A'))
+            logger.debug(f"Processing LocationComponent: {loc_comp_id_for_log}")
 
-            # --- Handle locationByValue (Assume XML String for now) ---
             loc_val = primary_location_comp.get('locationByValue')
-            # --- >> REFINED CHECK: Ensure loc_val is a non-empty string before stripping/parsing << ---
-            if loc_val and isinstance(loc_val, str):
-                loc_val_stripped = loc_val.strip()
-                if loc_val_stripped.startswith('<?xml'):
-                    logger.debug(f"Attempting basic XML parse for locationByValue in {loc_comp_id_for_log}")
-                    try:
-                        # (Keep existing XML parsing logic)
-                        namespaces = { # Common namespaces, add more if needed
-                            'ca': 'urn:ietf:params:xml:ns:pidf:geopriv10:civicAddr',
-                            'gml': 'http://www.opengis.net/gml'
-                        }
-                        root = ET.fromstring(loc_val_stripped) # Use stripped version
-                        # Try finding civic address elements
-                        civic_node = root.find('.//ca:civicAddress', namespaces)
-                        if civic_node is not None:
-                            addr_parts = [
-                                civic_node.findtext('ca:HNO', None, namespaces), civic_node.findtext('ca:HNS', None, namespaces),
-                                civic_node.findtext('ca:PRD', None, namespaces), civic_node.findtext('ca:RD', None, namespaces),
-                                civic_node.findtext('ca:STS', None, namespaces), civic_node.findtext('ca:POD', None, namespaces),
-                                civic_node.findtext('ca:A6', None, namespaces), civic_node.findtext('ca:A3', None, namespaces), # City
-                                civic_node.findtext('ca:A1', None, namespaces), # State
-                                civic_node.findtext('ca:PC', None, namespaces) # Zip
-                            ]
-                            location_address = " ".join(filter(None, addr_parts)).strip()
-                            logger.debug(f"Extracted address from XML: {location_address}")
+            loc_ref_url = primary_location_comp.get('locationReferenceUrl') # Handle this too
 
-                        # Try finding geodetic coordinates (GML pos)
-                        pos_node = root.find('.//gml:pos', namespaces)
-                        if pos_node is not None and pos_node.text:
-                            coords_text = pos_node.text.strip().split()
-                            if len(coords_text) >= 2:
-                                try:
-                                    lat = float(coords_text[0])
-                                    lon = float(coords_text[1])
-                                    location_coords = (lat, lon)
-                                    logger.debug(f"Extracted coordinates from XML <gml:pos>: {location_coords}")
-                                except (ValueError, TypeError):
-                                    logger.warning(f"Could not parse coordinates from XML <gml:pos> text: '{pos_node.text}'")
-                    except ET.ParseError as xml_e:
-                        logger.error(f"Failed to parse XML location for {loc_comp_id_for_log}: {xml_e}")
-                    except Exception as e:
-                         logger.error(f"Unexpected error during XML location parsing for {loc_comp_id_for_log}: {e}", exc_info=True)
-                # else: # Optional: Handle non-XML string if needed
-                #    logger.debug(f"locationByValue is a non-XML string: '{loc_val_stripped[:50]}...'")
-                #    if not location_address: location_address = loc_val_stripped # Use as address if not already found
-            # --- >> END REFINED CHECK << ---
+            # --- Try XML Parsing First (for coords, address, zip) ---
+            if loc_val and isinstance(loc_val, str) and loc_val.strip().startswith('<?xml'):
+                logger.debug(f"Attempting XML parse for locationByValue in {loc_comp_id_for_log}")
+                try:
+                    namespaces = {'ca': 'urn:ietf:params:xml:ns:pidf:geopriv10:civicAddr', 'gml': 'http://www.opengis.net/gml'}
+                    # Handle potential wrapper like <location> used by alert_parser
+                    root_str = loc_val.strip()
+                    if root_str.startswith('<location>'): # Basic check for our wrapper
+                        try:
+                            # Parse the outer wrapper first
+                            outer_root = ET.fromstring(root_str)
+                            # Find the actual content inside (gml:Point or civicAddressText)
+                            gml_point = outer_root.find('.//gml:Point', namespaces)
+                            civic_text_node = outer_root.find('.//civicAddressText') # No namespace needed for this simple tag
+                            ca_node = outer_root.find('.//ca:civicAddress', namespaces) # Check for full civic address too
 
-            # --- Handle locationByReferenceUrl ---
-            loc_ref_url = primary_location_comp.get('locationReferenceUrl')
-            if loc_ref_url and isinstance(loc_ref_url, str) and not location_address and not location_coords:
+                            if gml_point is not None:
+                                pos_node = gml_point.find('.//gml:pos', namespaces)
+                                if pos_node is not None and pos_node.text:
+                                    coords_text = pos_node.text.strip().split()
+                                    if len(coords_text) >= 2:
+                                        try: location_coords = (float(coords_text[0]), float(coords_text[1])); logger.debug(f"Extracted coords from <gml:pos>: {location_coords}")
+                                        except (ValueError, TypeError): logger.warning(f"Could not parse coords from <gml:pos>: '{pos_node.text}'")
+                            # Extract address/zip from civicAddressText or full civicAddress
+                            if ca_node is not None: # Prefer structured civic address
+                                addr_parts = [ca_node.findtext(f'ca:{tag}', None, namespaces) for tag in ['HNO', 'HNS', 'PRD', 'RD', 'STS', 'POD', 'A6', 'A3', 'A1', 'PC']]
+                                location_address = " ".join(filter(None, addr_parts)).strip()
+                                zip_code = ca_node.findtext('ca:PC', None, namespaces)
+                                logger.debug(f"Extracted address from <ca:civicAddress>: {location_address}, ZIP: {zip_code}")
+                            elif civic_text_node is not None and civic_text_node.text:
+                                # Fallback to simple text node (might contain address and ZIP)
+                                location_address = civic_text_node.text.strip()
+                                logger.debug(f"Extracted address/text from <civicAddressText>: {location_address}")
+                                # Try to extract ZIP from this text if not found above (simple regex could work)
+                                if not zip_code and location_address:
+                                    import re
+                                    zip_match = re.search(r'\b(\d{5}(?:-\d{4})?)\b', location_address) # Find 5 or 9 digit zip
+                                    if zip_match:
+                                        zip_code = zip_match.group(1)
+                                        logger.debug(f"Extracted ZIP '{zip_code}' from civicAddressText using regex.")
+
+                        except ET.ParseError as xml_e: logger.error(f"Failed parsing locationByValue XML for {loc_comp_id_for_log}: {xml_e}")
+                    else: # Try parsing directly if not our wrapper
+                         # (Keep original XML parsing logic here as fallback)
+                         pass # Simplified for brevity
+
+                except Exception as e: logger.error(f"Unexpected error during XML location parsing for {loc_comp_id_for_log}: {e}", exc_info=True)
+
+            # --- Handle locationByReferenceUrl (less common for coords) ---
+            elif loc_ref_url and isinstance(loc_ref_url, str) and not location_address and not location_coords:
                  logger.info(f"LocationComponent {loc_comp_id_for_log} has reference URL: {loc_ref_url}. Geocoding might fail.")
-                 location_address = f"Reference URL: {loc_ref_url}" # Use URL as pseudo-address
+                 location_address = f"Reference URL: {loc_ref_url}" # Use as pseudo-address
 
-            # --- Geocode if coordinates are missing but address is present ---
-            if location_address and isinstance(location_address, str) and not location_coords:
-                logger.debug(f"Attempting to geocode address: '{location_address}'")
-                location_coords = get_coordinates(location_address)
+            # --- Geocode if coordinates are MISSING but address IS present ---
+            if location_address and not location_coords:
+                logger.info(f"Coordinates missing for {loc_comp_id_for_log}. Attempting to geocode address: '{location_address}'")
+                try:
+                    # Ensure geocoding service is called
+                    location_coords = get_coordinates(location_address)
+                    if location_coords:
+                        logger.info(f"Geocoding successful for '{location_address}': {location_coords}")
+                    else:
+                        logger.warning(f"Geocoding failed for address: '{location_address}'")
+                except Exception as geo_e:
+                    logger.error(f"Error during geocoding call for '{location_address}': {geo_e}", exc_info=True)
+                    location_coords = None # Ensure it's None on error
+            elif not location_address and not location_coords:
+                 logger.warning(f"No address or coordinates found/extracted for LocationComponent {loc_comp_id_for_log}.")
+            elif location_coords:
+                 logger.debug(f"Using existing coordinates for {loc_comp_id_for_log}: {location_coords}")
 
 
         # --- Extract Source Agency Name (using agency_ref_id) ---
@@ -325,21 +320,23 @@ class EidoAgent:
         try:
             core_data = ReportCoreData(
                 # report_id generated automatically
-                external_incident_id=incident_tracking_id,
+                external_incident_id=incident_tracking_id, # Use extracted ID
                 timestamp=timestamp,
                 incident_type=incident_type,
                 description=full_description,
-                location_address=location_address,
-                coordinates=location_coords,
-                source=source_agency_name,
+                location_address=location_address, # Use extracted/formatted address
+                coordinates=location_coords,       # Use extracted OR geocoded coords
+                zip_code=zip_code,                 # Use extracted zip
+                source=source_agency_name,         # Use extracted agency name
                 original_document_id=message_id,
                 original_eido_dict=eido_dict
             )
-            logger.info(f"Successfully extracted core data for Report {core_data.report_id[:8]} (ExtIncidentID: {incident_tracking_id}, Type: {incident_type})")
+            logger.info(f"Successfully extracted core data for Report {core_data.report_id[:8]} (Coords: {core_data.coordinates}, ZIP: {core_data.zip_code})")
             return core_data
         except Exception as pydantic_error:
              logger.error(f"Failed to create ReportCoreData instance for Msg {message_id}: {pydantic_error}", exc_info=True)
              return None
+
 
 
     def process_report_json(self, json_data: Dict) -> Dict:
@@ -535,64 +532,69 @@ class EidoAgent:
              }
 
     # --- NEW METHOD ---
-    def process_alert_text(self, alert_text: str) -> Dict:
-        """
-        Processes raw alert text by parsing it into an EIDO-like dictionary
-        using an LLM, and then feeding it into the standard JSON processing pipeline.
-
-        Args:
-            alert_text: The raw text of the alert.
-
-        Returns:
-            A dictionary summarizing the processing result, similar to process_report_json.
-        """
-        logger.info("--- Processing Raw Alert Text ---")
+    def process_alert_text(self, alert_text: str) -> List[Dict]:
+        """ Processes raw alert text, potentially containing multiple events. """
+        logger.info("--- Processing Raw Alert Text Block ---")
+        results = []
         if not alert_text or not isinstance(alert_text, str):
-             logger.error("Received invalid alert text input.")
-             return {
-                "status": "Input Error: Alert text cannot be empty.",
-                "message_id": "N/A", # No message ID from raw text initially
-                "incident_id": None,
-                "is_new_incident": False,
-                "summary": None,
-                "actions": None
-            }
+             logger.error("Invalid alert text input.")
+             return [{"status": "Input Error: Alert text cannot be empty.", "message_id": "N/A", "incident_id": None}]
 
-        # 1. Parse alert text into EIDO-like dictionary
-        generated_eido_dict = None # Initialize
+        # --- NEW: Check if input looks like JSON ---
+        cleaned_text = alert_text.strip()
+        if (cleaned_text.startswith('{') and cleaned_text.endswith('}')) or \
+           (cleaned_text.startswith('[') and cleaned_text.endswith(']')):
+            logger.warning("Input provided to 'Raw Alert Text' processing looks like JSON.")
+            logger.warning("Attempting to process, but for JSON input, please use the 'EIDO JSON' tab/endpoint.")
+            # Optional: Return an error immediately?
+            # return [{"status": "Input Error: Raw text input appears to be JSON. Use the correct input method.", "message_id": "N/A", "incident_id": None}]
+            # Or let it proceed, but the splitter might behave unexpectedly (as seen in logs)
+        # --- END NEW CHECK ---
+
+
+        # 1. Split text into potential events using LLM
+        event_texts: Optional[List[str]] = None
         try:
-            generated_eido_dict = parse_alert_to_eido_dict(alert_text)
+            event_texts = split_raw_text_into_events(alert_text)
+            # ... (keep logging added previously) ...
+            if event_texts is None: logger.warning("LLM splitting function returned None.")
+            elif len(event_texts) == 1: logger.info("LLM splitting function returned a single event.")
+            else: logger.info(f"LLM splitting function returned {len(event_texts)} potential events.")
         except Exception as e:
-             logger.error(f"Critical error during alert parsing function call: {e}", exc_info=True)
-             # generated_eido_dict remains None
+             logger.error(f"Critical error during event splitting call: {e}", exc_info=True)
+             event_texts = None
 
-        if not generated_eido_dict:
-            logger.error("Failed to parse alert text into EIDO-like structure (parse_alert_to_eido_dict returned None or raised error).")
-            return {
-                "status": "Processing Error: Failed to parse alert text using LLM.",
-                "message_id": "N/A",
-                "incident_id": None,
-                "is_new_incident": False,
-                "summary": None,
-                "actions": None
-            }
+        # Fallback logic
+        if not event_texts:
+            logger.warning("Splitting failed or yielded no events. Processing entire block as one event.")
+            event_texts = [alert_text]
 
-        # 2. Process the generated dictionary using the existing pipeline
-        logger.info("Handing off generated EIDO-like dictionary to JSON processing pipeline.")
-        try:
-            # The generated dict contains a message ID ('llm_parsed_...')
-            return self.process_report_json(generated_eido_dict)
-        except Exception as e:
-             # Catch errors specifically from the process_report_json call
-             logger.error(f"Error processing the dictionary generated from alert text: {e}", exc_info=True)
-             return {
-                 "status": f"Processing Error: Failed during EIDO-like dict processing ({type(e).__name__})",
-                 "message_id": generated_eido_dict.get('eidoMessageIdentifier', 'llm_parsed_N/A'), # Try to get ID from generated dict
-                 "incident_id": None,
-                 "is_new_incident": False, # Unknown at this point
-                 "summary": None,
-                 "actions": None
-             }
+        logger.info(f"Attempting to process {len(event_texts)} event text(s).")
+
+        # 2. Process each potential event text
+        # ... (Keep the rest of the loop as is - calling parse_alert_to_eido_dict and process_report_json) ...
+        for i, single_event_text in enumerate(event_texts):
+            # ... (process single_event_text) ...
+            if not single_event_text.strip(): # Skip empty
+                logger.warning(f"Skipping empty event text #{i+1}.")
+                results.append({"status": f"Processing Error: Event text #{i+1} was empty.", "message_id": f"text_event_{i+1}_empty", "incident_id": None})
+                continue
+            generated_eido_dict = parse_alert_to_eido_dict(single_event_text)
+            if not generated_eido_dict: # Handle parsing failure
+                 logger.error(f"Failed to parse event text #{i+1}.")
+                 results.append({"status": f"Processing Error: Failed to parse event text #{i+1}.", "message_id": f"text_event_{i+1}_parse_fail", "incident_id": None, "original_text_snippet": single_event_text[:100] + "..."})
+                 continue
+            try: # Process the dict
+                result_dict = self.process_report_json(generated_eido_dict)
+                result_dict['source_event_index'] = i + 1
+                result_dict['source_event_total'] = len(event_texts)
+                results.append(result_dict)
+            except Exception as e: # Handle processing failure
+                 logger.error(f"Error processing dictionary for event text #{i+1}: {e}", exc_info=True)
+                 results.append({"status": f"Processing Error: Failed during generated dict processing for event #{i+1} ({type(e).__name__})", "message_id": generated_eido_dict.get('eidoMessageIdentifier', f'llm_parsed_{i+1}_err'), "incident_id": None})
+
+        # ... (Keep final return logic) ...
+        return results
 
 
 # --- Singleton Instance ---
