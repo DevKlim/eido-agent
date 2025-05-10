@@ -1,4 +1,3 @@
-# config/settings.py
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator, model_validator
@@ -7,154 +6,115 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Define allowed LLM providers
 LlmProvider = Literal['google', 'openrouter', 'local', 'none']
 
-# --- Define allowed Google models based on your request ---
-# Note: Check Google's official documentation for currently available/recommended models.
-# These names seem plausible based on common patterns, but verify them.
-# Removed gemini-2.0-flash and gemini-2.0-flash-lite as they might not be standard names.
-# Added gemini-1.0-pro as a stable option.
+# Updated Google Model Options based on user request from prompt
 GOOGLE_MODEL_OPTIONS = [
-    "gemini-2.0-flash", # Recommended Flash model
-    "gemini-2.5-flash-preview-04-17",
-    "gemini-2.5-pro-preview-03-25",   # Recommended Pro model
-    "gemini-2.0-flash-lite",          # Stable older Pro model
-    # Add specific preview names if absolutely needed, but prefer stable ones
-    # "gemini-pro-1.5-pro-preview-0514", # Example of a preview name pattern
+    "gemini-2.0-flash",         # Recommended Flash model by user
+    "gemini-2.5-flash-preview-04-17", # User provided
+    "gemini-2.5-pro-preview-05-06",   # Recommended Pro model by user
+    "gemini-2.0-flash-lite",          # User provided (might be same as 2.0-flash or older)
+    "gemini-1.5-flash-latest",        # Good general purpose flash from original .env.example
+    "gemini-1.5-pro-latest",          # Good general purpose pro
+    "gemini-1.0-pro",                 # Stable older Pro model
 ]
-# --- Set a default that IS in the options list ---
-DEFAULT_GEMINI_MODEL = "gemini-2.0-flash" # Ensure this exists in GOOGLE_MODEL_OPTIONS
+# Ensure default is in the list
+DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
+if DEFAULT_GEMINI_MODEL not in GOOGLE_MODEL_OPTIONS:
+    DEFAULT_GEMINI_MODEL = GOOGLE_MODEL_OPTIONS[0] if GOOGLE_MODEL_OPTIONS else "gemini-1.5-flash-latest"
+
 
 class Settings(BaseSettings):
-    """Application Settings"""
-
-    # --- General ---
     app_name: str = "EIDO Sentinel"
     log_level: str = Field("INFO", validation_alias='LOG_LEVEL')
 
-    # --- LLM Configuration ---
-    llm_provider: LlmProvider = Field("google", validation_alias='LLM_PROVIDER') # Default to google
+    llm_provider: LlmProvider = Field("google", validation_alias='LLM_PROVIDER')
 
-    # --- Google Specific ---
     google_api_key: Optional[str] = Field(None, validation_alias='GOOGLE_API_KEY')
-    # Use the defined default model
     google_model_name: str = Field(DEFAULT_GEMINI_MODEL, validation_alias='GOOGLE_MODEL_NAME')
-    # Store the allowed options for the UI
     google_model_options: List[str] = Field(default_factory=lambda: GOOGLE_MODEL_OPTIONS)
 
-    # --- OpenRouter Specific ---
     openrouter_api_key: Optional[str] = Field(None, validation_alias='OPENROUTER_API_KEY')
-    openrouter_model_name: Optional[str] = Field(None, validation_alias='OPENROUTER_MODEL_NAME') # e.g., "openai/gpt-4o-mini"
+    openrouter_model_name: Optional[str] = Field("openai/gpt-4o-mini", validation_alias='OPENROUTER_MODEL_NAME')
     openrouter_api_base_url: str = Field("https://openrouter.ai/api/v1", validation_alias='OPENROUTER_API_BASE_URL')
 
-    # --- Local LLM Specific (Ollama/LMStudio via OpenAI client) ---
-    local_llm_api_key: Optional[str] = Field("EMPTY", validation_alias='LOCAL_LLM_API_KEY') # Often not needed or use placeholder like 'ollama'
-    local_llm_model_name: Optional[str] = Field(None, validation_alias='LOCAL_LLM_MODEL_NAME') # Must be set by user, e.g., "llama3:latest"
-    local_llm_api_base_url: Optional[str] = Field(None, validation_alias='LOCAL_LLM_API_BASE_URL') # e.g., "http://localhost:11434/v1" or "http://localhost:1234/v1"
+    local_llm_api_key: Optional[str] = Field("EMPTY", validation_alias='LOCAL_LLM_API_KEY')
+    local_llm_model_name: Optional[str] = Field("llama3:latest", validation_alias='LOCAL_LLM_MODEL_NAME')
+    local_llm_api_base_url: Optional[str] = Field("http://localhost:11434/v1", validation_alias='LOCAL_LLM_API_BASE_URL')
 
-    # --- Embedding Configuration ---
     embedding_model_name: str = Field("all-MiniLM-L6-v2", validation_alias='EMBEDDING_MODEL_NAME')
+    
+    # Using the updated user agent from the prompt
+    geocoding_user_agent: str = Field("EidoSentinelApp/0.8 (contact: your_email@example.com)", validation_alias='GEOCODING_USER_AGENT')
 
-    # --- Geocoding Configuration ---
-    geocoding_user_agent: str = Field("EidoSentinelApp/0.6 (Contact: your_email@example.com)", validation_alias='GEOCODING_USER_AGENT')
-
-    # --- Matching Configuration ---
     similarity_threshold: float = Field(0.70, validation_alias='SIMILARITY_THRESHOLD')
     time_window_minutes: int = Field(60, validation_alias='TIME_WINDOW_MINUTES')
-    distance_threshold_km: float = Field(1.0, validation_alias='DISTANCE_THRESHOLD_KM') # Adjusted based on previous code
+    distance_threshold_km: float = Field(1.0, validation_alias='DISTANCE_THRESHOLD_KM')
 
-    # --- API Configuration ---
-    api_host: str = Field("127.0.0.1", validation_alias='API_HOST') # Changed from 0.0.0.0 for clarity unless binding to all is needed
+    api_host: str = Field("127.0.0.1", validation_alias='API_HOST')
     api_port: int = Field(8000, validation_alias='API_PORT')
 
-    # --- UI Configuration ---
     streamlit_server_port: int = Field(8501, validation_alias='STREAMLIT_SERVER_PORT')
 
-    # Pydantic Settings Configuration
     model_config = SettingsConfigDict(
-        env_file=('.env', 'project/.env'), # Look for .env in current dir first
-        extra='ignore'
+        env_file=('.env', '.env.production', '.env.development'), # Standard .env loading
+        extra='ignore',
+        env_file_encoding='utf-8'
     )
 
-    # --- Validation ---
     @field_validator('log_level')
     @classmethod
     def validate_log_level(cls, v):
-        allowed_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
-        upper_v = v.upper()
-        if upper_v not in allowed_levels:
-            raise ValueError(f"Invalid log_level '{v}'. Must be one of {allowed_levels}")
-        return upper_v # Return the validated upper-case value
+        allowed = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+        if v.upper() not in allowed: raise ValueError(f"Invalid log_level '{v}'. Must be one of {allowed}")
+        return v.upper()
 
-    @field_validator('llm_provider')
-    @classmethod
-    def validate_llm_provider(cls, v):
-        # The Literal type handles validation, but an explicit check can be clearer
-        if v not in ['google', 'openrouter', 'local', 'none']:
-            raise ValueError("Invalid llm_provider. Must be 'google', 'openrouter', 'local', or 'none'.")
-        return v
-
-    # Ensure the selected google_model_name is actually in the allowed options list
     @field_validator('google_model_name')
     @classmethod
-    def validate_google_model_name(cls, v, values):
-        # Need access to the options list defined earlier
-        # Pydantic v2: `values` is deprecated in field_validator, use ValidationInfo
-        # Let's simplify - we'll check this during UI interaction instead or assume the default is valid.
-        # Or better, check against the class variable default list:
+    def validate_google_model_name(cls, v: str, info: Any): # Use info for Pydantic v2
+        # Access GOOGLE_MODEL_OPTIONS from the class level or info.data if pre-populated
+        # For simplicity, using the class-level const
         if v not in GOOGLE_MODEL_OPTIONS:
-             logger.warning(f"Configured google_model_name '{v}' is not in the predefined list GOOGLE_MODEL_OPTIONS. Using default: {DEFAULT_GEMINI_MODEL}")
-             return DEFAULT_GEMINI_MODEL # Fallback to default if invalid name provided
+             logger.warning(f"Configured google_model_name '{v}' is not in GOOGLE_MODEL_OPTIONS. Using default: {DEFAULT_GEMINI_MODEL}")
+             return DEFAULT_GEMINI_MODEL
         return v
 
-
-    @model_validator(mode='before')
+    @model_validator(mode='before') # mode='before' to access raw env var names
     @classmethod
-    def check_required_llm_fields(cls, data: Any) -> Any:
-        """ Check if required fields are present based on the LLM provider. """
-        if not isinstance(data, dict):
-            logger.warning(f"Model validator received non-dict data: {type(data)}. Skipping LLM field checks.")
-            return data
+    def check_llm_dependencies(cls, data: Any) -> Any:
+        if not isinstance(data, dict): return data # Should be a dict from .env
 
-        provider = data.get('LLM_PROVIDER') # Check using the env var name
-
-        if provider == 'google':
-            if not data.get('GOOGLE_API_KEY'):
-                logger.warning("LLM Provider is 'google' but GOOGLE_API_KEY is not set in environment.")
+        provider = data.get('LLM_PROVIDER', 'none') # Get from .env name
+        
+        if provider == 'google' and not data.get('GOOGLE_API_KEY'):
+            logger.warning("LLM_PROVIDER is 'google' but GOOGLE_API_KEY is missing.")
         elif provider == 'openrouter':
-            if not data.get('OPENROUTER_API_KEY'):
-                logger.warning("LLM Provider is 'openrouter' but OPENROUTER_API_KEY is not set in environment.")
-            if not data.get('OPENROUTER_MODEL_NAME'):
-                logger.warning("LLM Provider is 'openrouter' but OPENROUTER_MODEL_NAME is not set in environment.")
+            if not data.get('OPENROUTER_API_KEY'): logger.warning("LLM_PROVIDER is 'openrouter' but OPENROUTER_API_KEY is missing.")
+            if not data.get('OPENROUTER_MODEL_NAME'): logger.warning("LLM_PROVIDER is 'openrouter' but OPENROUTER_MODEL_NAME is missing (default will be used).")
         elif provider == 'local':
-            if not data.get('LOCAL_LLM_MODEL_NAME'):
-                logger.warning("LLM Provider is 'local' but LOCAL_LLM_MODEL_NAME is not set in environment.")
-            if not data.get('LOCAL_LLM_API_BASE_URL'):
-                logger.warning("LLM Provider is 'local' but LOCAL_LLM_API_BASE_URL is not set in environment.")
+            if not data.get('LOCAL_LLM_MODEL_NAME'): logger.warning("LLM_PROVIDER is 'local' but LOCAL_LLM_MODEL_NAME is missing (default will be used).")
+            if not data.get('LOCAL_LLM_API_BASE_URL'): logger.warning("LLM_PROVIDER is 'local' but LOCAL_LLM_API_BASE_URL is missing (default will be used).")
 
-        geo_agent = data.get('GEOCODING_USER_AGENT')
-        if not geo_agent or 'your_email@example.com' in geo_agent or 'example@example.com' in geo_agent: # Check both old/new examples
-             logger.warning("GEOCODING_USER_AGENT is not set or uses the default example. Please configure it with your application name and contact information as per Nominatim's usage policy.")
-
+        user_agent = data.get('GEOCODING_USER_AGENT', '')
+        if not user_agent or 'your_email@example.com' in user_agent or 'example@example.com' in user_agent or not '@' in user_agent:
+             logger.warning("GEOCODING_USER_AGENT is not set, uses a default example, or lacks contact info. Please update it in your .env file as per Nominatim's policy.")
         return data
 
-# --- Create a singleton instance ---
-# Remove the get_settings() function and create instance directly
 try:
     settings = Settings()
-    # Log loaded settings (be careful with keys)
-    logger.info("Settings loaded successfully.")
-    logger.info(f"LLM Provider: {settings.llm_provider}")
-    logger.info(f"Log Level: {settings.log_level}")
-    if settings.llm_provider == 'google':
-        logger.info(f"Google Model: {settings.google_model_name}")
-    elif settings.llm_provider == 'openrouter':
-        logger.info(f"OpenRouter Model: {settings.openrouter_model_name}")
-    elif settings.llm_provider == 'local':
-        logger.info(f"Local LLM Model: {settings.local_llm_model_name}")
-        logger.info(f"Local LLM URL: {settings.local_llm_api_base_url}")
+    # Log crucial settings (avoiding full keys)
+    logger.info(f"Settings loaded. Log Level: {settings.log_level}, LLM Provider: {settings.llm_provider}")
+    if settings.llm_provider == 'google': logger.info(f"Google Model: {settings.google_model_name}")
+    elif settings.llm_provider == 'openrouter': logger.info(f"OpenRouter Model: {settings.openrouter_model_name}")
+    elif settings.llm_provider == 'local': logger.info(f"Local LLM Model: {settings.local_llm_model_name}, URL: {settings.local_llm_api_base_url}")
+    logger.info(f"Geocoding User Agent: {settings.geocoding_user_agent}")
 
 except Exception as e:
      logger.critical(f"CRITICAL ERROR: Failed to load settings: {e}", exc_info=True)
-     raise SystemExit(f"Failed to initialize settings: {e}") from e
+     # Fallback to basic settings if loading fails, to allow app to at least start and show error
+     class FallbackSettings:
+         log_level="ERROR"; llm_provider="none"; geocoding_user_agent="FallbackAgent/0.0"; streamlit_server_port=8501
+         google_model_options = ["gemini-1.5-flash-latest"] # Provide a minimal list
+     settings = FallbackSettings()
+     print(f"CRITICAL: Using fallback settings due to error: {e}")
+     # raise SystemExit(f"Failed to initialize settings: {e}") from e # Or allow to run with fallback

@@ -17,14 +17,14 @@ EIDO Sentinel is a **Proof-of-Concept (PoC)** AI agent designed to streamline th
 1.  **Multi-Format Ingestion:** Handles standardized NENA EIDO JSON messages and unstructured alert text (e.g., CAD summaries, SMS).
 2.  **LLM-Powered Parsing:** Uses Large Language Models (LLMs) to:
     *   Potentially split multi-event text into individual reports.
-    *   Parse unstructured text into an EIDO-like JSON structure, extracting key fields.
-3.  **Flexible EIDO JSON Processing:** Extracts core information from EIDO JSON, handling common variations.
+    *   Parse unstructured text into an EIDO-like JSON structure, extracting key fields (type, time, location details including ZIP, description, source, external ID).
+3.  **Flexible EIDO JSON Processing:** Extracts core information from EIDO JSON, handling common variations and extracting coordinates and ZIP codes from embedded XML or text.
 4.  **RAG Augmentation:** Enhances LLM accuracy for parsing and template filling by retrieving relevant context from the official EIDO schema (requires indexing).
-5.  **Incident Correlation:** Matches incoming reports to existing incidents based on time, location, and external IDs.
+5.  **Incident Correlation:** Matches incoming reports to existing incidents based on time, location (geodesic distance), and external IDs.
 6.  **AI Summarization & Actions:** Generates evolving incident summaries and recommended actions using LLMs.
-7.  **Configurable LLM Backend:** Supports Google Gemini, OpenRouter, and Local LLMs (Ollama/LM Studio via OpenAI API).
-8.  **EIDO Generation Tool:** Creates structurally compliant EIDO examples using templates and LLM assistance.
-9.  **Interactive Dashboard (Streamlit):** Provides visualization (List, Map, Charts), filtering, detailed views, warning generation, and EIDO exploration/generation tools.
+7.  **Configurable LLM Backend:** Supports Google Gemini, OpenRouter, and Local LLMs (Ollama/LM Studio via OpenAI API) through UI configuration.
+8.  **EIDO Generation Tool:** Creates structurally compliant EIDO examples using templates and LLM assistance based on user-provided scenarios.
+9.  **Interactive Dashboard (Streamlit):** Provides visualization (List, Map, Charts), filtering (by type, status, ZIP code), detailed views, warning generation, and EIDO exploration/generation tools.
 10. **Basic API (FastAPI):** Offers endpoints for programmatic ingestion and retrieval.
 
 ---
@@ -38,9 +38,9 @@ Follow these steps to demonstrate the core functionalities of EIDO Sentinel.
 1.  **Installation Complete:** Ensure all steps in the `README.md` under "Getting Started" -> "Installation" have been completed successfully.
 2.  **Environment Variables (`.env`):**
     *   The `.env` file must exist and be configured with a valid `LLM_PROVIDER` and corresponding API keys/URLs/model names. **The demo requires a functional LLM backend for text parsing, summarization, actions, and generation.**
-    *   `GEOCODING_USER_AGENT` must be set with a valid identifier.
+    *   `GEOCODING_USER_AGENT` must be set with a valid identifier (e.g., `EidoSentinelDemo/1.0 (your.email@example.com)`).
 3.  **(Recommended) RAG Index:** Ensure the RAG index has been built by running `python utils/rag_indexer.py`. This significantly improves LLM parsing/generation accuracy. Check for `services/eido_schema_index.json`.
-4.  **(For Generator Demo) Template File:** Ensure at least one template file exists in the `eido_templates/` directory. For example, create `eido_templates/traffic_collision.json` with placeholders like `[TIMESTAMP_ISO_OFFSET]`, `[LOCATION_ADDRESS]`, `[DESCRIPTION]`, `[INCIDENT_UUID]`, etc.
+4.  **(For Generator Demo) Template File:** Ensure at least one template file exists in the `eido_templates/` directory. For example, `eido_templates/traffic_collision.json` (a sample is provided in the project).
 
 ### B. Starting the Application
 
@@ -64,7 +64,7 @@ Follow these steps to demonstrate the core functionalities of EIDO Sentinel.
 2.  **Ingestion - EIDO JSON:**
     *   Go to the **📥 Data Ingestion** section in the sidebar, **📄 EIDO JSON** tab.
     *   Under "Load Sample:", select a valid EIDO file (e.g., `Sample call transfer EIDO.json`).
-    *   Click **🚀 Process Inputs**.
+    *   Click **��� Process Inputs**.
     *   *Expected Outcome:* A success message appears. The dashboard metrics update (Total Incidents: 1). The incident appears in the **🗓️ List** tab and as a point on the **🗺️ Map** tab.
 
 3.  **Ingestion - Raw Text (Single Event):**
@@ -100,12 +100,12 @@ Follow these steps to demonstrate the core functionalities of EIDO Sentinel.
     *   **Filter by Type:** Select "Structure Fire" (or another type present). Show how the **🗓️ List**, **🗺️ Map**, and **📈 Charts** tabs update dynamically to show only matching incidents. Clear the filter.
     *   **Filter by Status:** Select "Active" or "Updated". Show the dynamic updates again. Clear the filter.
     *   **Filter by ZIP:** Select a ZIP code present in the data (e.g., "98765" from the sample text). Show the dynamic updates. Clear the filter.
-    *   **Map Interaction:** Go to the **🗺️ Map** tab. Zoom and pan the map. Hover over points to show the tooltips with Incident ID, Type, and Status.
+    *   **Map Interaction:** Go to the **���️ Map** tab. Zoom and pan the map. Hover over points to show the tooltips with Incident ID, Type, and Status.
     *   **Details View:** Go to the **🔍 Details** tab. Select different incidents from the dropdown and show how the displayed Summary, Actions, and report history change.
 
 7.  **Warning Generation:**
     *   Go to the **🔎 Filter & Analyze Incidents** section. Apply a filter (e.g., by ZIP code or Type) to narrow down the incidents.
-    *   Navigate to the **📢 Warnings** tab.
+    *   Navigate to the **�� Warnings** tab.
     *   Choose a severity level (e.g., "Advisory").
     *   (Optional) Add a custom message.
     *   Click **📝 Generate Warning**.
@@ -120,7 +120,7 @@ Follow these steps to demonstrate the core functionalities of EIDO Sentinel.
         ```
     *   Click **✨ Generate EIDO from Template**.
     *   *Expected Outcome:* An EIDO JSON structure appears in the Ace editor below, with placeholders filled based on the scenario. Point out how the LLM populated fields like timestamp, location, description, IDs, etc., based on the text and template structure.
-    *   Show the **📥 Download Generated EIDO** button.
+    *   Show the **��� Download Generated EIDO** button.
 
 9.  **(Optional) LLM Configuration Change:**
     *   Go to the **⚙️ Configure Agent** expander in the sidebar.
@@ -166,7 +166,7 @@ Use these points to explain the project during or after the demo.
 *   **Key Benefits:**
     *   🚀 **Speed & Efficiency:** Reduces manual effort in reading, linking, and summarizing reports.
     *   💡 **Enhanced Situational Awareness:** Provides a unified, summarized view of incidents faster.
-    *   🤔 **Improved Decision Support:** AI summaries and actions aid quicker, more informed decisions.
+    *   ��� **Improved Decision Support:** AI summaries and actions aid quicker, more informed decisions.
     *   📉 **Reduced Operator Load:** Automates tedious parsing and correlation tasks.
     *   🗺️ **Better Resource Allocation:** Insights from correlated data can inform deployment.
     *   ⚙️ **Standardization:** Promotes consistent information handling across input formats.

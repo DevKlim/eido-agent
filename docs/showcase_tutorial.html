@@ -1,0 +1,472 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EIDO Sentinel: Showcase & Tutorial</title>
+    <link rel="stylesheet" href="showcase_styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="#" class="nav-logo">🚨 EIDO Sentinel</a>
+            <ul class="nav-menu">
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#ui-tutorial">UI Tutorial</a></li>
+                <li><a href="#api-tutorial">API Tutorial</a></li>
+                <li><a href="#ai-implications">AI Implications</a></li>
+                <li><a href="#privacy-finetuning">Privacy & Fine-tuning</a></li>
+                <li><a href="#vision">Vision</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="hero-section">
+        <div class="container">
+            <h1>EIDO Sentinel: Intelligent Incident Processing</h1>
+            <p>Revolutionizing emergency response with AI-powered data analysis, correlation, and decision support.</p>
+            <a href="#features" class="btn btn-primary">Discover Features</a>
+        </div>
+    </header>
+
+    <main>
+        <section id="overview" class="content-section">
+            <div class="container">
+                <h2>What is EIDO Sentinel?</h2>
+                <p class="lead">EIDO Sentinel is an advanced Proof-of-Concept (PoC) AI agent engineered to dramatically improve how emergency communications and incident reports are managed. By harnessing the capabilities of Large Language Models (LLMs) and modern data processing, EIDO Sentinel offers a more efficient, intelligent, and responsive framework for public safety operations.</p>
+                <p>It tackles the challenge of diverse data formats, information overload, and the need for rapid sense-making in critical situations. Whether dealing with structured NENA EIDO JSON messages or unstructured raw text alerts, EIDO Sentinel transforms raw data into actionable intelligence.</p>
+                <!-- [Conceptual Diagram: EIDO Sentinel high-level data flow: Inputs -> Agent -> Insights/Outputs] -->
+                <div class="visual-placeholder">[Conceptual Diagram: EIDO Sentinel high-level data flow]</div>
+            </div>
+        </section>
+
+        <section id="features" class="content-section alt-bg">
+            <div class="container">
+                <h2>Key Features Showcase</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">📥</div>
+                        <h3>Multi-Format Ingestion</h3>
+                        <p>Seamlessly processes standardized NENA EIDO JSON and unstructured raw alert text (CAD summaries, SMS, dispatch notes), unifying diverse information sources.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🧠</div>
+                        <h3>LLM-Powered Parsing & Structuring</h3>
+                        <p>Intelligently splits multi-event text, extracts key fields (type, time, location including ZIP, description, source, ID), and converts text to EIDO-like JSON, enhanced by RAG for accuracy.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚙️</div>
+                        <h3>Flexible EIDO JSON Processing</h3>
+                        <p>Robustly extracts core data from varied EIDO JSON, handling embedded XML (PIDF-LO) and free-text locations for coordinates and ZIP codes.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔗</div>
+                        <h3>Intelligent Incident Correlation</h3>
+                        <p>Matches incoming reports to existing incidents based on time, location (geodesic distance), and external IDs, providing a consolidated view of events.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">💡</div>
+                        <h3>AI Summarization & Action Recommendation</h3>
+                        <p>Generates evolving, concise incident summaries and suggests actionable next steps for responders, adapting as new information arrives.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📝</div>
+                        <h3>EIDO Generation Tool</h3>
+                        <p>Facilitates creating compliant EIDO JSON examples using templates and LLM assistance based on user scenarios, augmented by RAG.</p>
+                    </div>
+                     <div class="feature-card">
+                        <div class="feature-icon">🎛️</div>
+                        <h3>Configurable LLM Backend</h3>
+                        <p>Dynamically switch between Google Gemini, OpenRouter (GPT, Claude, etc.), and Local LLMs (Ollama, LM Studio) via the UI for flexibility and control.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🖥️</div>
+                        <h3>Interactive Dashboard (Streamlit)</h3>
+                        <p>User-friendly interface for ingestion, LLM config, visualization (lists, maps, charts), filtering, warning generation, and EIDO exploration.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔌</div>
+                        <h3>API Backend (FastAPI)</h3>
+                        <p>RESTful endpoints for programmatic ingestion and data retrieval, enabling integration with other systems and custom frontends.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="ui-tutorial" class="content-section">
+            <div class="container">
+                <h2>Tutorial: Using the EIDO Sentinel Demo (Streamlit UI)</h2>
+                <p class="lead">This guide will walk you through the EIDO Sentinel interactive demo. For non-technical users, think of this as a smart assistant that helps make sense of emergency reports quickly!</p>
+
+                <h3>Getting Started</h3>
+                <ol>
+                    <li><strong>Installation:</strong> Ensure EIDO Sentinel is installed by following the `README.md` ("Getting Started").</li>
+                    <li><strong>Environment Setup (`.env`):</strong>
+                        <ul>
+                            <li>Make sure the `.env` file exists in the project root. Copy from `.env.example` if needed.</li>
+                            <li>Configure `LLM_PROVIDER` (e.g., "google", "local") and the corresponding API keys/URLs. <em>LLM features require a working backend.</em></li>
+                            <li>Set a unique `GEOCODING_USER_AGENT` (e.g., `EidoSentinelDemo/1.0 (your.email@example.com)`).</li>
+                        </ul>
+                    </li>
+                    <li><strong>(Recommended) RAG Index:</strong> For best LLM performance, build the RAG index: `python utils/rag_indexer.py`.</li>
+                    <li><strong>Start the App:</strong> Open your terminal, navigate to the `eido-sentinel` directory, activate your virtual environment (`source venv/bin/activate`), and run:
+                        <pre><code>./run_streamlit.sh</code></pre>
+                        Or: <pre><code>streamlit run ui/app.py</code></pre>
+                        Access the app in your browser (usually `http://localhost:8501`).
+                    </li>
+                </ol>
+                <div class="visual-placeholder">[Image: Screenshot of the EIDO Sentinel Streamlit UI landing page]</div>
+
+                <h3>Demo Walkthrough</h3>
+                <div class="tutorial-step">
+                    <h4>1. Initial Setup & LLM Configuration</h4>
+                    <p>Familiarize yourself with the dashboard. In the sidebar:</p>
+                    <ul>
+                        <li><strong>Admin Actions:</strong> (Optional) Click "Clear All Incidents" to start fresh.</li>
+                        <li><strong>Configure Agent:</strong> Expand this. Select your "LLM Provider". If using Google, enter your API Key. If local, ensure your local LLM server (like Ollama) is running and the Base URL/Model Name are correct. This lets you change AI brains on the fly!</li>
+                    </ul>
+                    <div class="visual-placeholder">[Image: Screenshot of the 'Configure Agent' sidebar section]</div>
+                </div>
+
+                <div class="tutorial-step">
+                    <h4>2. Ingesting EIDO JSON Data</h4>
+                    <p>This is for structured, machine-readable reports.</p>
+                    <ul>
+                        <li>In the sidebar, go to "Data Ingestion" -> "EIDO JSON" tab.</li>
+                        <li>You can:
+                            <ul>
+                                <li><strong>Upload File(s):</strong> Click to upload one or more EIDO JSON files.</li>
+                                <li><strong>Paste JSON:</strong> Paste EIDO JSON text directly into the area.</li>
+                                <li><strong>Load Sample:</strong> Choose a pre-loaded sample file (e.g., `Sample call transfer EIDO.json`).</li>
+                            </ul>
+                        </li>
+                        <li>Click "Process Inputs".</li>
+                        <li><strong>What to Expect:</strong> A success message. The dashboard numbers (Total Incidents) will update. The new incident will appear in the "List" tab and as a dot on the "Map".</li>
+                    </ul>
+                    <div class="visual-placeholder">[Image: Screenshot of the EIDO JSON ingestion tab with a sample selected]</div>
+                </div>
+
+                <div class="tutorial-step">
+                    <h4>3. Ingesting Raw Text Alerts</h4>
+                    <p>This is where the AI shines – understanding plain text!</p>
+                    <ul>
+                        <li>Go to "Data Ingestion" -> "Raw Text" tab.</li>
+                        <li><strong>Single Event:</strong> Paste a simple alert like:
+                            <pre><code>UNIT ALERT: Engine 4 responding to report of smoke in building at 555 Oak Avenue, Springfield, ZIP 98765. Time: 14:32 PST. CAD ID: SFD24-00123.</code></pre>
+                        </li>
+                        <li>Click "Process Inputs".</li>
+                        <li><strong>What to Expect:</strong> Success message. Metrics update. New incident in List/Map.
+                            <ul>
+                                <li><strong>AI Parsing Power:</strong> Go to "Details" tab, select this new incident. See the AI's summary. Then, go to "EIDO Explorer", select the incident and its report. You'll see the JSON the AI *created* from your text, with extracted location, type, ZIP code, etc!</li>
+                            </ul>
+                        </li>
+                        <li><strong>Multi-Event Text:</strong> Try pasting text with several alerts, like:
+                            <pre><code>15:10: MVA I-90 EB @ MP 15. Two cars. Ref# ABC111. // 15:15: New call: Fire alarm, 123 Pine St, Redmond. E1 dispatched. Ref# XYZ222</code></pre>
+                            The AI will try to split and process these as separate events. Check the "Processing Log" in the sidebar.
+                        </li>
+                        <li><strong>Correlating Updates:</strong> Paste an update to an existing incident (e.g., an update to the "555 Oak Avenue" fire).
+                            <pre><code>UPDATE: Incident SFD24-00123 at 555 Oak Avenue. Fire knocked down. Requesting ventilation. Time: 14:55 PST.</code></pre>
+                            The "Total Incidents" should *not* increase. The original incident will be updated with a new report, and its AI summary will evolve.
+                        </li>
+                    </ul>
+                    <div class="visual-placeholder">[Image: Screenshot of the Raw Text ingestion tab and the EIDO Explorer showing LLM-parsed JSON]</div>
+                </div>
+
+                <div class="tutorial-step">
+                    <h4>4. Exploring the Dashboard</h4>
+                    <ul>
+                        <li><strong>Filtering:</strong> Under "Filter & Analyze Incidents", use the dropdowns to filter by Type, Status, or ZIP Code. Notice how the List, Map, and Charts update instantly. This helps you focus on what's important.</li>
+                        <li><strong>Map Tab:</strong> Zoom and pan. Hover over map points for quick incident info.</li>
+                        <li><strong>Charts Tab:</strong> See distributions of incident statuses and types.</li>
+                        <li><strong>Details Tab:</strong> Select different incidents. See their AI-generated summary, recommended actions, and the history of all reports linked to them.</li>
+                    </ul>
+                    <div class="visual-placeholder">[Image: Collage of Dashboard tabs - Map with points, List view, Charts]</div>
+                </div>
+
+                <div class="tutorial-step">
+                    <h4>5. Generating Warnings</h4>
+                    <ul>
+                        <li>Go to the "Warnings" tab.</li>
+                        <li>The incidents currently shown (based on your filters) will be used.</li>
+                        <li>Choose a severity, add an optional custom message.</li>
+                        <li>Click "Generate Warning".</li>
+                        <li><strong>What to Expect:</strong> A formatted warning message is created, summarizing the selected incidents, ready to be copied for dissemination.</li>
+                    </ul>
+                    <div class="visual-placeholder">[Image: Screenshot of the Warning Generation tab]</div>
+                </div>
+
+                 <div class="tutorial-step">
+                    <h4>6. Creating EIDO with the Generator Tool</h4>
+                    <ul>
+                        <li>Go to the "EIDO Generator" tab.</li>
+                        <li>Select a template (e.g., `traffic_collision.json` – these are examples you can create).</li>
+                        <li>Describe a scenario in plain text, e.g., <em>"Two-car accident at Maple & 5th, 11:45 AM EST. Minor injuries. Unit P-12 on scene. CAD: CAD2024-55001. Coords: 40.7128, -74.0060. Zip: 10007."</em></li>
+                        <li>Click "Generate EIDO from Template".</li>
+                        <li><strong>What to Expect:</strong> The AI fills the template based on your scenario, producing a structured EIDO JSON. This is great for creating standardized test data or initial reports.</li>
+                    </ul>
+                    <div class="visual-placeholder">[Image: Screenshot of EIDO Generator with template and scenario]</div>
+                </div>
+                <p>Experiment with different inputs and settings to see the full power of EIDO Sentinel!</p>
+            </div>
+        </section>
+
+        <section id="api-tutorial" class="content-section alt-bg">
+            <div class="container">
+                <h2>Tutorial: Using the EIDO Sentinel API</h2>
+                <p class="lead">For developers and system integrators, EIDO Sentinel offers a FastAPI-based API for programmatic interaction.</p>
+                <p><strong>Base URL:</strong> If running locally, the API is typically at `http://localhost:8000/api/v1` (default port 8000, check `run_api.sh` or your Uvicorn startup command).</p>
+
+                <h3>Key API Endpoints</h3>
+                <div class="tutorial-step">
+                    <h4>1. Ingest EIDO JSON Report</h4>
+                    <p><code>POST /api/v1/ingest</code></p>
+                    <p>Send a single EIDO report as a JSON dictionary in the request body.</p>
+                    <strong>Example Request (using cURL):</strong>
+                    <pre><code class="language-bash">
+curl -X POST "http://localhost:8000/api/v1/ingest" \
+-H "Content-Type: application/json" \
+-d '{
+    "eidoMessageIdentifier": "api_example_001",
+    "$id": "api_example_001",
+    "sendingSystemIdentifier": "ExternalSystem",
+    "lastUpdateTimeStamp": "2024-05-20T12:00:00Z",
+    "incidentComponent": [{
+        "componentIdentifier": "inc_api_001",
+        "incidentTrackingIdentifier": "API-TEST-001",
+        "lastUpdateTimeStamp": "2024-05-20T12:00:00Z",
+        "incidentTypeCommonRegistryText": "Suspicious Package",
+        "locationReference": {"$ref": "loc_api_001"}
+    }],
+    "locationComponent": [{
+        "$id": "loc_api_001",
+        "componentIdentifier": "loc_api_001",
+        "locationByValue": "&lt;?xml version=\"1.0\" encoding=\"UTF-8\"?&gt;&lt;location&gt;&lt;civicAddressText&gt;789 Market St, San Francisco, CA 94103&lt;/civicAddressText&gt;&lt;gml:Point xmlns:gml=\"http://www.opengis.net/gml\"&gt;&lt;gml:pos&gt;37.7839 -122.4013&lt;/gml:pos&gt;&lt;/gml:Point&gt;&lt;/location&gt;"
+    }],
+    "notesComponent": [{
+        "componentIdentifier": "note_api_001",
+        "noteDateTimeStamp": "2024-05-20T12:01:00Z",
+        "noteText": "Unattended backpack reported near main entrance."
+    }]
+}'
+                    </code></pre>
+                    <strong>Expected Response (201 Created):</strong>
+                    <pre><code class="language-json">
+{
+    "message": "EIDO report processed successfully.",
+    "status": "Success",
+    "message_id": "api_example_001",
+    "incident_id": "generated_incident_uuid",
+    "is_new_incident": true,
+    "summary": "AI-generated summary of the suspicious package...",
+    "actions": ["AI-recommended action 1", "AI-recommended action 2"]
+}
+                    </code></pre>
+                </div>
+
+                <div class="tutorial-step">
+                    <h4>2. Ingest Raw Alert Text</h4>
+                    <p><code>POST /api/v1/ingest_alert</code></p>
+                    <p>Send raw alert text. The agent will attempt to split it into events, parse each, and process them.</p>
+                    <strong>Example Request (using cURL):</strong>
+                    <pre><code class="language-bash">
+curl -X POST "http://localhost:8000/api/v1/ingest_alert" \
+-H "Content-Type: application/json" \
+-d '{
+    "alert_text": "TRAFFIC ACCIDENT: Hwy 101 at Exit 5, 2 vehicles involved, minor injuries reported. Time: 10:30 AM. // UPDATE: Hwy 101 incident, one lane blocked. Expect delays."
+}'
+                    </code></pre>
+                    <strong>Expected Response (201 Created or 207 Multi-Status if partial success):</strong>
+                    <pre><code class="language-json">
+{
+    "message": "Alert text processing attempted.",
+    "overall_status": "Success", // or "Partial Failure"
+    "processed_incident_ids": ["generated_incident_uuid1"], // List of unique incident IDs affected
+    "details": [
+        {
+            "status": "Success",
+            "message_id": "llm_parsed_event1_uuid",
+            "incident_id": "generated_incident_uuid1",
+            "is_new_incident": true,
+            "summary": "AI summary for event 1...",
+            "actions": ["Action A", "Action B"],
+            "source_event_index": 1,
+            "source_event_total": 2,
+            "original_text_snippet": "TRAFFIC ACCIDENT: Hwy 101 at Exit 5..."
+        },
+        {
+            "status": "Success",
+            "message_id": "llm_parsed_event2_uuid",
+            "incident_id": "generated_incident_uuid1", // Could be same if correlated
+            "is_new_incident": false,
+            "summary": "Updated AI summary for event 1 incorporating event 2...",
+            "actions": ["Updated Action C"],
+            "source_event_index": 2,
+            "source_event_total": 2,
+            "original_text_snippet": "UPDATE: Hwy 101 incident, one lane blocked..."
+        }
+    ]
+}
+                    </code></pre>
+                </div>
+
+                <div class="tutorial-step">
+                    <h4>3. Get All Incidents</h4>
+                    <p><code>GET /api/v1/incidents</code></p>
+                    <p>Returns a list of all incident objects in the store.</p>
+                    <strong>Example Request (using cURL):</strong>
+                    <pre><code class="language-bash">curl -X GET "http://localhost:8000/api/v1/incidents"</code></pre>
+                </div>
+
+                <div class="tutorial-step">
+                    <h4>4. Get Specific Incident Details</h4>
+                    <p><code>GET /api/v1/incidents/{incident_id}</code></p>
+                    <p>Returns details for a specific incident ID.</p>
+                    <strong>Example Request (using cURL):</strong>
+                    <pre><code class="language-bash">curl -X GET "http://localhost:8000/api/v1/incidents/your_incident_id_here"</code></pre>
+                </div>
+                <p>Explore the API documentation (usually at `/docs` endpoint when the API is running, e.g., `http://localhost:8000/docs`) for more details on all available endpoints, request/response schemas, and to try them out interactively.</p>
+                 <div class="visual-placeholder">[Image: Screenshot of the FastAPI /docs page]</div>
+            </div>
+        </section>
+
+        <section id="ai-implications" class="content-section">
+            <div class="container">
+                <h2>The Future is Agentic: AI in Public Safety</h2>
+                <p class="lead">EIDO Sentinel is more than just a data processor; it's a glimpse into how AI and agentic workflows can fundamentally reshape public safety operations.</p>
+
+                <div class="implications-grid">
+                    <div class="implication-card">
+                        <div class="implication-icon">👮</div>
+                        <h3>Implications for Law Enforcement</h3>
+                        <ul>
+                            <li><strong>Enhanced Situational Awareness:</strong> Rapidly consolidates data from diverse sources (911 calls, officer reports, sensor data) into a unified, coherent picture. LLMs can summarize complex situations quickly, highlighting critical information.</li>
+                            <li><strong>Efficient Resource Allocation:</strong> By identifying patterns, correlating incidents, and predicting potential escalations (with careful ethical oversight), AI can help dispatchers and commanders deploy resources more effectively.</li>
+                            <li><strong>Streamlined Reporting & Investigation:</strong> Automates the extraction of key details from narratives, reducing manual data entry. LLMs can assist in analyzing large volumes of text-based evidence to find connections.</li>
+                            <li><strong>Data-Driven Insights:</strong> Uncover trends, hotspots, and response effectiveness from historical data, informing policy and training.</li>
+                        </ul>
+                    </div>
+                     <div class="visual-placeholder-inline">[Conceptual Image: Police officer using a tablet with AI-powered incident data]</div>
+
+                    <div class="implication-card">
+                        <div class="implication-icon">📢</div>
+                        <h3>Transforming Warning & Alert Pipelines</h3>
+                        <ul>
+                            <li><strong>Automated, Context-Aware Alert Generation:</strong> LLMs can draft initial warning messages based on incident details, severity, and affected areas, significantly speeding up dissemination.</li>
+                            <li><strong>Dynamic & Targeted Dissemination:</strong> Alerts can be dynamically updated as an incident evolves. AI can help identify the most relevant populations or geographic zones for specific warnings.</li>
+                            <li><strong>Improved Accessibility:</strong> Generate summaries and warnings in multiple languages or simplified formats to reach a broader audience.</li>
+                            <li><strong>Multi-Channel Delivery:</strong> Agentic systems could automatically push alerts through various channels (SMS, social media, public address systems) based on predefined protocols.</li>
+                        </ul>
+                    </div>
+                    <div class="visual-placeholder-inline">[Conceptual Diagram: Alert pipeline with AI integration points for generation and targeting]</div>
+
+                    <div class="implication-card">
+                         <div class="implication-icon">🤖</div>
+                        <h3>The Power of Agentic AI Workflows</h3>
+                        <p>Agentic AI refers to systems that can perceive their environment, make decisions, and take actions to achieve goals. For EIDO Sentinel, this means evolving from a reactive processor to a proactive partner:</p>
+                        <ul>
+                            <li><strong>Proactive Monitoring & Response:</strong> An AI agent could continuously monitor incoming data streams (e.g., social media feeds for keywords, sensor networks) and flag potential incidents or escalate anomalies before human intervention.</li>
+                            <li><strong>Autonomous Tool Use:</strong> The agent could be empowered to use external tools and APIs. For example:
+                                <ul>
+                                    <li>Automatically query GIS systems for nearby critical infrastructure or vulnerable populations.</li>
+                                    <li>Fetch real-time weather data for a HAZMAT incident.</li>
+                                    <li>Cross-reference details with internal databases (e.g., known offender lists, building schematics).</li>
+                                </ul>
+                            </li>
+                            <li><strong>Complex Decision Support:</strong> By combining LLM reasoning with structured data and tool outputs, the agent can assist in complex, multi-step decision-making processes, suggesting optimal response plans or resource deployments based on a holistic understanding of the situation.</li>
+                        </ul>
+                    </div>
+                     <div class="visual-placeholder-inline">[Conceptual Diagram: Agentic AI interacting with various data sources and tools to manage an incident]</div>
+                </div>
+                <p>These advancements promise a future where technology doesn't just support human operators but actively collaborates with them, augmenting their capabilities and leading to safer, more effective emergency response.</p>
+            </div>
+        </section>
+
+        <section id="privacy-finetuning" class="content-section alt-bg">
+            <div class="container">
+                <h2>Fine-tuning and Local LLMs: Precision & Privacy</h2>
+                <p class="lead">For mission-critical applications like public safety, ensuring the accuracy, reliability, and privacy of AI systems is paramount. EIDO Sentinel's architecture allows for strategies to address these needs.</p>
+
+                <div class="privacy-grid">
+                    <div class="privacy-card">
+                        <h3>🎯 Fine-tuning for Mission-Critical Alerting</h3>
+                        <p>While general-purpose LLMs are powerful, fine-tuning them on domain-specific data can significantly enhance their performance for specialized tasks:</p>
+                        <ul>
+                            <li><strong>Specialized Language:</strong> Public safety involves unique jargon, acronyms, and communication styles. Fine-tuning helps the LLM understand and generate text that is accurate and familiar to personnel.</li>
+                            <li><strong>Improved Accuracy for Specific Events:</strong> Training on data related to specific incident types (e.g., traffic accidents, structure fires, medical emergencies) can improve the LLM's ability to extract relevant information and generate appropriate summaries or alerts for those events.</li>
+                            <li><strong>Reduced Hallucinations & Increased Reliability:</strong> By focusing the model on a specific domain, fine-tuning can reduce the likelihood of generating incorrect or irrelevant information, which is crucial in high-stakes environments.</li>
+                            <li><strong>Adherence to Protocols:</strong> Models can be trained to follow specific reporting formats or include mandatory information elements as per agency SOPs.</li>
+                            <li><strong>Examples:</strong> Fine-tuning could involve using historical (anonymized) incident reports, agency Standard Operating Procedures, training manuals, and relevant legal or regulatory documents.</li>
+                        </ul>
+                        <div class="visual-placeholder">[Conceptual Image: Graph showing improved LLM accuracy after fine-tuning on domain data]</div>
+                    </div>
+
+                    <div class="privacy-card">
+                        <h3>🛡️ Local LLMs for Uncompromised Privacy & Security</h3>
+                        <p>Using cloud-based LLM APIs involves sending data to third-party servers, which can be a concern for sensitive public safety information. Running LLMs locally offers a robust solution:</p>
+                        <ul>
+                            <li><strong>Data Sovereignty:</strong> All data, including incident reports and PII, remains within the agency's secure infrastructure. No sensitive information leaves the premises.</li>
+                            <li><strong>Enhanced Security:</strong> Reduces the attack surface associated with transmitting data over the internet to external services.</li>
+                            <li><strong>Compliance:</strong> Helps meet stringent data privacy regulations (e.g., HIPAA for medical information within incident reports, CJIS for criminal justice information).</li>
+                            <li><strong>Reduced Latency (Potentially):</strong> Local processing can eliminate network latency associated with API calls, leading to faster responses (dependent on local hardware).</li>
+                            <li><strong>Cost Control (Long-Term):</strong> While requiring an initial investment in hardware, local LLMs avoid per-token or per-call API fees, potentially leading to cost savings at high volumes.</li>
+                            <li><strong>Offline Capability:</strong> Local models can operate even if internet connectivity is disrupted, crucial for disaster scenarios.</li>
+                            <li><strong>Considerations:</strong> Requires significant computational resources (powerful GPUs with ample VRAM), IT expertise for setup and maintenance, and careful selection of open-source models suitable for local deployment. EIDO Sentinel supports local LLMs through interfaces like Ollama or LM Studio.</li>
+                        </ul>
+                        <div class="visual-placeholder">[Conceptual Image: Server rack icon with a lock, symbolizing secure local LLM deployment]</div>
+                    </div>
+                </div>
+                <p>By combining fine-tuning with the option for local LLM deployment, EIDO Sentinel can be adapted to meet the specific needs of public safety agencies, balancing cutting-edge AI capabilities with the critical requirements for accuracy, privacy, and security.</p>
+            </div>
+        </section>
+
+        <section id="vision" class="content-section">
+            <div class="container">
+                <h2>Looking Ahead: The Vision for EIDO Sentinel</h2>
+                <p class="lead">EIDO Sentinel is a foundational step. The vision extends to a comprehensive AI partner for emergency services:</p>
+                <ul>
+                    <li><strong>Proactive Intelligence:</strong> Monitoring diverse data streams to anticipate and flag potential incidents before they escalate.</li>
+                    <li><strong>Multi-Modal Understanding:</strong> Processing not just text, but also voice (radio/911 transcripts), images (CCTV, drone footage), and sensor data for richer situational awareness.</li>
+                    <li><strong>Advanced Agentic Reasoning:</strong> Enabling the agent to perform complex, multi-step planning and tool utilization to manage evolving incidents with greater autonomy.</li>
+                    <li><strong>Continuous Learning & Adaptation:</strong> Incorporating feedback loops and adaptive learning to continuously improve parsing, summarization, and recommendation accuracy over time.</li>
+                    <li><strong>Seamless System Integration:</strong> Deeply embedding with CAD, RMS, alerting platforms, and other public safety systems for a truly unified operational environment.</li>
+                    <li><strong>Explainable AI (XAI):</strong> Providing clear, understandable justifications for its correlations, summaries, and recommendations to build trust and facilitate human oversight.</li>
+                </ul>
+                <p>The journey is towards creating AI systems that are not just tools, but true collaborators in the critical mission of public safety.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer-section">
+        <div class="container">
+            <p>&copy; 2024 EIDO Sentinel Project. Licensed under the MIT License.</p>
+            <p>This is a Proof-of-Concept and not intended for operational use without further development and validation.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Simple scroll animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.content-section, .feature-card, .implication-card, .privacy-card, .tutorial-step').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

@@ -98,18 +98,22 @@ dmypy.json
 
 # Log files
 *.log
+# services/eido_schema_index.json # If generated and large, consider ignoring
 
-#EIDO-JSON
+#EIDO-JSON (Submodule or cloned data)
 EIDO-JSON/Samples/
 EIDO-JSON/Documentation/
 EIDO-JSON/Schema/
 
 # Local data / models (if large and shouldn't be committed)
 # models/
-# data/
+data/
 # *.bin
 # *.gguf
 # *.onnx
 
 # FAISS Index files (if generated locally and large)
 # *.index
+
+# EIDO Templates directory (if templates are large or numerous, optional)
+# eido_templates/
