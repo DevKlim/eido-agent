@@ -1,0 +1,119 @@
+# UCSD Simulated Alerts for EIDO Sentinel Testing
+
+# --- Two Raw Text Alerts ---
+
+# Raw Text Alert 1: Suspicious Person
+Report Time: 2024-05-20T14:30:00Z
+Source: Campus Security Email
+Alert Text:
+UCSD Security received a report of a suspicious individual near Geisel Library, by the bear statue. Subject described as male, wearing a dark hoodie and carrying a large backpack. Seen looking into windows around 14:15 Pacific Time. Campus police notified. If seen, do not approach, call UCPD.
+Incident ID: UCSD-RAW-001
+
+# Raw Text Alert 2: Minor Fire Incident
+Report Time: 2024-05-20T16:05:00Z
+Source: Student Report via App
+Alert Text:
+Emergency reported by student near Price Center East, close to the food court entrance on the lower level. Student mentioned smelling smoke and seeing a small fire in a trash can. Mentioned it was near the "Sun God Fries" vendor stand. Facility services and fire department en route. No injuries reported yet. Emergency services contacted at 4:00 PM PST.
+Incident ID: UCSD-RAW-002
+
+# --- Two EIDO-Compliant Format Alerts (Simplified JSON) ---
+
+# EIDO-like Alert 1: Theft
+{
+  "eidoMessageIdentifier": "eido-ucsd-20240520-001",
+  "$id": "eido-ucsd-20240520-001",
+  "sendingSystemIdentifier": "UCSD-CampusAlertSystem",
+  "lastUpdateTimeStamp": "2024-05-20T10:15:00-07:00",
+  "messageKind": "Report",
+  "incidentComponent": [{
+    "componentIdentifier": "inc-ucsd-theft-789",
+    "incidentTrackingIdentifier": "UCPD-2024-THEFT-0112",
+    "lastUpdateTimeStamp": "2024-05-20T10:15:00-07:00",
+    "incidentTypeCommonRegistryText": "Theft - Bicycle",
+    "incidentStatusCommonRegistryText": "Reported",
+    "locationReference": {"$ref": "loc-geisel-bike-racks"}
+  }],
+  "locationComponent": [{
+    "$id": "loc-geisel-bike-racks",
+    "componentIdentifier": "loc-geisel-bike-racks",
+    "locationByValue": "<?xml version='1.0' encoding='UTF-8'?><location><civicAddressText>Bike racks on south side of Geisel Library, UCSD, La Jolla, CA 92093</civicAddressText><gml:Point xmlns:gml='http://www.opengis.net/gml'><gml:pos>32.8810 -117.2375</gml:pos></gml:Point></location>",
+    "locationNotes": "Near the main entrance walkway."
+  }],
+  "notesComponent": [{
+    "componentIdentifier": "note-theft-789-1",
+    "noteDateTimeStamp": "2024-05-20T10:10:00-07:00",
+    "noteText": "Student reported their red Trek mountain bike stolen from Geisel Library bike racks. Lock was cut. Occurred sometime between 8 AM and 10 AM today."
+  }]
+}
+
+# EIDO-like Alert 2: Medical Emergency
+{
+  "eidoMessageIdentifier": "eido-ucsd-20240520-002",
+  "$id": "eido-ucsd-20240520-002",
+  "sendingSystemIdentifier": "UCSD-EMSDispatch",
+  "lastUpdateTimeStamp": "2024-05-20T11:30:00Z",
+  "messageKind": "Alert",
+  "incidentComponent": [{
+    "componentIdentifier": "inc-ucsd-medical-101",
+    "incidentTrackingIdentifier": "EMS-2024-MED-0520A",
+    "lastUpdateTimeStamp": "2024-05-20T11:30:00Z",
+    "incidentTypeCommonRegistryText": "Medical Emergency - Fall",
+    "incidentStatusCommonRegistryText": "Dispatched",
+    "locationReference": {"$ref": "loc-warren-lecture"}
+  }],
+  "locationComponent": [{
+    "$id": "loc-warren-lecture",
+    "componentIdentifier": "loc-warren-lecture",
+    "locationByValue": "Warren Lecture Hall 2001, UC San Diego, La Jolla, CA 92093",
+    "locationNotes": "Person fell down stairs inside lecture hall. Requesting ambulance."
+  }],
+  "notesComponent": [{
+    "componentIdentifier": "note-medical-101-1",
+    "noteDateTimeStamp": "2024-05-20T11:28:00Z",
+    "noteText": "Medical assist requested at Warren Lecture Hall, room 2001. Individual reportedly fell down interior stairs. Conscious but reporting leg pain."
+  }]
+}
+
+# --- Three Alerts Showcasing Update Feature (for a single incident) ---
+
+# Update Alert 1 (Initial Report - Raw Text)
+Report Time: 2024-05-21T09:00:00Z
+Source: Traffic Monitoring System
+Alert Text:
+Minor traffic collision reported at Gilman Drive and Villa La Jolla Drive intersection. Two vehicles involved. No immediate reports of injuries. Southbound Gilman traffic impacted. CAD ID: SDSO-2024-Traffic-A501
+Incident ID: UCSD-MULTI-001-P1
+
+# Update Alert 2 (EIDO-like Update)
+{
+  "eidoMessageIdentifier": "eido-ucsd-20240521-update1",
+  "$id": "eido-ucsd-20240521-update1",
+  "sendingSystemIdentifier": "UCPD-Dispatch",
+  "lastUpdateTimeStamp": "2024-05-21T09:25:00Z",
+  "messageKind": "Update",
+  "incidentComponent": [{
+    "componentIdentifier": "inc-sdso-traffic-a501",
+    "incidentTrackingIdentifier": "SDSO-2024-Traffic-A501",
+    "lastUpdateTimeStamp": "2024-05-21T09:25:00Z",
+    "incidentTypeCommonRegistryText": "Traffic Collision - Injury",
+    "incidentStatusCommonRegistryText": "OnScene",
+    "locationReference": {"$ref": "loc-gilman-villalajolla"}
+  }],
+  "locationComponent": [{
+    "$id": "loc-gilman-villalajolla",
+    "componentIdentifier": "loc-gilman-villalajolla",
+    "locationByValue": "Intersection of Gilman Dr & Villa La Jolla Dr, La Jolla, CA 92093",
+    "locationNotes": "Near the main campus entrance. Coordinates: 32.8800, -117.2333"
+  }],
+  "notesComponent": [{
+    "componentIdentifier": "note-traffic-a501-update1",
+    "noteDateTimeStamp": "2024-05-21T09:20:00Z",
+    "noteText": "UCPD unit on scene. One individual reporting neck pain. Ambulance requested. Southbound Gilman Dr completely blocked at Villa La Jolla. Expect delays."
+  }]
+}
+
+# Update Alert 3 (Final Update - Raw Text)
+Report Time: 2024-05-21T10:15:00Z
+Source: UCPD Officer Radio
+Alert Text:
+Re: SDSO-2024-Traffic-A501 at Gilman/Villa La Jolla. Scene is now clear. Both vehicles towed. Patient transported by AMR with minor injuries. All lanes reopened. UCPD Unit 5 returning to station.
+Incident ID: UCSD-MULTI-001-P3

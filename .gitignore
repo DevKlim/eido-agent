@@ -98,7 +98,7 @@ dmypy.json
 
 # Log files
 *.log
-# services/eido_schema_index.json # If generated and large, consider ignoring
+# services/eido_schema_index.json # If generated and large, consider ignoring if not essential for every dev
 
 #EIDO-JSON (Submodule or cloned data)
 EIDO-JSON/Samples/
@@ -107,7 +107,8 @@ EIDO-JSON/Schema/
 
 # Local data / models (if large and shouldn't be committed)
 # models/
-data/
+# data/ # Keep this commented if we want to commit some data files
+data/geocoded_locations.json # Specifically ignore this user-editable file
 # *.bin
 # *.gguf
 # *.onnx
@@ -117,3 +118,16 @@ data/
 
 # EIDO Templates directory (if templates are large or numerous, optional)
 # eido_templates/
+
+# Database files (if using SQLite for historical data, for example)
+*.db
+*.sqlite3
+local_dev.db
+
+# Alembic version files (if using Alembic)
+alembic/versions/
+
+# Old documentation files (if being replaced by new static site)
+docs/showcase_tutorial.html
+docs/showcase_styles.css
+docs/showcase_tutorial.md

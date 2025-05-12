@@ -3,39 +3,48 @@ from fastapi import APIRouter, HTTPException, Body, Depends, status, Response
 from typing import List, Dict, Any, Union 
 from pydantic import BaseModel, Field
 
-from data_models.schemas import Incident
+from data_models.schemas import Incident as PydanticIncident, ReportCoreData
 from agent.agent_core import eido_agent_instance
-from services.storage import incident_store
+from services.storage import IncidentStore # Using the class, not instance
 from config.settings import settings
+from agent.llm_interface import fill_eido_template # For the new generator endpoint
+import os
+import json
 
 logger = logging.getLogger(__name__)
-# BasicConfig might conflict with uvicorn's. FastAPI/Uvicorn manage their logging.
-# We ensure our app's logger respects settings.log_level.
-app_logger = logging.getLogger("EidoSentinelAPI") # Specific logger for API parts
+app_logger = logging.getLogger("EidoSentinelAPI") 
 app_logger.setLevel(settings.log_level.upper())
-# Add a handler if not already configured at a higher level or by uvicorn
+
+# Ensure handler is added if not already (e.g. by uvicorn)
 if not app_logger.hasHandlers() and not logging.getLogger().hasHandlers():
     handler = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s')
     handler.setFormatter(formatter)
     app_logger.addHandler(handler)
-    # Also configure root to catch uvicorn/fastapi low-level logs if needed
-    # logging.getLogger().addHandler(handler) 
-    # logging.getLogger().setLevel(settings.log_level.upper())
 
 
 router = APIRouter(prefix="/api/v1", tags=["Incidents"])
 
+# Models for request/response payloads
 class AlertTextPayload(BaseModel):
     alert_text: str = Field(..., description="The raw text content of the alert or report.")
 
-# --- API Endpoints ---
+class StatusUpdatePayload(BaseModel):
+    status: str = Field(..., example="Resolved", description="The new status for the incident.")
+
+class EidoTemplateFillPayload(BaseModel):
+    template_name: str = Field(..., example="traffic_collision.json", description="Filename of the EIDO template.")
+    scenario_description: str = Field(..., description="Text description of the scenario to fill the template.")
+
+# Dependency to get an instance of IncidentStore (which now uses DB)
+# We don't need to pass the store itself if methods are static or agent handles it.
+# Agent now has its own store instance.
+# We can use the global `eido_agent_instance` for processing.
 
 @router.post("/ingest",
              summary="Ingest a single EIDO report (JSON)",
-             description="Receives an EIDO report in JSON dictionary format, processes it using the agent, and returns the result.",
-             status_code=status.HTTP_201_CREATED,
-             response_description="Processing result including incident ID and status message")
+             response_description="Processing result",
+             status_code=status.HTTP_201_CREATED)
 async def ingest_eido_report(eido_data: Dict = Body(..., example={
                                                         "eidoMessageIdentifier": "msg_example_123", "$id": "msg_example_123",
                                                         "sendingSystemIdentifier": "CADSystemX", "lastUpdateTimeStamp": "2024-10-26T10:00:00Z",
@@ -46,18 +55,18 @@ async def ingest_eido_report(eido_data: Dict = Body(..., example={
     msg_id_hint = eido_data.get('eidoMessageIdentifier', eido_data.get('$id', 'N/A'))
     app_logger.info(f"API /ingest received EIDO JSON data (ID hint: {msg_id_hint}).")
     try:
-        result_dict = eido_agent_instance.process_report_json(eido_data)
-        incident_id = result_dict.get('incident_id')
+        # eido_agent_instance methods are now async
+        result_dict = await eido_agent_instance.process_report_json(eido_data)
         status_message = result_dict.get('status', 'Processing status unknown')
 
-        if incident_id and status_message.lower() == "success":
-            response_data = {"message": "EIDO report processed successfully.", **result_dict}
-            return response_data
+        if result_dict.get('incident_id') and status_message.lower() == "success":
+            return {"message": "EIDO report processed successfully.", **result_dict}
         elif status_message.lower().startswith("input error"):
              app_logger.error(f"API /ingest input error: {status_message}")
              raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed: {status_message}")
         else:
             app_logger.error(f"API /ingest processing error: {status_message}")
+            # Use a more specific error code if agent indicates specific failure types
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed: {status_message}")
     except HTTPException as http_exc: raise http_exc
     except Exception as e:
@@ -66,28 +75,18 @@ async def ingest_eido_report(eido_data: Dict = Body(..., example={
 
 
 @router.post("/ingest_alert",
-             summary="Ingest raw alert text (potentially multiple events)",
-             description="Receives raw alert text. The agent attempts to split it into individual events, parse each into an EIDO-like structure, process them, and return results.",
-             response_description="List of processing results for each identified event.")
-async def ingest_alert_text(payload: AlertTextPayload, response: Response):
+             summary="Ingest raw alert text",
+             response_description="List of processing results")
+async def ingest_alert_text_endpoint(payload: AlertTextPayload, response: Response): # Renamed to avoid conflict
     alert_text = payload.alert_text
     app_logger.info(f"API /ingest_alert received raw alert text (Length: {len(alert_text)}).")
     if not alert_text:
          raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Field 'alert_text' cannot be empty.")
-
     try:
-        results_union: Union[Dict, List[Dict]] = eido_agent_instance.process_alert_text(alert_text)
+        # eido_agent_instance methods are now async
+        results_union: Union[Dict, List[Dict]] = await eido_agent_instance.process_alert_text(alert_text)
         
-        # Standardize response to always be a list for this endpoint
-        results_list: List[Dict] = []
-        if isinstance(results_union, dict): 
-            results_list = [results_union]
-        elif isinstance(results_union, list):
-            results_list = results_union
-        else: # Should not happen if agent returns Dict or List[Dict]
-            app_logger.error(f"API /ingest_alert: Agent returned unexpected type: {type(results_union)}")
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Agent processing yielded an invalid result format.")
-
+        results_list: List[Dict] = [results_union] if isinstance(results_union, dict) else (results_union if isinstance(results_union, list) else [])
 
         if not results_list: 
             app_logger.error("API /ingest_alert: Agent returned no results for the alert text.")
@@ -104,10 +103,8 @@ async def ingest_alert_text(payload: AlertTextPayload, response: Response):
                     some_successful = True
                     if res_dict.get('incident_id'): processed_incident_ids.add(res_dict.get('incident_id'))
                 else:
-                    all_successful = False
-                    error_messages.append(res_dict.get('status_detail', status_message))
-            else: 
-                all_successful = False; error_messages.append("Invalid result format for an event from agent.")
+                    all_successful = False; error_messages.append(res_dict.get('status_detail', status_message))
+            else: all_successful = False; error_messages.append("Invalid result format for an event.")
         
         response_data = {
             "message": "Alert text processing attempted.",
@@ -116,84 +113,102 @@ async def ingest_alert_text(payload: AlertTextPayload, response: Response):
             "details": results_list 
         }
         
-        # Determine appropriate status code for the HTTP response object
-        if all_successful:
-            response.status_code = status.HTTP_201_CREATED
-        elif some_successful:
-            response.status_code = status.HTTP_207_MULTI_STATUS
-        else: # Complete failure
-            response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-            # Update detail for HTTPException if we were to raise it
-            # detail_msg = "; ".join(error_messages) if error_messages else "Processing failed for all events."
-            # raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail_msg)
-
+        response.status_code = status.HTTP_201_CREATED if all_successful else (status.HTTP_207_MULTI_STATUS if some_successful else status.HTTP_500_INTERNAL_SERVER_ERROR)
         return response_data
 
-    except HTTPException as http_exc: raise http_exc # Re-raise if already an HTTPException
+    except HTTPException as http_exc: raise http_exc
     except Exception as e:
         app_logger.critical(f"API /ingest_alert unexpected error: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {type(e).__name__}")
 
+# New store instance for direct DB access from endpoints
+db_incident_store = IncidentStore()
 
-@router.get("/incidents", response_model=List[Incident], summary="List all incidents")
-async def get_all_incidents():
+@router.get("/incidents", response_model=List[PydanticIncident], summary="List all incidents")
+async def get_all_incidents_endpoint(): # Renamed
     app_logger.info("API request received for /incidents")
-    return incident_store.get_all_incidents()
+    return await db_incident_store.get_all_incidents()
 
-@router.get("/incidents/active", response_model=List[Incident], summary="List active incidents")
-async def get_active_incidents():
+@router.get("/incidents/active", response_model=List[PydanticIncident], summary="List active incidents")
+async def get_active_incidents_endpoint(): # Renamed
     app_logger.info("API request received for /incidents/active")
-    return incident_store.get_active_incidents()
+    return await db_incident_store.get_active_incidents()
 
-@router.get("/incidents/{incident_id}", response_model=Incident, summary="Get incident details", responses={404: {"description": "Incident not found"}})
-async def get_incident_details(incident_id: str):
+@router.get("/incidents/{incident_id}", response_model=PydanticIncident, summary="Get incident details", responses={404: {"description": "Incident not found"}})
+async def get_incident_details_endpoint(incident_id: str): # Renamed
     app_logger.info(f"API request received for /incidents/{incident_id}")
-    incident = incident_store.get_incident(incident_id)
+    incident = await db_incident_store.get_incident(incident_id)
     if incident: return incident
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Incident with ID '{incident_id}' not found.")
 
-@router.get("/incidents/{incident_id}/summary", summary="Get incident summary", responses={404: {"description": "Incident not found"}})
-async def get_incident_summary_api(incident_id: str):
-    app_logger.info(f"API request received for /incidents/{incident_id}/summary")
-    incident = incident_store.get_incident(incident_id)
-    if incident: return {"incident_id": incident_id, "summary": incident.summary}
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Incident with ID '{incident_id}' not found.")
-
-@router.get("/incidents/{incident_id}/recommendations", summary="Get recommended actions", responses={404: {"description": "Incident not found"}})
-async def get_incident_recommendations_api(incident_id: str):
-    app_logger.info(f"API request received for /incidents/{incident_id}/recommendations")
-    incident = incident_store.get_incident(incident_id)
-    if incident: return {"incident_id": incident_id, "recommended_actions": incident.recommended_actions}
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Incident with ID '{incident_id}' not found.")
-
-class StatusUpdatePayload(BaseModel):
-    status: str = Field(..., example="Resolved", description="The new status for the incident.")
-
 @router.put("/incidents/{incident_id}/status", summary="Update incident status", tags=["Admin"], responses={404: {"description": "Incident not found"}, 400: {"description": "Invalid status"}})
-async def update_incident_status_api(incident_id: str, payload: StatusUpdatePayload):
+async def update_incident_status_endpoint(incident_id: str, payload: StatusUpdatePayload): # Renamed
     new_status = payload.status
     app_logger.info(f"API request to update status for Incident {incident_id} to '{new_status}'")
-    incident = incident_store.get_incident(incident_id)
-    if not incident:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Incident with ID '{incident_id}' not found.")
     
     allowed_statuses = ["Active", "Updated", "Monitoring", "Resolved", "Closed"] 
     if new_status not in allowed_statuses:
          raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid status value '{new_status}'. Allowed: {allowed_statuses}")
-    try:
-        incident_store.update_incident_status(incident_id, new_status)
+    
+    success = await db_incident_store.update_incident_status(incident_id, new_status)
+    if success:
         return {"message": f"Incident {incident_id} status updated to '{new_status}'."}
-    except Exception as e:
-         app_logger.error(f"Failed to update status for incident {incident_id} in store: {e}", exc_info=True)
-         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update incident status.")
+    else:
+        # update_incident_status logs warnings for non-existent incident or other failures.
+        # If it returns False, it means either not found or another issue.
+        # Check if incident exists first to give specific 404.
+        incident_check = await db_incident_store.get_incident(incident_id)
+        if not incident_check:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Incident with ID '{incident_id}' not found for status update.")
+        else: # Other failure during update
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update incident status.")
+
 
 @router.delete("/admin/clear_store", summary="Clear all incidents (Admin)", tags=["Admin"], status_code=status.HTTP_200_OK)
-async def clear_incident_store():
+async def clear_incident_store_endpoint(): # Renamed
     app_logger.warning("API request received to clear the entire incident store.")
     try:
-        count = len(incident_store.get_all_incidents())
-        incident_store.clear_store()
-        return {"message": f"Incident store cleared successfully. {count} incidents removed."}
+        await db_incident_store.clear_store()
+        return {"message": f"Incident store cleared successfully."}
     except Exception as e:
          app_logger.error(f"Failed to clear incident store via API: {e}", exc_info=True)
          raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to clear incident store.")
+
+# Endpoint for EIDO Generator
+@router.post("/generate_eido_from_template",
+             summary="Generate EIDO JSON from template and scenario",
+             response_description="Generated EIDO JSON string or error",
+             tags=["EIDO Tools"])
+async def generate_eido_from_template_endpoint(payload: EidoTemplateFillPayload):
+    app_logger.info(f"API /generate_eido_from_template called for template: {payload.template_name}")
+    
+    # Construct path to template
+    # Ensure TEMPLATE_DIR is accessible here or pass as config
+    project_root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    template_dir_path = os.path.join(project_root_dir, "eido_templates")
+    template_path = os.path.join(template_dir_path, payload.template_name)
+
+    if not os.path.exists(template_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Template '{payload.template_name}' not found.")
+
+    try:
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template_content = f.read()
+    except Exception as e:
+        app_logger.error(f"Error reading template file '{payload.template_name}': {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error reading template file.")
+
+    # LLM call through llm_interface
+    generated_json_str = fill_eido_template(template_content, payload.scenario_description) # This is synchronous
+
+    if generated_json_str:
+        try:
+            # Validate if it's JSON before returning
+            parsed_json = json.loads(generated_json_str)
+            return {"generated_eido": parsed_json} # Return parsed JSON
+        except json.JSONDecodeError:
+            app_logger.error(f"LLM generated non-JSON output for template '{payload.template_name}'. Output: {generated_json_str[:200]}...")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="LLM generated invalid JSON output.")
+    else:
+        app_logger.error(f"LLM failed to fill template '{payload.template_name}'.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="LLM failed to generate EIDO from template.")

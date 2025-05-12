@@ -3,27 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EIDO Sentinel: AI-Powered Incident Intelligence</title>
-    <link rel="stylesheet" href="/static/css/styles.css"> <!-- Path updated -->
-    <link
-        href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Open+Sans:wght@400;600&display=swap"
-        rel="stylesheet">
-    <!-- Favicon (optional but good practice) -->
-    <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon">
+    <title>EIDO Sentinel</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="/static/images/favicon.png">
 </head>
 
 <body>
     <nav class="navbar">
         <div class="container">
-            <a href="#" class="nav-logo animate-on-scroll"><img src="/static/images/logo_icon_light.png"
-                    alt="EIDO Sentinel Logo" class="logo-img"> EIDO Sentinel</a>
+            <a href="#" class="nav-logo animate-on-scroll">
+                <img src="/static/images/logo_icon_light.png" alt="EIDO Sentinel Logo" class="logo-img"> EIDO Sentinel
+            </a>
             <ul class="nav-menu">
-                <li><a href="#overview" class="animate-on-scroll">Overview</a></li>
-                <li><a href="#features" class="animate-on-scroll">Features</a></li>
-                <li><a href="#ai-implications" class="animate-on-scroll">AI Impact</a></li>
-                <li><a href="#tutorial-links" class="animate-on-scroll">Tutorials</a></li>
-                <li><a href="http://localhost:8501" target="_blank" class="btn btn-nav animate-on-scroll">Launch Demo
-                        App</a></li>
+                <li><a href="#platform" class="animate-on-scroll nav-link">Platform</a></li>
+                <li><a href="#solutions" class="animate-on-scroll nav-link">Solutions</a></li>
+                <li><a href="#collaboration" class="animate-on-scroll nav-link">Collaborate</a></li>
+                <li><a href="#capabilities" class="animate-on-scroll nav-link">Capabilities</a></li>
+                <li><a href="https://your-streamlit-app-name.streamlit.app" target="_blank"
+                        class="btn btn-nav animate-on-scroll">Launch Demo</a></li> <!-- Placeholder URL -->
             </ul>
             <button class="hamburger" aria-label="Toggle menu">
                 <span></span>
@@ -34,240 +34,160 @@
     </nav>
 
     <header class="hero-section">
-        <div class="container">
-            <h1 class="animate-hero-title">EIDO Sentinel: Intelligent Incident Processing</h1>
-            <p class="animate-hero-subtitle lead">Revolutionizing emergency response with AI-powered data analysis,
-                correlation, and decision support. Understand incidents faster, act decisively.</p>
+        <video autoplay muted loop playsinline id="hero-video-background">
+            <source src="/static/videos/hero_background.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <div class="hero-overlay"></div>
+        <div class="container hero-content">
+            <h1 class="animate-hero-title">The Operating System for Public Safety Intelligence</h1>
+            <p class="animate-hero-subtitle lead">EIDO Sentinel fuses diverse data streams with advanced AI to deliver
+                critical insights, empowering safety professionals to make faster, data-driven decisions when it matters
+                most.</p>
             <div class="hero-buttons">
-                <a href="http://localhost:8501" target="_blank" class="btn btn-primary animate-hero-button">🚀 Launch
-                    Interactive Demo</a>
-                <a href="#features" class="btn btn-secondary animate-hero-button">Explore Features</a>
+                <a href="https://your-streamlit-app-name.streamlit.app" target="_blank"
+                    class="btn btn-primary animate-hero-button">Explore the Platform</a> <!-- Placeholder URL -->
+                <a href="#solutions" class="btn btn-secondary animate-hero-button">Discover Solutions</a>
             </div>
-        </div>
-        <div class="hero-bg-animation">
-            <!-- Placeholder for more complex JS/CSS background animations -->
-            <div class="shape shape1"></div>
-            <div class="shape shape2"></div>
-            <div class="shape shape3"></div>
         </div>
     </header>
 
     <main>
-        <section id="overview" class="content-section">
+        <section id="platform" class="content-section platform-overview">
             <div class="container">
-                <h2 class="animate-on-scroll">Welcome to EIDO Sentinel</h2>
-                <p class="lead animate-on-scroll">EIDO Sentinel is an in-development AI agent
-                    engineered to dramatically improve how emergency communications and incident reports are managed. With 
-                    leveraging Large Language Models and modern data processing, EIDO
-                    Sentinel offers efficient, intelligent, and responsive framework for public safety
-                    operations.</p>
-                <p class="animate-on-scroll">We tackle the challenge of diverse data formats, information overload, and
-                    the need for rapid sense-making in critical situations; hoping to organize structured NENA EIDO
-                    JSON messages or unstructured raw text alerts, EIDO Sentinel transforms raw data into actionable
-                    intelligence.</p>
+                <h2 class="animate-on-scroll">Unified Intelligence for Critical Operations</h2>
+                <p class="lead animate-on-scroll">
+                    EIDO Sentinel is an AI-native platform engineered to ingest, process, and analyze complex data from
+                    the front lines of public safety. We transform raw information into a coherent operational picture,
+                    enabling proactive responses and strategic resource allocation.
+                </p>
                 <div class="visual-placeholder animate-on-scroll">
                     <img src="/static/images/conceptual_diagram_placeholder.png"
-                        alt="Conceptual Diagram of EIDO Sentinel Workflow">
-                    <p><em>[Conceptual Diagram: EIDO Sentinel's data flow from input to insight]</em></p>
+                        alt="EIDO Sentinel fusing data from various sources into a central intelligence hub.">
+                    <p><em>Data Ingestion & AI-Powered Fusion: The core of EIDO Sentinel's intelligent processing
+                            capability.</em></p>
                 </div>
             </div>
         </section>
 
-        <section id="features" class="content-section alt-bg">
+        <section id="solutions" class="content-section alt-bg solutions-focused">
             <div class="container">
-                <h2 class="animate-on-scroll">Key Capabilities Showcase</h2>
+                <h2 class="animate-on-scroll">AI-Driven Solutions for Public Safety Challenges</h2>
+                <p class="lead animate-on-scroll">Our platform is evolving to address key operational needs in emergency
+                    response and incident management through targeted AI applications.</p>
                 <div class="features-grid">
                     <div class="feature-card animate-on-scroll">
-                        <div class="feature-icon">📥</div>
-                        <h3>Multi-Format Ingestion</h3>
-                        <p>Seamlessly processes standardized NENA EIDO JSON and unstructured raw alert text (CAD
-                            summaries, SMS, dispatch notes).</p>
+                        <div class="feature-icon"></div>
+                        <h3>Historical Insight Engine</h3>
+                        <p>Unlock patterns and predictive insights from historical incident data to inform current
+                            operations and strategic planning. Enhances matching and contextual awareness.</p>
                     </div>
                     <div class="feature-card animate-on-scroll" style="--animation-order: 1;">
-                        <div class="feature-icon">🧠</div>
-                        <h3>LLM-Powered Parsing</h3>
-                        <p>Intelligently splits multi-event text, extracts key fields, and converts text to EIDO-like
-                            JSON, enhanced by RAG.</p>
+                        <div class="feature-icon"></div>
+                        <h3>Real-Time Event Correlation</h3>
+                        <p>Continuously ingest and process live data feeds (CAD, sensors, alerts) for immediate event
+                            correlation and enhanced situational awareness.</p>
                     </div>
                     <div class="feature-card animate-on-scroll" style="--animation-order: 2;">
-                        <div class="feature-icon">⚙️</div>
-                        <h3>Flexible EIDO Processing</h3>
-                        <p>Robustly extracts data from varied EIDO JSON, handling embedded XML (PIDF-LO) and free-text
-                            locations.</p>
+                        <div class="feature-icon"></div>
+                        <h3>EIDO Interoperability Suite</h3>
+                        <p>Advanced data wrappers and utilities for seamless conversion of disparate data formats into
+                            NENA-compliant EIDO, fostering cross-system data exchange.</p>
                     </div>
                     <div class="feature-card animate-on-scroll" style="--animation-order: 3;">
-                        <div class="feature-icon">🔗</div>
-                        <h3>Incident Correlation</h3>
-                        <p>Matches incoming reports to existing incidents based on time, location, and external IDs for
-                            a consolidated view.</p>
+                        <div class="feature-icon"></div>
+                        <h3>Intelligent IDX Agent</h3>
+                        <p>Specialized agent capabilities for robust Information Data Exchange (IDX), enabling automated
+                            communication with diverse public safety platforms.</p>
                     </div>
                     <div class="feature-card animate-on-scroll" style="--animation-order: 4;">
-                        <div class="feature-icon">💡</div>
-                        <h3>AI Summarization & Actions</h3>
-                        <p>Generates evolving, concise incident summaries and suggests actionable next steps for
-                            responders.</p>
+                        <div class="feature-icon"></div>
+                        <h3>Secure Information & Alerting Framework</h3>
+                        <p>Enterprise-grade security for data handling, coupled with an intelligent notification system
+                            for critical, context-aware alerts to relevant personnel.</p>
                     </div>
                     <div class="feature-card animate-on-scroll" style="--animation-order: 5;">
-                        <div class="feature-icon">📝</div>
-                        <h3>EIDO Generation Tool</h3>
-                        <p>Facilitates creating compliant EIDO JSON examples using templates and LLM assistance,
-                            augmented by RAG.</p>
-                    </div>
-                    <div class="feature-card animate-on-scroll" style="--animation-order: 6;">
-                        <div class="feature-icon">🎛️</div>
-                        <h3>Configurable LLM Backend</h3>
-                        <p>Dynamically switch between Google Gemini, OpenRouter, and Local LLMs (Ollama, LM Studio) via
-                            the UI.</p>
-                    </div>
-                    <div class="feature-card animate-on-scroll" style="--animation-order: 7;">
-                        <div class="feature-icon">🖥️</div>
-                        <h3>Interactive Demo App</h3>
-                        <p>A Streamlit-based dashboard for ingestion, LLM config, visualization, filtering, and EIDO
-                            exploration.</p>
-                    </div>
-                    <div class="feature-card animate-on-scroll" style="--animation-order: 8;">
-                        <div class="feature-icon">🔌</div>
-                        <h3>API Backend (FastAPI)</h3>
-                        <p>RESTful endpoints for programmatic ingestion and data retrieval, enabling system integration.
-                        </p>
+                        <div class="feature-icon"></div>
+                        <h3>Operational Pilot Programs</h3>
+                        <p>Partnering with agencies to deploy and validate EIDO Sentinel in real-world scenarios,
+                            refining capabilities based on operational feedback.</p>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section id="tutorial-links" class="content-section">
+        <section id="collaboration" class="content-section collaboration-section">
             <div class="container">
-                <h2 class="animate-on-scroll">How to Use EIDO Sentinel</h2>
-                <p class="lead animate-on-scroll">Dive deeper into EIDO Sentinel's capabilities with our detailed
-                    tutorials for both the interactive demo application and the developer API.</p>
-                <div class="tutorial-links-grid">
-                    <div class="tutorial-link-card animate-on-scroll">
-                        <img src="/static/images/ui_tutorial_placeholder.png" alt="UI Tutorial Thumbnail"
-                            class="tutorial-img">
-                        <h3>Interactive Demo (UI) Tutorial</h3>
-                        <p>A step-by-step guide to using the Streamlit dashboard for ingesting data, configuring the AI,
-                            visualizing incidents, and leveraging its analytical tools. Perfect for understanding the
-                            agent's workflow and impact.</p>
-                        <a href="http://localhost:8501" target="_blank" class="btn btn-primary">Launch Demo & View
-                            Tutorial</a>
-                        <p><small>(Tutorial content is integrated within the demo app or linked from there)</small></p>
-                    </div>
-                    <div class="tutorial-link-card animate-on-scroll" style="--animation-order: 1;">
-                        <img src="/static/images/api_tutorial_placeholder.png" alt="API Tutorial Thumbnail"
-                            class="tutorial-img">
-                        <h3>Developer API Tutorial</h3>
-                        <p>Learn how to interact with EIDO Sentinel programmatically using its FastAPI backend. Covers
-                            key endpoints for data ingestion, incident retrieval, and system integration. Ideal for
-                            developers.</p>
-                        <a href="http://localhost:8000/docs" target="_blank" class="btn btn-secondary">Access API Docs</a>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="ai-implications" class="content-section alt-bg">
-            <div class="container">
-                <h2 class="animate-on-scroll">The Future is Agentic: AI in Public Safety</h2>
-                <p class="lead animate-on-scroll">EIDO Sentinel is more than just a data processor; it's a glimpse into
-                    how AI and agentic workflows can fundamentally reshape public safety operations, enhancing
-                    efficiency, awareness, and decision-making.</p>
-
+                <h2 class="animate-on-scroll">Partner with Us: Advance Public Safety Together</h2>
+                <p class="lead animate-on-scroll">The evolution of EIDO Sentinel is driven by collaboration. We seek to
+                    partner with public safety agencies, NG9-1-1 stakeholders, and technology innovators to build the
+                    next generation of safety AI.</p>
                 <div class="implications-grid">
-                    <div class="implication-card animate-on-scroll">
-                        <div class="implication-icon">👮</div>
-                        <h3>Implications for Law Enforcement</h3>
-                        <ul>
-                            <li><strong>Enhanced Situational Awareness:</strong> Rapidly consolidates diverse data into
-                                a unified, coherent picture.</li>
-                            <li><strong>Efficient Resource Allocation:</strong> AI can help dispatchers deploy resources
-                                more effectively by identifying patterns and correlations.</li>
-                            <li><strong>Streamlined Reporting:</strong> Automates extraction of key details, reducing
-                                manual data entry and aiding investigations.</li>
-                        </ul>
-                        <div class="visual-placeholder-inline animate-on-scroll">
-                            <img src="/static/images/police_ai_placeholder.png" alt="AI assisting law enforcement">
-                        </div>
-                    </div>
-
-                    <div class="implication-card animate-on-scroll" style="--animation-order: 1;">
-                        <div class="implication-icon">📢</div>
-                        <h3>Transforming Warning & Alert Pipelines</h3>
-                        <ul>
-                            <li><strong>Automated Alert Generation:</strong> LLMs can draft initial warning messages
-                                based on incident details, speeding up dissemination.</li>
-                            <li><strong>Targeted Dissemination:</strong> AI can help identify relevant populations for
-                                specific warnings.</li>
-                            <li><strong>Improved Accessibility:</strong> Generate summaries in multiple languages or
-                                simplified formats.</li>
-                        </ul>
-                        <div class="visual-placeholder-inline animate-on-scroll">
-                            <img src="/static/images/alert_pipeline_placeholder.png" alt="AI in alert pipeline">
-                        </div>
-                    </div>
-                </div>
-                <div class="implication-card full-width-card animate-on-scroll" style="--animation-order: 2;">
-                    <div class="implication-icon">🤖</div>
-                    <h3>The Power of Agentic AI Workflows</h3>
-                    <p>Agentic AI moves beyond simple processing to systems that can plan, reason, and use tools
-                        autonomously. For EIDO Sentinel, this could mean:</p>
-                    <ul>
-                        <li><strong>Proactive Monitoring:</strong> Continuously monitoring data streams to flag
-                            potential incidents.</li>
-                        <li><strong>Autonomous Tool Use:</strong> Querying GIS, weather APIs, or internal databases
-                            automatically.</li>
-                        <li><strong>Complex Decision Support:</strong> Assisting in multi-step decision-making by
-                            combining LLM reasoning with structured data and tool outputs.</li>
-                    </ul>
-                    <div class="visual-placeholder-inline animate-on-scroll">
-                        <img src="/static/images/agentic_ai_workflow_placeholder.png" alt="Agentic AI Workflow Diagram">
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="privacy-finetuning" class="content-section">
-            <div class="container">
-                <h2 class="animate-on-scroll">Precision & Privacy: Fine-tuning and Local LLMs</h2>
-                <p class="lead animate-on-scroll">For mission-critical public safety applications, accuracy,
-                    reliability, and privacy are non-negotiable. EIDO Sentinel's architecture is designed with these in
-                    mind.</p>
-
-                <div class="privacy-grid">
-                    <div class="privacy-card animate-on-scroll">
-                        <h3>🎯 Fine-tuning for Mission-Critical Alerting</h3>
-                        <p>Tailoring LLMs with domain-specific data (agency SOPs, historical reports) enhances
-                            understanding of specialized language, improves accuracy for specific events, and ensures
-                            adherence to protocols.</p>
-                        <div class="visual-placeholder-inline animate-on-scroll">
-                            <img src="/static/images/finetuning_graph_placeholder.png"
-                                alt="Fine-tuning accuracy improvement">
-                        </div>
-                    </div>
-
-                    <div class="privacy-card animate-on-scroll" style="--animation-order: 1;">
-                        <h3>🛡️ Local LLMs for Uncompromised Privacy</h3>
-                        <p>Running LLMs on-premises (e.g., via Ollama) keeps all sensitive data within the agency's
-                            secure infrastructure, ensuring data sovereignty, enhancing security, and aiding compliance
-                            with regulations like CJIS.</p>
-                        <div class="visual-placeholder-inline animate-on-scroll">
-                            <img src="/static/images/local_llm_privacy_placeholder.png"
-                                alt="Secure local LLM deployment">
+                    <div class="implication-card animate-on-scroll full-width-card">
+                        <div class="implication-icon"></div>
+                        <h3>Engage with Our Development</h3>
+                        <div class="card-content">
+                            <p><strong>Operational Alignment:</strong> How can EIDO Sentinel best integrate with and
+                                enhance your current workflows and NG9-1-1 strategies?</p>
+                            <p><strong>Challenge Identification:</strong> What are your most significant pain points in
+                                report processing, data analysis, and alerting that AI could effectively address?</p>
+                            <p><strong>Automation Potential:</strong> Which manual, resource-intensive tasks in your
+                                operations are ideal candidates for AI-driven automation?</p>
+                            <p><strong>Data Collaboration:</strong> Access to anonymized, synthetic, or sample data is
+                                crucial for refining our AI models. We are eager to explore secure, ethical data
+                                partnerships to accelerate development and ensure real-world applicability.</p>
+                            <p style="text-align: center; margin-top: 25px;">
+                                <a href="mailto:contact@eidosentinel.example.com?subject=EIDO%20Sentinel%20Collaboration%20Inquiry"
+                                    class="btn btn-primary">Discuss a Partnership</a>
+                            </p>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section id="vision" class="content-section alt-bg">
+        <section id="capabilities" class="content-section alt-bg">
             <div class="container">
-                <h2 class="animate-on-scroll">The Vision for EIDO Sentinel</h2>
-                <p class="lead animate-on-scroll">EIDO Sentinel is a foundational step. The vision extends to a
-                    comprehensive AI partner for emergency services, enabling proactive intelligence, multi-modal
-                    understanding, advanced agentic reasoning, continuous learning, and seamless system integration. We
-                    aim for AI that is not just a tool, but a true collaborator in the critical mission of public
-                    safety.</p>
-                <div class="visual-placeholder animate-on-scroll">
-                    <img src="/static/images/future_vision_placeholder.png" alt="Future vision of AI in public safety">
+                <h2 class="animate-on-scroll">Core Platform Capabilities</h2>
+                <p class="lead animate-on-scroll">EIDO Sentinel's foundation is built on a suite of powerful features
+                    for intelligent data processing and operational support.</p>
+                <div class="features-grid">
+                    <div class="feature-card animate-on-scroll">
+                        <div class="feature-icon"></div>
+                        <h3>Multi-Source Data Ingestion</h3>
+                        <p>Processes NENA EIDO JSON, unstructured text alerts, and image-based text via OCR, creating a
+                            unified data pipeline.</p>
+                    </div>
+                    <div class="feature-card animate-on-scroll" style="--animation-order: 1;">
+                        <div class="feature-icon"></div>
+                        <h3>AI-Powered Semantic Parsing</h3>
+                        <p>Advanced LLM capabilities extract key entities and context from text, enhanced by RAG for
+                            domain-specific accuracy.</p>
+                    </div>
+                    <div class="feature-card animate-on-scroll" style="--animation-order: 2;">
+                        <div class="feature-icon"></div>
+                        <h3>Dynamic Incident Correlation</h3>
+                        <p>Intelligently links new reports to existing incidents through sophisticated analysis of
+                            temporal, spatial, and identifier data.</p>
+                    </div>
+                    <div class="feature-card animate-on-scroll" style="--animation-order: 3;">
+                        <div class="feature-icon"></div>
+                        <h3>Automated Intelligence Generation</h3>
+                        <p>Produces evolving incident summaries and context-aware action recommendations to support
+                            rapid decision-making.</p>
+                    </div>
+                    <div class="feature-card animate-on-scroll" style="--animation-order: 4;">
+                        <div class="feature-icon"></div>
+                        <h3>Flexible LLM Architecture</h3>
+                        <p>Supports diverse LLM backends including Google Gemini, OpenRouter models, and local LLMs for
+                            optimal performance and security.</p>
+                    </div>
+                    <div class="feature-card animate-on-scroll" style="--animation-order: 5;">
+                        <div class="feature-icon"></div>
+                        <h3>Interactive Demonstration & Analysis UI</h3>
+                        <p>A Streamlit application provides a hands-on environment for data ingestion, LLM
+                            configuration, and in-depth incident data visualization.</p>
+                    </div>
                 </div>
             </div>
         </section>
@@ -276,13 +196,17 @@
     <footer class="footer-section">
         <div class="container">
             <p>&copy; 2024 EIDO Sentinel Project. Licensed under the MIT License.</p>
-            <p>This is a Proof-of-Concept and not intended for operational use without further development and
-                validation.</p>
-            <p><a href="https://github.com/LXString/eido-sentinel" target="_blank">View on GitHub</a></p>
+            <p>EIDO Sentinel is a research and development initiative. It is not intended for operational deployment
+                without rigorous validation and adherence to all applicable safety and regulatory standards.</p>
+            <div class="external-links">
+                <a href="https://www.linkedin.com/in/klh005" target="_blank">LinkedIn</a> |
+                <a href="https://github.com/DevKlim/eido-agent" target="_blank">GitHub</a> |
+                <a href="https://www.sdsc.edu" target="_blank">UCSD SDSC</a>
+            </div>
         </div>
     </footer>
 
-    <script src="/static/js/main.js"></script> <!-- Path updated -->
+    <script src="/static/js/main.js"></script>
 </body>
 
 </html>

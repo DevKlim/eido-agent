@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetId = this.getAttribute('href');
             const targetElement = document.querySelector(targetId);
             if (targetElement) {
-                // Calculate position considering the fixed navbar height
                 const navbarHeight = document.querySelector('.navbar').offsetHeight;
                 const elementPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
                 const offsetPosition = elementPosition - navbarHeight;
@@ -16,7 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     top: offsetPosition,
                     behavior: 'smooth'
                 });
-                // Close mobile menu if open
+
+                // Close hamburger menu if open
                 if (document.querySelector('.nav-menu.active')) {
                     document.querySelector('.nav-menu').classList.remove('active');
                     document.querySelector('.hamburger').classList.remove('active');
@@ -25,13 +25,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Scroll-based animations
+    // Scroll-based animations for elements with .animate-on-scroll
     const scrollElements = document.querySelectorAll('.animate-on-scroll');
     const elementInView = (el, percentageScroll = 100) => {
         const elementTop = el.getBoundingClientRect().top;
         return (
             elementTop <=
-            (window.innerHeight || document.documentElement.clientHeight) * (percentageScroll / 100)
+            ((window.innerHeight || document.documentElement.clientHeight) * (percentageScroll / 100))
         );
     };
 
@@ -41,37 +41,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleScrollAnimation = () => {
         scrollElements.forEach((el) => {
-            if (elementInView(el, 80)) { // Trigger when 80% of the element is visible
-                displayScrollElement(el);
+            // Stagger animation for feature cards if they have an animation-order style
+            const delay = parseFloat(el.style.getPropertyValue('--animation-order')) * 150; // 150ms delay per order
+            if (elementInView(el, 85)) { // Start animation when 85% of element is in view
+                setTimeout(() => {
+                    displayScrollElement(el);
+                }, delay || 0);
             }
         });
     };
 
-    window.addEventListener('scroll', () => {
-        handleScrollAnimation();
-    });
-    // Initial check in case elements are already in view
-    handleScrollAnimation();
+    window.addEventListener('scroll', handleScrollAnimation);
+    handleScrollAnimation(); // Initial check on page load
 
-
-    // Hero section text animation (if not handled by CSS keyframes)
-    // This is an example of a simple stagger animation.
-    // The CSS @keyframes approach is generally preferred for simple appearances.
-    // If more complex sequencing is needed, JS is better.
+    // Hero section specific text animations (triggered on load)
     const heroTitle = document.querySelector('.animate-hero-title');
     const heroSubtitle = document.querySelector('.animate-hero-subtitle');
     const heroButtons = document.querySelector('.hero-buttons');
 
-    if (heroTitle) heroTitle.style.animationDelay = '0.2s';
-    if (heroSubtitle) heroSubtitle.style.animationDelay = '0.5s';
-    if (heroButtons) heroButtons.style.animationDelay = '0.8s';
-
-    // Apply 'visible' class for CSS animations to start
+    // Using a small timeout to ensure styles are applied before animation starts
     setTimeout(() => {
-        if (heroTitle) heroTitle.classList.add('visible');
-        if (heroSubtitle) heroSubtitle.classList.add('visible');
-        if (heroButtons) heroButtons.classList.add('visible');
-    }, 100); // Slight delay to ensure CSS is ready
+        if (heroTitle) { heroTitle.style.opacity = '1'; heroTitle.style.transform = 'translateY(0)'; }
+        if (heroSubtitle) { heroSubtitle.style.opacity = '1'; heroSubtitle.style.transform = 'translateY(0)'; }
+        if (heroButtons) { heroButtons.style.opacity = '1'; heroButtons.style.transform = 'translateY(0)'; }
+    }, 100);
+
 
     // Hamburger menu toggle
     const hamburger = document.querySelector('.hamburger');
@@ -86,29 +80,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Active Nav Link Highlighting on Scroll
     const sections = document.querySelectorAll('main section[id]');
+    const navMenuLinks = document.querySelectorAll('.nav-menu a');
+
     function navHighlighter() {
-        let scrollY = window.pageYOffset;
+        const scrollY = window.pageYOffset;
         const navbarHeight = document.querySelector('.navbar').offsetHeight;
+        let currentSectionId = "";
 
         sections.forEach(current => {
             const sectionHeight = current.offsetHeight;
-            const sectionTop = current.offsetTop - navbarHeight - 50; // Adjust offset as needed
-            let sectionId = current.getAttribute('id');
+            // Adjust sectionTop to trigger highlight a bit earlier or later if needed
+            const sectionTop = current.offsetTop - navbarHeight - Math.min(100, window.innerHeight * 0.2);
 
-            let navLink = document.querySelector('.nav-menu a[href*=' + sectionId + ']');
-
-            if (navLink) {
-                if (scrollY > sectionTop && scrollY <= sectionTop + sectionHeight) {
-                    document.querySelectorAll('.nav-menu a').forEach(link => link.classList.remove('active'));
-                    navLink.classList.add('active');
-                } else {
-                    navLink.classList.remove('active');
-                }
+            if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
+                currentSectionId = current.getAttribute('id');
             }
         });
-    }
-    window.addEventListener('scroll', navHighlighter);
-    // Initial call to highlight link on page load
-    navHighlighter();
 
+        navMenuLinks.forEach(link => {
+            link.classList.remove('active');
+            const href = link.getAttribute('href');
+            if (href && href.includes('#') && href.substring(href.indexOf('#') + 1) === currentSectionId) {
+                link.classList.add('active');
+            }
+        });
+        // If no section is active (e.g., at the very top or bottom out of range),
+        // you might want to highlight the first link or no link.
+        // For simplicity, this version only highlights when a section is clearly in view.
+    }
+
+    window.addEventListener('scroll', navHighlighter);
+    navHighlighter(); // Initial call
 });

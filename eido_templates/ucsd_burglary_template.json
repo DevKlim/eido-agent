@@ -1,0 +1,65 @@
+{
+  "eidoMessageIdentifier": "urn:uuid:[EIDO_MESSAGE_UUID]",
+  "$id": "urn:uuid:[EIDO_MESSAGE_UUID]",
+  "sendingSystemIdentifier": "[SOURCE_AGENCY_ID]",
+  "lastUpdateTimeStamp": "[TIMESTAMP_ISO_OFFSET]",
+  "messageKind": "Report",
+  "incidentComponent": [
+    {
+      "componentIdentifier": "inc-[INCIDENT_UUID]",
+      "incidentTrackingIdentifier": "[EXTERNAL_CAD_ID_OR_REPORT_NUM]",
+      "lastUpdateTimeStamp": "[TIMESTAMP_ISO_OFFSET]",
+      "incidentTypeCommonRegistryText": "Burglary",
+      "incidentStatusCommonRegistryText": "ReportTaken",
+      "locationReference": {
+        "$ref": "loc-[LOCATION_UUID]"
+      },
+      "updatedByAgencyReference": {
+        "$ref": "agency-[SOURCE_AGENCY_UUID]"
+      }
+    }
+  ],
+  "locationComponent": [
+    {
+      "$id": "loc-[LOCATION_UUID]",
+      "componentIdentifier": "loc-[LOCATION_UUID]",
+      "lastUpdateTimeStamp": "[TIMESTAMP_ISO_OFFSET]",
+      "locationByValue": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<location xmlns:gml=\"http://www.opengis.net/gml\" xmlns:ca=\"urn:ietf:params:xml:ns:pidf:geopriv10:civicAddr\">\n  <gml:Point srsName=\"urn:ogc:def:crs:EPSG::4326\">\n    <gml:pos>[LATITUDE] [LONGITUDE]</gml:pos>\n  </gml:Point>\n  <ca:civicAddress>\n    <ca:country>US</ca:country>\n    <ca:A1>CA</ca:A1> \n    <ca:A3>[CITY_UCSD_AREA]</ca:A3>\n    <ca:LOC>[LOCATION_ADDRESS_UCSD]</ca:LOC>\n    <ca:PC>[ZIP_CODE_UCSD]</ca:PC>\n  </ca:civicAddress>\n  <civicAddressText>[LOCATION_ADDRESS_UCSD_FULL_TEXT]</civicAddressText>\n  <locationNotes>[LOCATION_NOTES_IF_ANY]</locationNotes>\n</location>",
+      "updatedByAgencyReference": {
+        "$ref": "agency-[SOURCE_AGENCY_UUID]"
+      }
+    }
+  ],
+  "notesComponent": [
+    {
+      "componentIdentifier": "note-[NOTE_UUID_1]",
+      "noteDateTimeStamp": "[TIMESTAMP_ISO_OFFSET]",
+      "noteText": "[DESCRIPTION_OF_BURGLARY_1]",
+      "authorReference": {
+        "$ref": "person-[AUTHOR_UUID]"
+      }
+    },
+    {
+      "componentIdentifier": "note-[NOTE_UUID_2]",
+      "noteDateTimeStamp": "[TIMESTAMP_ISO_OFFSET_SECOND_EVENT_IF_APPLICABLE]",
+      "noteText": "[DESCRIPTION_OF_BURGLARY_2_IF_APPLICABLE]",
+      "authorReference": {
+        "$ref": "person-[AUTHOR_UUID]"
+      }
+    }
+  ],
+  "agencyComponent": [
+    {
+      "$id": "agency-[SOURCE_AGENCY_UUID]",
+      "agencyIdentifier": "[SOURCE_AGENCY_ID]",
+      "agencyName": "UC San Diego Police Department"
+    }
+  ],
+  "personComponent": [
+    {
+      "$id": "person-[AUTHOR_UUID]",
+      "personIdentifier": "[REPORTING_OFFICER_OR_SYSTEM_ID]",
+      "personNameText": "UC San Diego Police Department"
+    }
+  ]
+}

@@ -1,0 +1,488 @@
+{
+  "Geisel Library": {
+    "lat": 32.881163,
+    "lon": -117.237524,
+    "source": "google_maps_verified",
+    "notes": "The main library building at UCSD, iconic for its brutalist architecture by William Pereira. Named for Audrey and Theodor Seuss Geisel (Dr. Seuss). Houses collections in arts, humanities, social sciences, and engineering. Features Audrey's Cafe."
+  },
+  "Price Center": {
+    "lat": 32.879750,
+    "lon": -117.238400,
+    "source": "google_maps_verified",
+    "notes": "Major student union and central hub. Includes a large food court (Sunshine Market, Panda Express, Starbucks, Jamba Juice, etc.), UCSD Bookstore, Price Center Theater, study lounges, meeting rooms, Triton Store, and various student services."
+  },
+  "Old Student Center": {
+    "lat": 32.879720,
+    "lon": -117.237650,
+    "source": "google_maps_verified",
+    "notes": "Historic student hub housing KSDT radio, UCSD Food Co-op, General Store, The Che Cafe, The Loft performance venue, and various student organization offices."
+  },
+  "Student Services Center (SSC)": {
+    "lat": 32.878850,
+    "lon": -117.236800,
+    "source": "google_maps_verified",
+    "notes": "Central location for student administrative services including admissions, registrar, financial aid, student billing, and career services."
+  },
+  "Warren Mall": {
+    "lat": 32.882215,
+    "lon": -117.234500,
+    "source": "google_maps_verified",
+    "notes": "Central outdoor gathering space in Warren College, often hosts events. BCB Cafe Coffee Cart is located here. Surrounded by Warren College dorms, Warren Lecture Hall, and near Jacobs School of Engineering buildings."
+  },
+  "Warren Lecture Hall (WLH)": {
+    "lat": 32.882700,
+    "lon": -117.235000,
+    "source": "google_maps_verified",
+    "notes": "Large lecture hall complex in Warren College, frequently used for large undergraduate courses across various disciplines."
+  },
+  "Pepper Canyon Apartments": {
+    "lat": 32.880130,
+    "lon": -117.234050,
+    "source": "google_maps_verified",
+    "notes": "Undergraduate housing complex, known for its proximity to the UC San Diego Blue Line Trolley station (Pepper Canyon Station) and the Epstein Family Amphitheater."
+  },
+  "Muir College - Tenaya Hall & Tioga Hall": {
+    "lat": 32.878300,
+    "lon": -117.241200,
+    "source": "google_maps_verified",
+    "notes": "Main residential towers for Muir College, one of UCSD's undergraduate colleges. Known for its distinctive architecture and proximity to the coast. Near The Pines dining hall."
+  },
+  "Muir College - The Pines Dining Hall": {
+    "lat": 32.877850,
+    "lon": -117.241700,
+    "source": "google_maps_verified",
+    "notes": "Primary dining hall for Muir College, offering a variety of food options in a scenic setting."
+  },
+  "Eighth College - Theatre District Living Learning Neighborhood": {
+    "lat": 32.886050,
+    "lon": -117.238100,
+    "source": "google_maps_verified",
+    "notes": "UCSD's newest undergraduate college, located in the North Torrey Pines Living and Learning Neighborhood. Focuses on engagement and community. This is the general area of its residential and academic spaces."
+  },
+  "Gilman Dr. at Via Alicante Intersection": {
+    "lat": 32.880021,
+    "lon": -117.233315,
+    "source": "google_maps_verified",
+    "notes": "Key intersection providing access to the east side of campus, including the Pepper Canyon Trolley Station, parking structures, and near the School of Medicine."
+  },
+  "RIMAC Arena (Liontree Arena)": {
+    "lat": 32.887830,
+    "lon": -117.239750,
+    "source": "google_maps_verified",
+    "notes": "Recreation, Intramural and Athletic Complex (RIMAC). Liontree Arena is the main arena within RIMAC, hosting UCSD Tritons basketball and volleyball, concerts, and large gatherings. Capacity of approximately 5,000."
+  },
+  "RIMAC Annex": {
+    "lat": 32.888300,
+    "lon": -117.240500,
+    "source": "google_maps_verified",
+    "notes": "Expansion of the RIMAC facility, offering additional fitness studios, weight rooms, and recreational spaces."
+  },
+  "Spanos Athletic Performance Center": {
+    "lat": 32.888800,
+    "lon": -117.241500,
+    "source": "google_maps_verified",
+    "notes": "State-of-the-art training facility for UCSD's intercollegiate athletic teams, located near RIMAC."
+  },
+  "Triton Ballpark": {
+    "lat": 32.889500,
+    "lon": -117.242000,
+    "source": "google_maps_verified",
+    "notes": "Home field for the UCSD Tritons baseball team."
+  },
+  "Cognitive Sciences Building": {
+    "lat": 32.881520,
+    "lon": -117.239530,
+    "source": "google_maps_verified",
+    "notes": "Home to the Department of Cognitive Science and related research labs. Located in the Social Sciences area of campus, near Mandler Hall."
+  },
+  "Mandler Hall": {
+    "lat": 32.881800,
+    "lon": -117.239800,
+    "source": "google_maps_verified",
+    "notes": "Houses the Department of Psychology and various research labs. Connected to the Cognitive Sciences Building."
+  },
+  "Social Sciences Building": {
+    "lat": 32.881000,
+    "lon": -117.240500,
+    "source": "google_maps_verified",
+    "notes": "Houses departments such as Sociology, Anthropology, Political Science, and Ethnic Studies. Features a large lecture hall."
+  },
+  "Scripps Institution of Oceanography - Birch Aquarium": {
+    "lat": 32.865973,
+    "lon": -117.250500,
+    "source": "google_maps_verified",
+    "notes": "Public exploration center for the Scripps Institution of Oceanography. Features exhibits on ocean science, marine life, and climate change, with stunning views of the Pacific."
+  },
+  "Scripps Institution of Oceanography - Pier (Ellen Browning Scripps Memorial Pier)": {
+    "lat": 32.866731,
+    "lon": -117.254590,
+    "source": "google_maps_verified",
+    "notes": "Iconic research pier used for oceanographic data collection and experiments. Generally not open for public walking, but a key landmark."
+  },
+  "Scripps Institution of Oceanography - Nierenberg Hall": {
+    "lat": 32.865000,
+    "lon": -117.253000,
+    "source": "google_maps_verified",
+    "notes": "A major research and administrative building at Scripps Institution of Oceanography, named after former director William Nierenberg."
+  },
+  "Scripps Institution of Oceanography - Eckart Building (Library)": {
+    "lat": 32.866500,
+    "lon": -117.252000,
+    "source": "google_maps_verified",
+    "notes": "Houses the Scripps Oceanography Library, a significant resource for marine and earth sciences."
+  },
+  "Jacobs Medical Center (UC San Diego Health)": {
+    "lat": 32.878900,
+    "lon": -117.227000,
+    "source": "google_maps_verified",
+    "notes": "State-of-the-art hospital at UC San Diego Health, located on the eastern part of the La Jolla campus. Comprises three specialized pavilions: Thornton Pavilion (general medicine/surgery), Perlman Ambulatory Care (cancer care), and a women and infants hospital."
+  },
+  "Thornton Pavilion (UC San Diego Health)": {
+    "lat": 32.877800,
+    "lon": -117.228000,
+    "source": "google_maps_verified",
+    "notes": "Part of Jacobs Medical Center, previously Thornton Hospital. Focuses on general medical and surgical care."
+  },
+  "Moores Cancer Center (UC San Diego Health)": {
+    "lat": 32.879500,
+    "lon": -117.229500,
+    "source": "google_maps_verified",
+    "notes": "Comprehensive cancer research and treatment center, part of UC San Diego Health. Located near Jacobs Medical Center."
+  },
+  "Shiley Eye Institute (UC San Diego Health)": {
+    "lat": 32.877000,
+    "lon": -117.230000,
+    "source": "google_maps_verified",
+    "notes": "Provides comprehensive eye care, research, and education. Part of UC San Diego Health."
+  },
+  "Revelle College Plaza & Fountain": {
+    "lat": 32.876000,
+    "lon": -117.237800,
+    "source": "google_maps_verified",
+    "notes": "Central plaza of Revelle College, the first undergraduate college at UCSD. Surrounded by York Hall, Urey Hall, Mayer Hall, and Revelle dormitories (Blake & Argo Halls). Features the 'Sun God' statue by Niki de Saint Phalle."
+  },
+  "Revelle College - 64 Degrees Dining Hall": {
+    "lat": 32.875500,
+    "lon": -117.238500,
+    "source": "google_maps_verified",
+    "notes": "Main dining hall for Revelle College, offering diverse food stations."
+  },
+  "York Hall": {
+    "lat": 32.876500,
+    "lon": -117.237000,
+    "source": "google_maps_verified",
+    "notes": "Major lecture hall and classroom building in Revelle College, primarily used for chemistry and biology courses."
+  },
+  "Urey Hall": {
+    "lat": 32.876800,
+    "lon": -117.238000,
+    "source": "google_maps_verified",
+    "notes": "Houses the Department of Chemistry and Biochemistry, including labs and offices. Located in Revelle College."
+  },
+  "Mayer Hall": {
+    "lat": 32.875800,
+    "lon": -117.236800,
+    "source": "google_maps_verified",
+    "notes": "Home to the Department of Physics, including research labs, faculty offices, and lecture halls. Located in Revelle College."
+  },
+  "Franklin Antonio Hall (Jacobs School of Engineering)": {
+    "lat": 32.882950,
+    "lon": -117.233850,
+    "source": "google_maps_verified",
+    "notes": "A flagship building for the Jacobs School of Engineering, fostering interdisciplinary research and collaboration. Features labs, design spaces, and an auditorium."
+  },
+  "Jacobs Hall (Engineering Building Unit 1 - EBU I)": {
+    "lat": 32.882000,
+    "lon": -117.233000,
+    "source": "google_maps_verified",
+    "notes": "One of the primary buildings for the Jacobs School of Engineering, housing departments like Mechanical and Aerospace Engineering (MAE) and Electrical and Computer Engineering (ECE)."
+  },
+  "Powell-Focht Bioengineering Hall": {
+    "lat": 32.881500,
+    "lon": -117.232500,
+    "source": "google_maps_verified",
+    "notes": "Home to the Department of Bioengineering within the Jacobs School of Engineering."
+  },
+  "Atkinson Hall (Calit2 - Qualcomm Institute)": {
+    "lat": 32.883500,
+    "lon": -117.232500,
+    "source": "google_maps_verified",
+    "notes": "Houses the Qualcomm Institute (the UCSD division of the California Institute for Telecommunications and Information Technology - Calit2). Features advanced research labs, visualization facilities, and the Nano3 cleanroom facility."
+  },
+  "Mandeville Center": {
+    "lat": 32.877550,
+    "lon": -117.240000,
+    "source": "google_maps_verified",
+    "notes": "Home to the Department of Music and the Department of Visual Arts. Contains Mandeville Auditorium (a major performance venue), art galleries, practice rooms, studios, and the Ché Café."
+  },
+  "Galbraith Hall": {
+    "lat": 32.877000,
+    "lon": -117.239000,
+    "source": "google_maps_verified",
+    "notes": "Houses the Department of Theatre and Dance, including performance spaces and studios. Located in Revelle College, near Mandeville Center."
+  },
+  "Salk Institute for Biological Studies": {
+    "lat": 32.887510,
+    "lon": -117.244950,
+    "source": "google_maps_verified",
+    "notes": "Independent, world-renowned research institute founded by Jonas Salk, located adjacent to UCSD's north campus. Known for its groundbreaking biological research and iconic architecture by Louis Kahn. (Not officially UCSD, but closely affiliated and geographically proximate)."
+  },
+  "UC San Diego Blue Line Trolley - Pepper Canyon Station": {
+    "lat": 32.879600,
+    "lon": -117.233100,
+    "source": "google_maps_verified",
+    "notes": "Major public transit hub on campus, providing direct light rail access to downtown San Diego and the US-Mexico border. Located near Pepper Canyon Apartments and Epstein Family Amphitheater."
+  },
+  "UC San Diego Blue Line Trolley - Voigt Drive Station": {
+    "lat": 32.883800,
+    "lon": -117.230500,
+    "source": "google_maps_verified",
+    "notes": "Trolley station serving the Jacobs School of Engineering, Calit2, and nearby research facilities on the east side of campus."
+  },
+  "UC San Diego Blue Line Trolley - UC San Diego Health La Jolla Station": {
+    "lat": 32.878000,
+    "lon": -117.225000,
+    "source": "google_maps_verified",
+    "notes": "Trolley station providing direct access to Jacobs Medical Center, Moores Cancer Center, and other UC San Diego Health facilities in La Jolla."
+  },
+  "Epstein Family Amphitheater": {
+    "lat": 32.879000,
+    "lon": -117.233500,
+    "source": "google_maps_verified",
+    "notes": "Outdoor performance venue located in the Pepper Canyon area, near the trolley station. Hosts concerts, theatrical performances, and university events."
+  },
+  "Marshall College - Angela's Space & Fireside Lounge": {
+    "lat": 32.874000,
+    "lon": -117.240000,
+    "source": "google_maps_verified",
+    "notes": "Central gathering and event spaces within Thurgood Marshall College, known for its focus on social justice and public service."
+  },
+  "Marshall College - OceanView Terrace Dining Hall": {
+    "lat": 32.873500,
+    "lon": -117.241000,
+    "source": "google_maps_verified",
+    "notes": "Main dining hall for Marshall College, offering panoramic views and diverse cuisine."
+  },
+  "Eleanor Roosevelt College (ERC) - Great Hall": {
+    "lat": 32.885500,
+    "lon": -117.243000,
+    "source": "google_maps_verified",
+    "notes": "A prominent building and event space in Eleanor Roosevelt College, known for its international focus. ERC is located in the northwestern part of campus."
+  },
+  "Eleanor Roosevelt College (ERC) - Cafe Ventanas Dining Hall": {
+    "lat": 32.886000,
+    "lon": -117.243500,
+    "source": "google_maps_verified",
+    "notes": "Main dining hall for Eleanor Roosevelt College, offering international cuisine options."
+  },
+  "International House (I-House) at ERC": {
+    "lat": 32.885000,
+    "lon": -117.244000,
+    "source": "google_maps_verified",
+    "notes": "Residential complex within Eleanor Roosevelt College, fostering a global community with students from diverse backgrounds."
+  },
+  "Sixth College - Catalyst & The Hub": {
+    "lat": 32.873000,
+    "lon": -117.236000,
+    "source": "google_maps_verified",
+    "notes": "Sixth College's new home in the North Torrey Pines Living Learning Neighborhood. Catalyst is a key academic and community building. The Hub is a dining and social space. (Note: Sixth College has moved; this is its newer location. Older maps might show it elsewhere.)"
+  },
+  "Sixth College - The Plate Dining Hall": {
+    "lat": 32.873300,
+    "lon": -117.235500,
+    "source": "google_maps_verified",
+    "notes": "Main dining hall for Sixth College in its new location, offering various food platforms."
+  },
+  "Seventh College - The Bistro": {
+    "lat": 32.887500,
+    "lon": -117.236500,
+    "source": "google_maps_verified",
+    "notes": "A contemporary dining venue and market located within Seventh College, in the North Torrey Pines Living and Learning Neighborhood."
+  },
+  "Seventh College Residential Halls": {
+    "lat": 32.887000,
+    "lon": -117.237000,
+    "source": "google_maps_verified",
+    "notes": "General area for the residential buildings of Seventh College, one of UCSD's newer undergraduate colleges."
+  },
+  "Rady School of Management - Otterson Hall & Wells Fargo Hall": {
+    "lat": 32.885000,
+    "lon": -117.240500,
+    "source": "google_maps_verified",
+    "notes": "Home to UCSD's graduate business school. Otterson Hall and Wells Fargo Hall contain classrooms, faculty offices, and event spaces."
+  },
+  "School of Global Policy and Strategy (GPS) - Robinson Building Complex": {
+    "lat": 32.884500,
+    "lon": -117.241500,
+    "source": "google_maps_verified",
+    "notes": "Houses the School of Global Policy and Strategy, focusing on international relations, public policy, and economics of the Pacific region."
+  },
+  "Skaggs School of Pharmacy and Pharmaceutical Sciences Building": {
+    "lat": 32.879000,
+    "lon": -117.231000,
+    "source": "google_maps_verified",
+    "notes": "Main building for UCSD's pharmacy school, including teaching labs, research facilities, and faculty offices. Located on the Health Sciences campus."
+  },
+  "Biomedical Library Building (Wong Auditorium)": {
+    "lat": 32.878000,
+    "lon": -117.232000,
+    "source": "google_maps_verified",
+    "notes": "Houses the Biomedical Library serving the health sciences, and the large Liebow Auditorium (often referred to as Wong Auditorium due to a prominent donor). Located on the Health Sciences campus."
+  },
+  "Leichtag Biomedical Research Building": {
+    "lat": 32.877500,
+    "lon": -117.231000,
+    "source": "google_maps_verified",
+    "notes": "Major research facility on the Health Sciences campus, housing labs for various biomedical research endeavors."
+  },
+  "Stein Clinical Research Building": {
+    "lat": 32.878500,
+    "lon": -117.230000,
+    "source": "google_maps_verified",
+    "notes": "Focuses on clinical and translational research, part of UC San Diego Health's research infrastructure."
+  },
+  "Canyonview Aquatic Center": {
+    "lat": 32.883000,
+    "lon": -117.237000,
+    "source": "google_maps_verified",
+    "notes": "Features multiple swimming pools (Olympic-sized), diving boards, and is used for recreational swimming, aquatic sports teams, and classes. Located in Warren College."
+  },
+  "Sun God Statue": {
+    "lat": 32.876050,
+    "lon": -117.237850,
+    "source": "google_maps_verified",
+    "notes": "Iconic, brightly colored sculpture by Niki de Saint Phalle, located in Revelle College Plaza. A popular landmark and site of the annual Sun God Festival (though the festival location has varied)."
+  },
+  "Fallen Star (Stuart Collection)": {
+    "lat": 32.882100,
+    "lon": -117.233150,
+    "source": "google_maps_verified",
+    "notes": "A notable art installation from the Stuart Collection by Do Ho Suh, a small house perched atop Jacobs Hall (EBU I)."
+  },
+  "Snake Path (Stuart Collection)": {
+    "lat": 32.880800,
+    "lon": -117.237000,
+    "source": "google_maps_verified",
+    "notes": "A winding, serpentine slate tile path by Alexis Smith, part of the Stuart Collection, leading up to Geisel Library."
+  },
+  "Bear (Stuart Collection)": {
+    "lat": 32.883250,
+    "lon": -117.233000,
+    "source": "google_maps_verified",
+    "notes": "A monumental sculpture by Tim Hawkinson made of granite boulders, resembling a teddy bear. Located in the courtyard between engineering buildings, near Franklin Antonio Hall."
+  },
+  "Gilman Parking Structure": {
+    "lat": 32.880500,
+    "lon": -117.235500,
+    "source": "google_maps_verified",
+    "notes": "One of the largest parking garages on campus, centrally located near Geisel Library, Price Center, and Gilman Transit Center."
+  },
+  "Osler Parking Structure": {
+    "lat": 32.877000,
+    "lon": -117.233000,
+    "source": "google_maps_verified",
+    "notes": "Parking garage serving the UC San Diego Health La Jolla campus and nearby academic buildings."
+  },
+  "Pangea Parking Structure": {
+    "lat": 32.884500,
+    "lon": -117.242500,
+    "source": "google_maps_verified",
+    "notes": "Parking garage located in Eleanor Roosevelt College, serving the northwestern part of campus, including GPS and Rady School."
+  },
+  "Hopkins Parking Structure": {
+    "lat": 32.888500,
+    "lon": -117.243500,
+    "source": "google_maps_verified",
+    "notes": "Parking garage located near RIMAC and the north campus residential areas."
+  },
+  "Gilman Transit Center": {
+    "lat": 32.880800,
+    "lon": -117.236000,
+    "source": "google_maps_verified",
+    "notes": "Major bus hub on campus, serving MTS buses and UCSD shuttles. Located adjacent to Gilman Parking Structure."
+  },
+  "Natural Sciences Building": {
+    "lat": 32.879500,
+    "lon": -117.241000,
+    "source": "google_maps_verified",
+    "notes": "Houses parts of the Division of Biological Sciences, including lecture halls, labs, and offices. Located near Muir College."
+  },
+  "Pacific Hall": {
+    "lat": 32.878800,
+    "lon": -117.242000,
+    "source": "google_maps_verified",
+    "notes": "Another key building for the Division of Biological Sciences, containing research labs and teaching facilities. Located in Muir College."
+  },
+  "Tata Hall for the Sciences": {
+    "lat": 32.875000,
+    "lon": -117.239500,
+    "source": "google_maps_verified",
+    "notes": "A modern research building supporting interdisciplinary biological and physical sciences research. Located in Revelle College, near Marshall College."
+  },
+  "Halıcıoğlu Data Science Institute (HDSI)": {
+    "lat": 32.8805,
+    "lon": -117.2338,
+    "source": "google_maps_verified",
+    "notes": "Located within the San Diego Supercomputer Center (SDSC) building complex. Focuses on research and education in data science. The coordinates point to the general SDSC area where HDSI is housed."
+  },
+  "San Diego Supercomputer Center (SDSC)": {
+    "lat": 32.881200,
+    "lon": -117.234500,
+    "source": "google_maps_verified",
+    "notes": "An organized research unit of UCSD, providing high-performance computing resources and expertise. Located on the east side of campus, near Warren College."
+  },
+  "The Zone (at Price Center)": {
+    "lat": 32.879900,
+    "lon": -117.238000,
+    "source": "google_maps_verified",
+    "notes": "A student lounge and wellness center located on the 2nd floor of Price Center East, offering relaxation spaces, massage chairs, and wellness programs."
+  },
+  "UCSD Central Utilities Plant": {
+    "lat": 32.884000,
+    "lon": -117.235500,
+    "source": "google_maps_verified",
+    "notes": "Provides power, heating, and cooling to the campus. A significant piece of campus infrastructure, known for its cogeneration capabilities."
+  },
+  "North Torrey Pines Living and Learning Neighborhood (NTPLLN)": {
+    "lat": 32.887000,
+    "lon": -117.237500,
+    "source": "google_maps_verified",
+    "notes": "A large, newer development on campus housing Sixth, Seventh, and Eighth Colleges, along with dining, academic, and recreational facilities. This is a general coordinate for the neighborhood."
+  },
+  "Rita Atkinson Residences": {
+    "lat": 32.876500,
+    "lon": -117.230000,
+    "source": "google_maps_verified",
+    "notes": "Graduate and family housing complex located on the eastern edge of the main campus, near the School of Medicine."
+  },
+  "Mesa Nueva Graduate and Family Housing": {
+    "lat": 32.892000,
+    "lon": -117.230000,
+    "source": "google_maps_verified",
+    "notes": "Large graduate and family housing complex located east of Warren College and north of Voigt Drive."
+  },
+  "Nuevo West Graduate Housing": {
+    "lat": 32.890500,
+    "lon": -117.233000,
+    "source": "google_maps_verified",
+    "notes": "Graduate student housing located on the eastern side of campus, part of the expanding graduate housing options."
+  },
+  "Nuevo East Graduate Housing": {
+    "lat": 32.889000,
+    "lon": -117.228000,
+    "source": "google_maps_verified",
+    "notes": "Graduate student housing located further east, near Mesa Nueva, offering apartments and amenities for graduate students and their families."
+  },
+  "UC San Diego Extension - University City Center": {
+    "lat": 32.871800,
+    "lon": -117.217000,
+    "source": "google_maps_verified",
+    "notes": "While not on the main La Jolla campus, this is a key UCSD Extension facility offering continuing education programs. Located in University City, a few miles south of the main campus."
+  },
+  "UC San Diego Park & Market (Downtown)": {
+    "lat": 32.711500,
+    "lon": -117.157000,
+    "source": "google_maps_verified",
+    "notes": "A UCSD facility in downtown San Diego, designed as a social and intellectual hub connecting the university with the broader community. Hosts events, performances, and educational programs."
+  }
+}

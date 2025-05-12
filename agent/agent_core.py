@@ -1,35 +1,36 @@
+# ./agent/agent_core.py
 import logging
 import json
 from datetime import datetime, timezone
 from typing import List, Dict, Optional, Tuple, Any, Union
 import uuid
-import xml.etree.ElementTree as ET # Import XML parser
-import re # For ZIP code extraction
+import xml.etree.ElementTree as ET 
+import re 
 
-# Use the simplified schemas
-try:
-    from data_models.schemas import ReportCoreData, Incident
-    from services.storage import incident_store
-    from services.geocoding import get_coordinates
-    from services.embedding import generate_embedding
-    from agent.matching import find_match_for_report
-    from agent.llm_interface import summarize_incident, recommend_actions, split_raw_text_into_events, extract_eido_from_alert_text
-    from agent.alert_parser import parse_alert_to_eido_dict
-except ImportError as e:
-    print(f"CRITICAL ERROR in agent_core.py: {e}"); raise SystemExit(f"Agent Core import failed: {e}") from e
+# Assuming schemas and other services are correctly imported
+from data_models.schemas import ReportCoreData, Incident as PydanticIncident # Rename to avoid conflict
+from services.storage import IncidentStore # This will be the new DB-backed store
+from services.geocoding import get_coordinates
+from services.embedding import generate_embedding
+from agent.matching import find_match_for_report # This will need to be async if it fetches incidents
+from agent.llm_interface import summarize_incident, recommend_actions, split_raw_text_into_events, extract_eido_from_alert_text
+from agent.alert_parser import parse_alert_to_eido_dict
+from services.campus_geocoder import get_ucsd_coordinates
 
 logger = logging.getLogger(__name__)
 
 class EidoAgent:
-    """
-    The core agent responsible for processing EIDO messages (as dicts) OR raw alert text,
-    managing incidents, and interacting with LLMs.
-    Bypasses strict EidoMessage validation to handle real-world variations.
-    """
-
     def __init__(self):
         logger.info("EIDO Agent Core initialized.")
+        self.incident_store = IncidentStore() # Agent uses the new store
 
+    # _safe_get, _resolve_ref_string_from_dict, _extract_core_data_from_dict remain largely the same
+    # ... (Keep existing _safe_get, _resolve_ref_string_from_dict, _extract_core_data_from_dict methods) ...
+    # Ensure _extract_core_data_from_dict returns PydanticReportCoreData
+    # Ensure ensure_timezone_aware is correctly used in _extract_core_data_from_dict
+    
+    # --- Paste existing _safe_get, _resolve_ref_string_from_dict, _extract_core_data_from_dict here ---
+    # (Content of these methods from your provided file)
     def _safe_get(self, data: Optional[Dict], path: List[str], default: Any = None) -> Any:
         """Safely get a nested value from a dict using a list of keys."""
         current = data
@@ -199,6 +200,7 @@ class EidoAgent:
             logger.debug(f"Processing LocationComponent: {loc_comp_id_for_log}")
             loc_val = primary_location_comp_dict.get('locationByValue')
             loc_ref_url = primary_location_comp_dict.get('locationReferenceUrl')
+            loc_notes = primary_location_comp_dict.get('locationNotes') # Extract locationNotes
 
             if loc_val and isinstance(loc_val, str) and loc_val.strip().startswith('<?xml'):
                 logger.debug(f"Attempting XML parse for locationByValue in {loc_comp_id_for_log}")
@@ -213,8 +215,8 @@ class EidoAgent:
                         logger.debug(f"Direct XML parse failed for locationByValue '{loc_comp_id_for_log}': {xml_e_direct}. Checking for <location> wrapper...")
                         if root_str.startswith('<location>') and root_str.endswith('</location>'):
                              inner_xml_str = root_str[len('<location>'):-len('</location>')].strip()
-                             if inner_xml_str.startswith('<?xml'): # If inner content is a full XML doc itself
-                                inner_xml_str = inner_xml_str[inner_xml_str.find('?>')+2:].strip() # Remove XML declaration
+                             if inner_xml_str.startswith('<?xml'): 
+                                inner_xml_str = inner_xml_str[inner_xml_str.find('?>')+2:].strip() 
                              try:
                                  xml_root_node = ET.fromstring(inner_xml_str)
                                  logger.debug("Successfully parsed after removing <location> wrapper and potentially inner XML declaration.")
@@ -225,7 +227,6 @@ class EidoAgent:
 
 
                     if xml_root_node is not None:
-                        # If the root itself is <location>, look for its children directly
                         target_search_node = xml_root_node
                         if xml_root_node.tag.lower() == 'location': 
                             logger.debug("XML root is <location>, searching children for GML/Civic data.")
@@ -272,16 +273,54 @@ class EidoAgent:
             elif loc_ref_url and isinstance(loc_ref_url, str) and not location_address and not location_coords:
                  logger.info(f"LocationComponent {loc_comp_id_for_log} has reference URL: {loc_ref_url}. Geocoding might fail if this is the only info.")
                  location_address = f"Reference URL: {loc_ref_url}"
+            
+            # Use locationNotes if other address fields are empty
+            if not location_address and loc_notes and isinstance(loc_notes, str):
+                location_address = loc_notes.strip()
+                logger.debug(f"Using locationNotes as address: '{location_address}'")
+                if not zip_code:
+                    zip_match = re.search(r'\b(\d{5}(?:-\d{4})?)\b', location_address)
+                    if zip_match: zip_code = zip_match.group(1); logger.debug(f"Extracted ZIP '{zip_code}' from locationNotes using regex.")
 
+
+            # Attempt geocoding if address is present but coordinates are missing
             if location_address and not location_coords:
                 logger.info(f"Coordinates missing for {loc_comp_id_for_log}. Attempting to geocode address: '{location_address}'")
                 try:
-                    location_coords = get_coordinates(location_address)
+                    location_coords = get_coordinates(location_address) # This is synchronous
                     if location_coords: logger.info(f"Geocoding successful for '{location_address}': {location_coords}")
-                    else: logger.warning(f"Geocoding failed for address: '{location_address}'")
+                    else: 
+                        logger.warning(f"Nominatim geocoding failed for address: '{location_address}'. Trying campus geocoder.")
+                        campus_coords = get_ucsd_coordinates(location_address) # This is synchronous
+                        if campus_coords:
+                            location_coords = campus_coords
+                            logger.info(f"Campus geocoding successful for '{location_address}': {location_coords}")
+                        else:
+                            logger.warning(f"Campus geocoding also failed for '{location_address}'.")
                 except Exception as geo_e: logger.error(f"Error during geocoding call for '{location_address}': {geo_e}", exc_info=True); location_coords = None
-            elif not location_address and not location_coords:
-                 logger.warning(f"No address or coordinates found/extracted for LocationComponent {loc_comp_id_for_log}.")
+            
+            elif not location_address and not location_coords: # No address or coords from structured fields
+                if loc_notes and isinstance(loc_notes, str):
+                    logger.info(f"No structured address/coords. Attempting to geocode from locationNotes: '{loc_notes}'")
+                    try:
+                        location_coords = get_coordinates(loc_notes)
+                        if location_coords:
+                            location_address = loc_notes 
+                            logger.info(f"Geocoding successful for locationNotes '{loc_notes}': {location_coords}")
+                        else: 
+                            campus_coords = get_ucsd_coordinates(loc_notes)
+                            if campus_coords:
+                                location_coords = campus_coords
+                                location_address = loc_notes
+                                logger.info(f"Campus geocoding successful for locationNotes '{loc_notes}': {location_coords}")
+                            else:
+                                logger.warning(f"Geocoding failed for locationNotes: '{loc_notes}'")
+                    except Exception as geo_e:
+                        logger.error(f"Error during geocoding call for locationNotes '{loc_notes}': {geo_e}", exc_info=True)
+                        location_coords = None
+                else:
+                    logger.warning(f"No address, coordinates, or locationNotes found/extracted for LocationComponent {loc_comp_id_for_log}.")
+
             elif location_coords:
                  logger.debug(f"Using existing coordinates for {loc_comp_id_for_log}: {location_coords}")
         else: 
@@ -325,7 +364,7 @@ class EidoAgent:
                 zip_code=zip_code,
                 source=source_agency_name,
                 original_document_id=message_id,
-                original_eido_dict=eido_dict
+                original_eido_dict=eido_dict # Store the raw dict
             )
             logger.info(f"Successfully extracted core data for Report {core_data.report_id[:8]} (Coords: {core_data.coordinates}, ZIP: {core_data.zip_code}, Addr: {core_data.location_address})")
             return core_data
@@ -333,8 +372,7 @@ class EidoAgent:
              logger.error(f"Failed to create ReportCoreData instance for Msg {message_id}: {pydantic_error}", exc_info=True)
              return None
 
-
-    def process_report_json(self, json_data: Dict) -> Dict:
+    async def process_report_json(self, json_data: Dict) -> Dict:
         message_id = json_data.get('eidoMessageIdentifier', json_data.get('$id', f"unknown_{str(uuid.uuid4())[:8]}"))
         logger.info(f"--- Processing EIDO Message Dict ID: {message_id} ---")
 
@@ -343,25 +381,29 @@ class EidoAgent:
             return {"status": "Input Error: Data must be a JSON object (dictionary).", "message_id": message_id, "incident_id": None, "is_new_incident": False, "summary": None, "actions": None}
 
         try:
-            core_data = self._extract_core_data_from_dict(json_data)
+            core_data = self._extract_core_data_from_dict(json_data) # This is synchronous
             if not core_data:
-                return {"status": "Failed processing: Could not extract core data (check logs for details).", "message_id": message_id, "incident_id": None, "is_new_incident": False, "summary": None, "actions": None}
+                return {"status": "Failed processing: Could not extract core data.", "message_id": message_id, "incident_id": None, "is_new_incident": False, "summary": None, "actions": None}
         except Exception as e:
             logger.error(f"Msg '{message_id}': Unexpected error during core data extraction: {e}", exc_info=True)
             return {"status": f"Processing Error: Core data extraction failed ({type(e).__name__})", "message_id": message_id, "incident_id": None, "is_new_incident": False, "summary": None, "actions": None}
 
+        # Embedding is synchronous
         description_embedding = None 
         if core_data.description and "No description" not in core_data.description:
             try: description_embedding = generate_embedding(core_data.description)
             except Exception as e: logger.warning(f"Msg '{message_id}': Failed to generate embedding: {e}")
 
-        matched_incident = None; matched_incident_id = None; match_score = 0.0; match_reason = "Matching not attempted or failed"
+        matched_incident = None; matched_incident_id = None; match_score = 0.0; match_reason = "Matching not attempted"
         try:
-            active_incidents = incident_store.get_active_incidents()
-            logger.debug(f"Msg '{message_id}': Found {len(active_incidents)} active incidents for matching.")
-            matched_incident_id, match_score, match_reason = find_match_for_report(core_data, active_incidents)
+            active_incidents_pydantic = await self.incident_store.get_active_incidents() # Async call
+            logger.debug(f"Msg '{message_id}': Found {len(active_incidents_pydantic)} active incidents for matching.")
+            
+            # find_match_for_report expects PydanticIncident, which it gets from incident_store
+            matched_incident_id, match_score, match_reason = find_match_for_report(core_data, active_incidents_pydantic) # This is synchronous
+            
             if matched_incident_id:
-                matched_incident = incident_store.get_incident(matched_incident_id)
+                matched_incident = await self.incident_store.get_incident(matched_incident_id) # Async call
                 if not matched_incident:
                      logger.error(f"Msg '{message_id}': Matching returned ID {matched_incident_id[:8]} but incident not found! Treating as new.")
                      matched_incident_id = None
@@ -369,83 +411,75 @@ class EidoAgent:
              logger.error(f"Msg '{message_id}': Error during incident matching phase: {e}", exc_info=True)
              matched_incident = None; matched_incident_id = None; match_reason = f"Matching Error: {type(e).__name__}"
 
-        incident_to_process = None; is_new_incident = False; incident_id = None
+        incident_to_process: Optional[PydanticIncident] = None # Ensure it's PydanticIncident
+        is_new_incident = False; incident_id_str: Optional[str] = None
+        
         if matched_incident:
-            incident_id = matched_incident.incident_id
-            logger.info(f"Msg '{message_id}': Matched to existing Incident {incident_id[:8]} (Score: {match_score:.2f}, Reason: {match_reason}).")
+            incident_id_str = matched_incident.incident_id
+            logger.info(f"Msg '{message_id}': Matched to existing Incident {incident_id_str[:8]} (Score: {match_score:.2f}, Reason: {match_reason}).")
             try:
                  match_info_str = f"Matched Report {core_data.report_id[:8]} (ExtID: {core_data.external_incident_id or 'N/A'}, Score: {match_score:.2f}, Reason: {match_reason})"
-                 matched_incident.add_report_core_data(core_data, match_info=match_info_str)
-            except Exception as e: logger.error(f"Failed adding report {core_data.report_id[:8]} to incident {incident_id[:8]}: {e}", exc_info=True)
+                 matched_incident.add_report_core_data(core_data, match_info=match_info_str) # Modifies Pydantic model in memory
+            except Exception as e: logger.error(f"Failed adding report {core_data.report_id[:8]} to incident {incident_id_str[:8]}: {e}", exc_info=True)
             incident_to_process = matched_incident
             is_new_incident = False
         else:
-            logger.info(f"Msg '{message_id}': No match found or error during matching (Reason: {match_reason}). Creating new Incident.")
+            logger.info(f"Msg '{message_id}': No match found or error ({match_reason}). Creating new Incident.")
             try:
-                incident_to_process = Incident(incident_type=core_data.incident_type, status="Active")
+                incident_to_process = PydanticIncident(incident_type=core_data.incident_type, status="Active") # Create Pydantic model
                 match_info_str = f"Created from Report {core_data.report_id[:8]} (ExtID: {core_data.external_incident_id or 'N/A'}, Reason: {match_reason})"
-                incident_to_process.add_report_core_data(core_data, match_info=match_info_str)
-                incident_id = incident_to_process.incident_id
-                logger.info(f"Created new Incident {incident_id[:8]} from Report {core_data.report_id[:8]}.")
+                incident_to_process.add_report_core_data(core_data, match_info=match_info_str) # Add first report
+                incident_id_str = incident_to_process.incident_id
+                logger.info(f"Created new Pydantic Incident {incident_id_str[:8]} from Report {core_data.report_id[:8]}.")
                 is_new_incident = True
             except Exception as e:
-                 logger.error(f"Msg '{message_id}': Failed to create new Incident object or add initial data: {e}", exc_info=True)
+                 logger.error(f"Msg '{message_id}': Failed to create new Incident object: {e}", exc_info=True)
                  return {"status": f"Processing Error: Failed to initialize new incident ({type(e).__name__})", "message_id": message_id, "incident_id": None, "is_new_incident": True, "summary": None, "actions": None}
 
         if incident_to_process:
-            try:
+            try: # LLM calls are synchronous
                 history = ""
                 if not is_new_incident and len(incident_to_process.reports_core_data) > 1:
                     history = incident_to_process.get_full_description_history(exclude_latest=True)
                 new_summary = summarize_incident(history, core_data)
-                if new_summary: incident_to_process.summary = new_summary; logger.debug(f"Incident {incident_id[:8]}: Generated new summary.")
-                else:
-                    logger.error(f"Incident {incident_id[:8]}: Failed to generate summary.");
-                    if not incident_to_process.summary or "not yet generated" in incident_to_process.summary: incident_to_process.summary = f"LLM Error: Could not generate summary. Last report: {core_data.description}"
+                if new_summary: incident_to_process.summary = new_summary
+                else: 
+                    logger.error(f"Incident {incident_id_str[:8] if incident_id_str else 'NEW'}: Failed to generate summary.");
+                    if not incident_to_process.summary or "not yet generated" in incident_to_process.summary: 
+                        incident_to_process.summary = f"LLM Error: Could not generate summary. Last report: {core_data.description}"
+                
                 new_recommendations = recommend_actions(incident_to_process.summary, core_data)
-                if new_recommendations: incident_to_process.recommended_actions = new_recommendations; logger.debug(f"Incident {incident_id[:8]}: Generated new recommendations.")
-                else:
-                    logger.error(f"Incident {incident_id[:8]}: Failed to generate recommendations.");
-                    if not incident_to_process.recommended_actions: incident_to_process.recommended_actions = ["LLM Error: Could not generate recommendations."]
+                if new_recommendations: incident_to_process.recommended_actions = new_recommendations
+                else: 
+                    logger.error(f"Incident {incident_id_str[:8] if incident_id_str else 'NEW'}: Failed to generate recommendations.");
+                    if not incident_to_process.recommended_actions: 
+                        incident_to_process.recommended_actions = ["LLM Error: Could not generate recommendations."]
             except Exception as e:
-                logger.error(f"Incident {incident_id[:8]}: Error during LLM interaction: {e}", exc_info=True)
-                incident_to_process.summary = f"Error during LLM processing: {type(e).__name__}"; incident_to_process.recommended_actions = [f"Error during LLM processing: {type(e).__name__}"]
+                logger.error(f"Incident {incident_id_str[:8] if incident_id_str else 'NEW'}: Error during LLM interaction: {e}", exc_info=True)
+                incident_to_process.summary = f"Error during LLM processing: {type(e).__name__}"
+                incident_to_process.recommended_actions = [f"Error during LLM processing: {type(e).__name__}"]
         else:
-             logger.critical(f"Msg '{message_id}': incident_to_process object was None before LLM step. Critical logic error.")
-             return {"status": "Processing Error: Internal state error before LLM.", "message_id": message_id, "incident_id": incident_id, "is_new_incident": is_new_incident, "summary": None, "actions": None}
+             logger.critical(f"Msg '{message_id}': incident_to_process was None before LLM. Critical logic error.") # Should not happen
+             return {"status": "Processing Error: Internal state error before LLM.", "message_id": message_id, "incident_id": incident_id_str, "is_new_incident": is_new_incident, "summary": None, "actions": None}
 
         try:
-            incident_store.save_incident(incident_to_process)
-            logger.info(f"Msg '{message_id}': Successfully processed. Report {core_data.report_id[:8]} added/updated Incident {incident_id[:8]}.")
-            return {"status": "Success", "message_id": message_id, "incident_id": incident_id, "is_new_incident": is_new_incident, "summary": incident_to_process.summary, "actions": incident_to_process.recommended_actions}
+            await self.incident_store.save_incident(incident_to_process) # Async save
+            logger.info(f"Msg '{message_id}': Successfully processed. Report {core_data.report_id[:8]} -> Incident {incident_id_str[:8] if incident_id_str else 'ERROR_NO_ID'}.")
+            return {"status": "Success", "message_id": message_id, "incident_id": incident_id_str, "is_new_incident": is_new_incident, "summary": incident_to_process.summary, "actions": incident_to_process.recommended_actions}
         except Exception as e:
-             logger.critical(f"CRITICAL: Failed to save incident {incident_id[:8]} to store! Error: {e}", exc_info=True)
-             return {"status": f"Processing Error: Failed to save incident to store ({type(e).__name__})", "message_id": message_id, "incident_id": incident_id, "is_new_incident": is_new_incident, "summary": incident_to_process.summary, "actions": incident_to_process.recommended_actions}
+             logger.critical(f"CRITICAL: Failed to save incident {incident_id_str[:8] if incident_id_str else 'NEW'} to store! Error: {e}", exc_info=True)
+             return {"status": f"Processing Error: Failed to save incident ({type(e).__name__})", "message_id": message_id, "incident_id": incident_id_str, "is_new_incident": is_new_incident, "summary": incident_to_process.summary, "actions": incident_to_process.recommended_actions}
 
 
-    def process_alert_text(self, alert_text: str) -> Union[Dict, List[Dict]]:
-        logger.info("--- Processing Raw Alert Text Block ---")
-        results: List[Dict] = [] # Ensure results is always a list
+    async def process_alert_text(self, alert_text: str) -> Union[Dict, List[Dict]]: # This method is now async
+        logger.info("--- Processing Raw Alert Text Block (Async) ---")
+        results: List[Dict] = [] 
         if not alert_text or not isinstance(alert_text, str):
              logger.error("Invalid alert text input: must be a non-empty string.")
-             # Return list with one error dict for consistency
              return [{"status": "Input Error: Alert text cannot be empty.", "message_id": "N/A", "incident_id": None}]
 
-        cleaned_text = alert_text.strip()
-        if (cleaned_text.startswith('{') and cleaned_text.endswith('}')) or \
-           (cleaned_text.startswith('[') and cleaned_text.endswith(']')):
-            logger.warning("Input to 'Raw Alert Text' processing looks like JSON. Attempting to process, but for JSON input, use the 'EIDO JSON' tab/endpoint.")
-
-        event_texts: Optional[List[str]] = None
-        try:
-            event_texts = split_raw_text_into_events(alert_text)
-            if event_texts is None: logger.warning("LLM splitting function returned None.")
-            elif len(event_texts) == 1: logger.info("LLM splitting function identified a single event.")
-            else: logger.info(f"LLM splitting function identified {len(event_texts)} potential events.")
-        except Exception as e:
-             logger.error(f"Critical error during event splitting call: {e}", exc_info=True)
-             event_texts = None
-
+        # LLM calls are synchronous within this flow for now
+        event_texts: Optional[List[str]] = split_raw_text_into_events(alert_text)
         if not event_texts: 
             logger.warning("Splitting failed or yielded no events. Processing entire block as one event.")
             event_texts = [alert_text]
@@ -454,20 +488,19 @@ class EidoAgent:
 
         for i, single_event_text in enumerate(event_texts):
             if not single_event_text.strip():
-                logger.warning(f"Skipping empty event text #{i+1}.")
                 results.append({"status": f"Processing Error: Event text #{i+1} was empty.", "message_id": f"text_event_{i+1}_empty", "incident_id": None})
                 continue
             
             logger.info(f"Processing event text #{i+1}/{len(event_texts)}...")
-            generated_eido_dict = parse_alert_to_eido_dict(single_event_text)
+            generated_eido_dict = parse_alert_to_eido_dict(single_event_text) # Synchronous
             
             if not generated_eido_dict:
-                 logger.error(f"Failed to parse event text #{i+1} into EIDO-like structure.")
                  results.append({"status": f"Processing Error: Failed to parse event text #{i+1}.", "message_id": f"text_event_{i+1}_parse_fail", "incident_id": None, "original_text_snippet": single_event_text[:100] + "..."})
                  continue
             
             try:
-                result_dict = self.process_report_json(generated_eido_dict) 
+                # process_report_json is now async, so we await it
+                result_dict = await self.process_report_json(generated_eido_dict) 
                 result_dict['source_event_index'] = i + 1
                 result_dict['source_event_total'] = len(event_texts)
                 result_dict['original_text_snippet'] = single_event_text[:100] + "..." 
@@ -477,6 +510,11 @@ class EidoAgent:
                  msg_id = generated_eido_dict.get('eidoMessageIdentifier', f'llm_parsed_{i+1}_err')
                  results.append({"status": f"Processing Error: Failed during generated dict processing for event #{i+1} ({type(e).__name__})", "message_id": msg_id, "incident_id": None, "original_text_snippet": single_event_text[:100] + "..."})
         
-        return results # Always return a list of result dicts
+        return results 
+    
+    # trigger_notification remains synchronous for now, can be made async if it involves I/O
+    def trigger_notification(self, incident: PydanticIncident, report_data: ReportCoreData, is_new: bool):
+        logger.info(f"Placeholder: Notification triggered for Incident {incident.incident_id[:8]}. New: {is_new}.")
+        pass
 
 eido_agent_instance = EidoAgent()

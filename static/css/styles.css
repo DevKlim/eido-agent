@@ -1,39 +1,42 @@
 :root {
-    /* New Color Scheme: White, Yellow, Aqua */
-    --primary-theme-color: #00BCD4;
-    /* Aqua/Cyan as primary theme for accents, icons */
-    --primary-theme-dark: #359ec1;
-    --accent-color-yellow: #FFEB3B;
-    /* Vibrant Yellow for CTAs */
-    --accent-color-yellow-dark: #FBC02D;
+    /* Palantir-Inspired Dark Theme */
+    --bg-dark-primary: #0A0F14;
+    /* Even darker base */
+    --bg-dark-secondary: #101820;
+    /* Main sections background */
+    --bg-dark-tertiary: #1D2939;
+    /* Cards, slightly lighter */
 
-    --background-color-main: #FFFFFF;
-    /* Clean white background */
-    --background-color-alt: #F5FAFA;
-    /* Very light aqua/gray for alternating sections */
+    --text-primary-light: #E0E7FF;
+    /* Light, slightly cool white for primary text */
+    --text-secondary-light: #ABB8C3;
+    /* Softer gray for secondary text */
+    --text-muted-light: #8290A0;
+    /* Muted gray for captions */
 
-    --text-color-primary: #212121;
-    /* Dark gray for primary text */
-    --text-color-secondary: #5f6368;
-    /* Medium gray for secondary text */
-    --heading-color: #2791ca;
-    /* Dark Teal for major headings */
+    --accent-primary-cyan: #00B8D9;
+    /* Palantir-like Cyan */
+    --accent-primary-cyan-darker: #0097B3;
+    --accent-secondary-blue: #3B82F6;
+    /* A brighter blue for CTAs sometimes */
+    --accent-secondary-blue-darker: #2563EB;
 
-    --card-bg: #FFFFFF;
-    --border-color: #E0E0E0;
-    /* Light gray for borders */
+    --heading-color-light: #FFFFFF;
+    /* Pure White for max impact headings */
 
-    --border-radius: 10px;
-    /* Slightly more rounded */
-    --box-shadow: 0 5px 15px rgba(0, 0, 0, 0.07);
-    /* Softer, modern shadow */
-    --box-shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.1);
+    --border-color-dark: #2C3A4B;
+    /* Darker border for elements on dark bg */
+    --border-radius-main: 6px;
+    /* Sharper radius */
+    --border-radius-sm: 4px;
 
-    --font-main: 'Open Sans', sans-serif;
-    --font-headings: 'Roboto', sans-serif;
-    /* Keeping Roboto for headings */
-    --nav-height: 75px;
-    /* Slightly taller navbar */
+    --box-shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.25);
+    --box-shadow-interactive: 0 4px 12px rgba(0, 0, 0, 0.35);
+
+    --font-main: 'Urbanist', 'Helvetica Neue', Arial, sans-serif;
+    --font-headings: 'Urbanist', 'Helvetica Neue', Arial, sans-serif;
+    --nav-height: 65px;
+    /* Slightly sleeker navbar */
 }
 
 * {
@@ -48,41 +51,36 @@ html {
 
 body {
     font-family: var(--font-main);
-    line-height: 1.75;
-    /* Increased for readability on light bg */
-    color: var(--text-color-primary);
-    background-color: var(--background-color-main);
+    line-height: 1.65;
+    color: var(--text-secondary-light);
+    background-color: var(--bg-dark-primary);
     overflow-x: hidden;
     padding-top: var(--nav-height);
 }
 
 .container {
-    max-width: 1280px;
-    /* Wider container for modern feel */
+    max-width: 1160px;
     margin: auto;
-    padding: 0 30px;
+    padding: 0 20px;
 }
 
 /* Navbar */
 .navbar {
-    background: rgba(255, 255, 255, 0.9);
-    /* Light, slightly transparent */
-    backdrop-filter: blur(12px);
-    color: var(--text-color-primary);
-    /* Dark text on light navbar */
-    padding: 0;
-    /* Padding will be handled by container alignment */
+    background: rgba(10, 15, 20, 0.8);
+    /* Dark, slightly transparent */
+    backdrop-filter: blur(10px);
+    color: var(--text-primary-light);
     position: fixed;
     width: 100%;
     top: 0;
     left: 0;
     z-index: 1000;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    /* More defined shadow */
     height: var(--nav-height);
     display: flex;
-    /* Use flex for vertical alignment */
     align-items: center;
-    /* Vertically center navbar content */
+    border-bottom: 1px solid var(--border-color-dark);
 }
 
 .navbar .container {
@@ -92,11 +90,9 @@ body {
 }
 
 .nav-logo {
-    font-size: 1.8rem;
-    font-weight: 700;
-    /* Bolder logo text */
-    color: var(--heading-color);
-    /* Use heading color for logo */
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--text-primary-light);
     text-decoration: none;
     font-family: var(--font-headings);
     display: flex;
@@ -104,10 +100,10 @@ body {
 }
 
 .logo-img {
-    height: 40px;
-    /* Adjusted logo size */
-    margin-right: 12px;
-    /* filter: brightness(0) invert(1); REMOVE THIS: assuming dark logo on light bg now */
+    height: 32px;
+    margin-right: 10px;
+    /* Assuming light logo, consider filter for dark bg if needed or use a dark-mode specific logo */
+    /* filter: brightness(0) invert(1); */
 }
 
 .nav-menu {
@@ -117,68 +113,63 @@ body {
 }
 
 .nav-menu li {
-    margin-left: 30px;
-    /* Increased spacing */
+    margin-left: 20px;
 }
 
-.nav-menu a {
-    color: var(--text-color-secondary);
-    /* Secondary text color for nav links */
+.nav-menu a.nav-link {
+    /* Specific class for nav links */
+    color: var(--text-secondary-light);
     text-decoration: none;
-    font-weight: 600;
-    padding: 10px 15px;
-    /* Slightly more padding */
-    border-radius: var(--border-radius);
-    transition: color 0.3s ease, background-color 0.3s ease;
+    font-weight: 500;
+    padding: 8px 12px;
+    border-radius: var(--border-radius-sm);
+    transition: color 0.2s ease, background-color 0.2s ease;
+    font-size: 0.9rem;
+    letter-spacing: 0.3px;
 }
 
-.nav-menu a:hover,
-.nav-menu a.active {
-    color: var(--primary-theme-color);
-    /* Aqua for hover/active */
-    background-color: rgba(0, 188, 212, 0.08);
-    /* Light aqua highlight */
+.nav-menu a.nav-link:hover,
+.nav-menu a.nav-link.active {
+    color: var(--accent-primary-cyan);
+    background-color: rgba(0, 184, 217, 0.15);
 }
 
 .btn-nav {
-    background-color: var(--accent-color-yellow);
-    color: var(--text-color-primary) !important;
-    /* Dark text on yellow button */
-    padding: 12px 25px !important;
+    background-color: var(--accent-primary-cyan);
+    color: var(--bg-dark-primary) !important;
+    padding: 9px 20px !important;
     border: none;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--box-shadow-subtle);
+    font-weight: 600;
+    font-size: 0.85rem;
 }
 
 .btn-nav:hover {
-    background-color: var(--accent-color-yellow-dark) !important;
-    box-shadow: var(--box-shadow);
+    background-color: var(--accent-primary-cyan-darker) !important;
+    box-shadow: var(--box-shadow-interactive);
 }
 
-/* Hamburger Menu for Mobile */
 .hamburger {
     display: none;
     cursor: pointer;
     background: none;
     border: none;
     padding: 10px;
+    z-index: 1001;
 }
 
 .hamburger span {
     display: block;
-    width: 28px;
-    /* Slightly larger */
-    height: 3px;
-    margin: 6px auto;
-    /* Increased margin */
-    background-color: var(--text-color-primary);
-    /* Dark bars for light navbar */
+    width: 22px;
+    height: 2px;
+    margin: 5px auto;
+    background-color: var(--text-primary-light);
     transition: all 0.3s ease-in-out;
     border-radius: 1px;
 }
 
-/* Hamburger active state (optional: for X animation) */
 .hamburger.active span:nth-child(1) {
-    transform: translateY(9px) rotate(45deg);
+    transform: translateY(7px) rotate(45deg);
 }
 
 .hamburger.active span:nth-child(2) {
@@ -186,58 +177,74 @@ body {
 }
 
 .hamburger.active span:nth-child(3) {
-    transform: translateY(-9px) rotate(-45deg);
+    transform: translateY(-7px) rotate(-45deg);
 }
-
 
 /* Hero Section */
 .hero-section {
-    /* Using a subtle pattern or very light gradient instead of a heavy image for a modern white theme */
-    background-color: var(--background-color-main);
-    /* background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); */
-    /* Example subtle gradient */
-    /* Or a very subtle pattern: */
-    /* background-image: url("data:image/svg+xml,%3Csvg width='52' height='26' viewBox='0 0 52 26' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23e0f2f1' fill-opacity='0.4'%3E%3Cpath d='M10 10c0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6h2c0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4v2c-3.314 0-6-2.686-6-6 0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6zm25.464-1.95l8.486 8.486-1.414 1.414-8.486-8.486 1.414-1.414z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); */
-    color: var(--text-color-primary);
-    min-height: calc(90vh - var(--nav-height));
-    /* Slightly less than full VH */
+    height: 100vh;
+    /* Full viewport height */
     display: flex;
-    flex-direction: column;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
     text-align: center;
-    padding: 60px 20px;
-    /* More padding */
+    color: var(--text-primary-light);
     position: relative;
     overflow: hidden;
 }
 
-.hero-section h1 {
-    font-size: 4rem;
-    /* Adjusted size */
-    margin-bottom: 1.8rem;
-    font-family: var(--font-headings);
-    font-weight: 700;
-    color: var(--heading-color);
-    /* Dark heading color */
-    text-shadow: none;
-    /* Remove shadow for light theme */
-    opacity: 0;
+#hero-video-background {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    min-width: 100%;
+    min-height: 100%;
+    width: auto;
+    height: auto;
+    transform: translateX(-50%) translateY(-50%);
+    z-index: 0;
+    object-fit: cover;
+    background-color: var(--bg-dark-primary);
+    /* Fallback color */
 }
 
-.hero-section p.lead {
-    font-size: 1.6rem;
-    margin-bottom: 3rem;
-    max-width: 800px;
-    /* Wider lead paragraph */
-    color: var(--text-color-secondary);
-    /* Secondary text color */
-    text-shadow: none;
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(rgba(10, 15, 20, 0.7), rgba(10, 15, 20, 0.9));
+    /* Darker gradient */
+    z-index: 1;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 2;
+    padding: 20px;
+}
+
+.hero-content h1 {
+    font-size: 3.2rem;
+    /* Adjusted for impact */
+    margin-bottom: 1rem;
+    font-family: var(--font-headings);
+    font-weight: 700;
+    color: var(--text-primary-light);
+    opacity: 0;
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.hero-content p.lead {
+    font-size: 1.25rem;
+    margin-bottom: 2rem;
+    max-width: 700px;
+    color: var(--text-secondary-light);
     opacity: 0;
     margin-left: auto;
-    /* Centering the paragraph */
     margin-right: auto;
-    /* Centering the paragraph */
 }
 
 .hero-buttons {
@@ -245,342 +252,239 @@ body {
 }
 
 .hero-buttons .btn {
-    margin: 0 12px;
-    /* Adjusted margin */
+    margin: 0 8px;
 }
 
 .btn {
     display: inline-block;
-    padding: 15px 40px;
-    /* Larger buttons */
-    font-size: 1.15rem;
-    /* Slightly larger font */
+    padding: 12px 28px;
+    font-size: 0.9rem;
     text-decoration: none;
-    border-radius: var(--border-radius);
-    transition: all 0.3s ease;
+    border-radius: var(--border-radius-sm);
+    transition: all 0.2s ease-out;
     font-weight: 600;
-    /* Semi-bold */
-    border: 2px solid transparent;
+    border: 1.5px solid transparent;
     cursor: pointer;
     text-transform: uppercase;
-    /* Modern touch */
-    letter-spacing: 0.5px;
+    letter-spacing: 0.7px;
 }
 
 .btn-primary {
-    background-color: var(--accent-color-yellow);
-    color: var(--text-color-primary);
-    /* Dark text on yellow */
-    border-color: var(--accent-color-yellow);
+    background-color: var(--accent-primary-cyan);
+    color: var(--bg-dark-primary);
+    border-color: var(--accent-primary-cyan);
 }
 
 .btn-primary:hover {
-    background-color: var(--accent-color-yellow-dark);
-    border-color: var(--accent-color-yellow-dark);
-    transform: translateY(-3px) scale(1.03);
-    /* Subtle hover effect */
-    box-shadow: 0 4px 15px rgba(255, 235, 59, 0.4);
+    background-color: var(--accent-primary-cyan-darker);
+    border-color: var(--accent-primary-cyan-darker);
+    transform: scale(1.03);
+    box-shadow: 0 3px 10px rgba(0, 184, 217, 0.25);
 }
 
 .btn-secondary {
     background-color: transparent;
-    color: var(--primary-theme-color);
-    /* Aqua for secondary button text */
-    border-color: var(--primary-theme-color);
-    /* Aqua border */
+    color: var(--accent-primary-cyan);
+    border-color: var(--accent-primary-cyan);
 }
 
 .btn-secondary:hover {
-    background-color: var(--primary-theme-color);
-    color: var(--background-color-main);
-    /* White text on aqua bg */
-    transform: translateY(-3px) scale(1.03);
+    background-color: rgba(0, 184, 217, 0.15);
+    color: var(--accent-primary-cyan);
+    transform: scale(1.03);
 }
-
-/* Hero Background Shapes Animation - more subtle for light theme */
-.hero-bg-animation .shape {
-    position: absolute;
-    background-color: rgba(0, 188, 212, 0.08);
-    /* Light Aqua shapes */
-    border-radius: 50%;
-    animation: float 25s infinite linear;
-    /* Slower animation */
-    opacity: 0.7;
-}
-
-.shape1 {
-    width: 120px;
-    height: 120px;
-    bottom: -40px;
-    left: 15%;
-    animation-duration: 28s;
-}
-
-.shape2 {
-    width: 180px;
-    height: 180px;
-    top: 15%;
-    right: 10%;
-    animation-duration: 22s;
-    animation-delay: -6s;
-}
-
-.shape3 {
-    width: 80px;
-    height: 80px;
-    bottom: 25%;
-    right: 30%;
-    animation-duration: 30s;
-}
-
 
 /* Content Sections */
 .content-section {
-    padding: 90px 0;
-    /* Increased padding */
+    padding: 70px 0;
+    background-color: var(--bg-dark-secondary);
 }
+
+.content-section.platform-overview {
+    background-color: var(--bg-dark-primary);
+}
+
+/* Darker for first section */
+.content-section.alt-bg {
+    background-color: var(--bg-dark-primary);
+}
+
+/* Match darker for alt sections for consistency */
+.content-section.collaboration-section {
+    background-color: var(--bg-dark-secondary);
+}
+
 
 .content-section h2 {
     text-align: center;
-    font-size: 3rem;
-    /* Larger section headings */
-    margin-bottom: 25px;
-    /* Reduced margin-bottom for closer sub-lead */
-    color: var(--heading-color);
+    font-size: 2.2rem;
+    margin-bottom: 15px;
+    color: var(--heading-color-light);
     font-family: var(--font-headings);
     position: relative;
+    font-weight: 600;
+    letter-spacing: -0.2px;
 }
 
 .content-section h2::after {
-    /* More subtle underline */
     content: '';
     display: block;
-    width: 80px;
-    height: 4px;
-    background: var(--primary-theme-color);
-    /* Aqua underline */
-    margin: 20px auto 50px;
-    /* Increased margin for spacing */
-    border-radius: 2px;
+    width: 50px;
+    height: 2.5px;
+    background: var(--accent-primary-cyan);
+    margin: 12px auto 35px;
+    border-radius: 1px;
+}
+
+.content-section h3 {
+    font-size: 1.4rem;
+    color: var(--text-primary-light);
+    margin-bottom: 12px;
+    font-family: var(--font-headings);
+    font-weight: 500;
 }
 
 .content-section .lead {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     text-align: center;
-    margin-bottom: 60px;
-    /* Increased spacing after lead */
-    color: var(--text-color-secondary);
-    max-width: 900px;
+    margin-bottom: 40px;
+    color: var(--text-secondary-light);
+    max-width: 750px;
     margin-left: auto;
     margin-right: auto;
 }
 
-.alt-bg {
-    background-color: var(--background-color-alt);
-}
-
-/* Features Grid */
+/* Features Grid & Cards */
 .features-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    /* Responsive columns */
-    gap: 40px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 25px;
 }
 
 .feature-card,
-.implication-card,
-.privacy-card,
-.tutorial-link-card {
-    background: var(--card-bg);
-    padding: 40px;
-    /* Increased padding */
-    border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
-    text-align: center;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+.implication-card {
+    background: var(--bg-dark-tertiary);
+    padding: 25px;
+    border-radius: var(--border-radius-main);
+    box-shadow: var(--box-shadow-subtle);
+    text-align: left;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    border: 1px solid var(--border-color);
-    /* Subtle border */
+    border: 1px solid var(--border-color-dark);
 }
 
 .feature-card:hover,
-.implication-card:hover,
-.privacy-card:hover,
-.tutorial-link-card:hover {
-    transform: translateY(-10px) scale(1.02);
-    /* Slightly scale on hover */
-    box-shadow: var(--box-shadow-hover);
+.implication-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--box-shadow-interactive);
 }
 
 .feature-icon,
 .implication-icon {
-    font-size: 3.8rem;
-    margin-bottom: 25px;
-    color: var(--primary-theme-color);
-    /* Aqua for icons */
+    font-size: 2.2rem;
+    /* Ensure this is a general icon or placeholder, not an emoji */
+    margin-bottom: 15px;
+    color: var(--accent-primary-cyan);
     line-height: 1;
+    align-self: flex-start;
 }
 
 .feature-card h3,
-.implication-card h3,
-.privacy-card h3,
-.tutorial-link-card h3 {
-    font-size: 1.7rem;
-    margin-bottom: 18px;
-    color: var(--heading-color);
+.implication-card h3 {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+    color: var(--text-primary-light);
     font-family: var(--font-headings);
+    font-weight: 600;
 }
 
 .feature-card p,
-.implication-card p,
-.privacy-card p,
-.tutorial-link-card p {
-    font-size: 1.05rem;
-    /* Slightly larger card text */
-    color: var(--text-color-secondary);
-    flex-grow: 1;
-}
-
-/* Tutorial Links specific styling */
-#tutorial-links .lead {
-    margin-bottom: 35px;
-}
-
-.tutorial-links-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 35px;
-    margin-top: 35px;
-}
-
-.tutorial-link-card .tutorial-img {
-    width: 100%;
-    max-width: 280px;
-    height: auto;
-    border-radius: var(--border-radius);
-    margin-bottom: 25px;
-    object-fit: cover;
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
-}
-
-.tutorial-link-card .btn {
-    margin-top: 25px;
-}
-
-.tutorial-link-card small {
+.implication-card p {
     font-size: 0.9rem;
-    color: var(--text-color-secondary);
-    display: block;
-    margin-top: 12px;
+    color: var(--text-secondary-light);
+    flex-grow: 1;
+    margin-bottom: 8px;
 }
 
+.implication-card .card-content p {
+    margin-bottom: 8px;
+}
 
-.visual-placeholder,
-.visual-placeholder-inline {
-    background-color: var(--background-color-alt);
-    /* Use alt background */
-    border: 1px solid var(--border-color);
-    /* Subtle border */
-    padding: 30px;
+.implication-card .card-content p:last-child {
+    margin-bottom: 0;
+}
+
+.visual-placeholder {
+    background-color: var(--bg-dark-secondary);
+    border: 1px dashed var(--border-color-dark);
+    padding: 35px;
     text-align: center;
-    color: var(--text-color-secondary);
+    color: var(--text-muted-light);
     font-style: italic;
-    border-radius: var(--border-radius);
-    margin: 30px auto;
-    max-width: 90%;
+    border-radius: var(--border-radius-main);
+    margin: 35px auto;
+    max-width: 75%;
 }
 
-.visual-placeholder img,
-.visual-placeholder-inline img {
+.visual-placeholder img {
     max-width: 100%;
     height: auto;
-    border-radius: calc(var(--border-radius) - 2px);
-    margin-bottom: 15px;
+    border-radius: var(--border-radius-sm);
+    margin-bottom: 12px;
 }
 
-.visual-placeholder p,
-.visual-placeholder-inline p {
-    font-size: 0.95rem;
+.visual-placeholder p {
+    font-size: 0.85rem;
 }
 
-/* Implications & Privacy Grids */
-.implications-grid,
-.privacy-grid {
+.implications-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 40px;
-}
-
-@media (min-width: 992px) {
-
-    .implications-grid,
-    .privacy-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-}
-
-.implication-card ul,
-.privacy-card ul {
-    text-align: left;
-    list-style-position: outside;
-    /* Bullets outside for cleaner look */
-    padding-left: 20px;
-    /* Indent list */
-    margin-top: 18px;
-    font-size: 1rem;
-    color: var(--text-color-secondary);
-}
-
-.implication-card ul li,
-.privacy-card ul li {
-    margin-bottom: 10px;
-}
-
-.implication-card ul li ul {
-    margin-left: 25px;
-    margin-top: 10px;
+    gap: 25px;
 }
 
 .full-width-card {
     grid-column: 1 / -1;
 }
 
-
 /* Footer */
 .footer-section {
-    background: var(--background-color-alt);
-    /* Light alt background */
-    color: var(--text-color-secondary);
+    background: var(--bg-dark-primary);
+    color: var(--text-muted-light);
     text-align: center;
-    padding: 50px 0;
-    margin-top: 70px;
-    border-top: 1px solid var(--border-color);
+    padding: 35px 0;
+    margin-top: 50px;
+    border-top: 1px solid var(--border-color-dark);
 }
 
 .footer-section p {
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+}
+
+.footer-section .external-links {
+    margin-top: 15px;
     margin-bottom: 10px;
-    font-size: 0.95rem;
 }
 
-.footer-section a {
-    color: var(--primary-theme-color);
+.footer-section .external-links a {
+    margin: 0 10px;
+    color: var(--accent-primary-cyan);
     text-decoration: none;
-    font-weight: 600;
+    font-weight: 500;
 }
 
-.footer-section a:hover {
+.footer-section .external-links a:hover {
     text-decoration: underline;
-    color: var(--primary-theme-dark);
+    color: var(--accent-primary-cyan-darker);
 }
-
 
 /* Scroll-based Animations */
 .animate-on-scroll {
     opacity: 0;
-    transform: translateY(25px);
-    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+    transform: translateY(15px);
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
 }
 
 .animate-on-scroll.is-visible {
@@ -590,21 +494,21 @@ body {
 
 /* Hero Animations */
 .animate-hero-title {
-    animation: heroTextAppear 0.8s ease-out 0.2s forwards;
+    animation: heroTextAppear 0.6s ease-out 0.1s forwards;
 }
 
 .animate-hero-subtitle {
-    animation: heroTextAppear 0.8s ease-out 0.5s forwards;
+    animation: heroTextAppear 0.6s ease-out 0.3s forwards;
 }
 
 .hero-buttons {
-    animation: heroTextAppear 0.8s ease-out 0.8s forwards;
+    animation: heroTextAppear 0.6s ease-out 0.5s forwards;
 }
 
 @keyframes heroTextAppear {
     from {
         opacity: 0;
-        transform: translateY(25px);
+        transform: translateY(15px);
     }
 
     to {
@@ -612,7 +516,6 @@ body {
         transform: translateY(0);
     }
 }
-
 
 /* Responsive adjustments */
 @media (max-width: 991px) {
@@ -622,13 +525,11 @@ body {
         width: 100%;
         position: absolute;
         top: var(--nav-height);
-        /* Align below navbar */
         left: 0;
-        background: var(--background-color-main);
-        /* Solid background */
-        padding: 15px 0;
-        box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
-        border-top: 1px solid var(--border-color);
+        background: var(--bg-dark-secondary);
+        padding: 10px 0;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        border-top: 1px solid var(--border-color-dark);
     }
 
     .nav-menu.active {
@@ -636,15 +537,15 @@ body {
     }
 
     .nav-menu li {
-        margin: 12px 0;
+        margin: 8px 0;
         text-align: center;
         width: 100%;
     }
 
-    .nav-menu a {
+    .nav-menu a.nav-link {
         width: 90%;
         margin: 0 auto;
-        padding: 12px 0;
+        padding: 10px 0;
         display: block;
     }
 
@@ -655,47 +556,38 @@ body {
 
 @media (max-width: 768px) {
     .container {
-        padding: 0 20px;
+        padding: 0 15px;
     }
 
-    .hero-section h1 {
-        font-size: 2.8rem;
+    .hero-content h1 {
+        font-size: 2.4rem;
     }
 
-    .hero-section p.lead {
-        font-size: 1.3rem;
+    .hero-content p.lead {
+        font-size: 1.1rem;
         max-width: 90%;
     }
 
     .content-section h2 {
-        font-size: 2.4rem;
+        font-size: 1.9rem;
     }
 
-    .features-grid,
-    .tutorial-links-grid {
+    .features-grid {
         grid-template-columns: 1fr;
-        gap: 30px;
+        gap: 20px;
     }
 
     .btn {
-        padding: 14px 30px;
-        font-size: 1rem;
+        padding: 10px 22px;
+        font-size: 0.85rem;
     }
 
     .content-section {
-        padding: 70px 0;
-    }
-
-    .implications-grid,
-    .privacy-grid {
-        gap: 30px;
+        padding: 50px 0;
     }
 
     .feature-card,
-    .implication-card,
-    .privacy-card,
-    .tutorial-link-card {
-        padding: 30px;
+    .implication-card {
+        padding: 20px;
     }
-
 }

@@ -1,170 +1,451 @@
-/* Custom CSS for EIDO Sentinel Documentation Page */
+/* EIDO Sentinel Streamlit App Custom Styles */
 
-/* General body styling for the documentation area if possible - Streamlit might override */
-.documentation-container {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-    line-height: 1.7; /* Increased line height for better readability */
-    color: #333; /* Dark grey text for readability */
-    padding: 25px 30px; /* Increased padding */
-    background-color: #ffffff; /* Clean white background for the doc page */
+/* --- Root Variables for Main Content (Light Theme) --- */
+:root {
+    --main-primary-color: #00BCD4;
+    /* Aqua */
+    --main-background-color: #FFFFFF;
+    /* White */
+    --main-secondary-background-color: #F0F8FF;
+    /* AliceBlue - light aqua tint for some elements */
+    --main-text-color: #1E293B;
+    /* Dark Slate Gray */
+    --main-heading-color: #00798C;
+    /* Darker Aqua/Teal */
+    --main-accent-yellow: #FFDA63;
+    --main-accent-yellow-dark: #FFC107;
+    --main-border-color: #D1D5DB;
+    --main-muted-text-color: #4B5563;
+    --main-font: "Urbanist", sans-serif;
+    /* Changed font */
+}
+
+/* --- Sidebar Variables (Dark Theme) --- */
+:root {
+    --sidebar-background-color: #18202A;
+    /* Dark Blue/Charcoal from Palantir inspiration */
+    --sidebar-text-color: #D0D9E4;
+    /* Light Gray text for dark sidebar */
+    --sidebar-heading-color: #E0E7FF;
+    /* Bluish White for sidebar headings */
+    --sidebar-border-color: #334155;
+    /* Darker border for sidebar elements */
+    --sidebar-accent-color: var(--main-primary-color);
+    /* Use main Aqua for accents in sidebar */
+    --sidebar-button-bg-color: var(--main-accent-yellow);
+    --sidebar-button-text-color: #101820;
+    /* Very dark text for yellow buttons */
+    --sidebar-button-hover-bg-color: var(--main-accent-yellow-dark);
+}
+
+/* --- General App Styling (Main Content Area) --- */
+body {
+    /* This applies to the whole app, but sidebar will override */
+    color: var(--main-text-color);
+    background-color: var(--main-background-color);
+    /* Base background for the app */
+    font-family: var(--main-font);
+    /* Ensure body uses new font */
+}
+
+.stApp {
+    /* Target the root Streamlit app container */
+    font-family: var(--main-font) !important;
+}
+
+.main .block-container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    background-color: var(--main-background-color);
+    /* Ensure main content area is light */
+}
+
+/* --- Sidebar Styling (Dark Theme) --- */
+[data-testid="stSidebar"] {
+    background-color: var(--sidebar-background-color) !important;
+    border-right: 1px solid var(--sidebar-border-color) !important;
+    font-family: var(--main-font);
+    /* Sidebar uses new font */
+}
+
+[data-testid="stSidebar"] .stImage img {
     border-radius: 8px;
-    /* box-shadow: 0 4px 12px rgba(0,0,0,0.08); Subtle shadow */
-    margin-top: 10px; /* Add some space from the tabs */
 }
 
-.documentation-container h1,
-.documentation-container h2,
-.documentation-container h3,
-.documentation-container h4,
-.documentation-container h5,
-.documentation-container h6 {
-    color: #1e2a38; /* Darker, more professional blue/grey for headings */
-    margin-top: 1.8em;
-    margin-bottom: 0.6em;
-    font-weight: 700; /* Bolder headings */
-    line-height: 1.3;
+/* All text-based elements in sidebar */
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] .stMarkdown h1,
+[data-testid="stSidebar"] .stMarkdown h2,
+[data-testid="stSidebar"] .stMarkdown h3,
+[data-testid="stSidebar"] .stHeader,
+[data-testid="stSidebar"] .stSubheader,
+[data-testid="stSidebar"] .stMarkdown p,
+[data-testid="stSidebar"] .stText,
+[data-testid="stSidebar"] label,
+/* For selectbox, text_input labels */
+[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"]>div,
+/* Selectbox selected value */
+[data-testid="stSidebar"] .stRadio div[data-baseweb="radio"] label span {
+    /* Radio button labels */
+    color: var(--sidebar-text-color) !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
 }
 
-.documentation-container h1 {
-    font-size: 2.4em; /* Slightly larger H1 */
-    border-bottom: 3px solid #007bff; /* Accent color border */
-    padding-bottom: 0.4em;
-    margin-bottom: 0.8em;
+[data-testid="stSidebar"] .stHeader,
+[data-testid="stSidebar"] .stSubheader,
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3 {
+    color: var(--sidebar-heading-color) !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
 }
 
-.documentation-container h2 {
-    font-size: 2.0em; /* Slightly larger H2 */
-    border-bottom: 2px solid #e8eaf6; /* Lighter, subtle border */
-    padding-bottom: 0.3em;
-    margin-bottom: 0.7em;
+
+[data-testid="stSidebar"] .stCaption {
+    color: #98A2B3 !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
 }
 
-.documentation-container h3 {
-    font-size: 1.6em;
-    color: #2c3e50; /* Slightly different color for H3 */
-}
-
-.documentation-container h4 {
-    font-size: 1.3em;
-    color: #34495e;
-}
-
-.documentation-container p {
-    margin-bottom: 1.2em; /* More spacing between paragraphs */
-    color: #4a4a4a; /* Softer black for paragraph text */
-    font-size: 1.05em; /* Slightly larger paragraph font */
-}
-
-.documentation-container strong {
-    color: #2c3e50; /* Make strong text stand out a bit more */
-}
-
-.documentation-container a {
-    color: #007bff; /* Standard blue for links */
-    text-decoration: none;
-    font-weight: 500;
-}
-
-.documentation-container a:hover {
-    text-decoration: underline;
-    color: #0056b3;
-}
-
-.documentation-container ul,
-.documentation-container ol {
-    margin-bottom: 1.2em;
-    padding-left: 25px; /* Slightly more indent for lists */
-}
-
-.documentation-container li {
-    margin-bottom: 0.6em;
-}
-
-.documentation-container code { /* Inline code */
-    background-color: #e8eaf6; /* Lighter, less intrusive background for inline code */
-    padding: 0.2em 0.5em;
-    margin: 0 0.1em;
-    font-size: 90%;
-    border-radius: 4px;
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-    color: #c0392b; /* Darker red for inline code text */
-    border: 1px solid #d1d9e6;
-}
-
-.documentation-container pre { /* Code blocks */
-    background-color: #282c34; /* Popular dark theme for code blocks */
-    color: #abb2bf; /* Light grey text for code blocks */
-    border: none; /* Remove border, rely on background */
-    border-radius: 6px; /* Slightly more rounded */
-    padding: 1.2em 1.5em; /* More padding */
-    overflow-x: auto; /* Allow horizontal scrolling for long lines */
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-    font-size: 0.95em; /* Slightly larger code block font */
-    line-height: 1.5;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.documentation-container pre code {
-    background-color: transparent; /* Override inline code style within pre */
-    color: inherit;
-    padding: 0;
-    font-size: inherit;
-    border: none;
-}
-
-.documentation-container blockquote {
-    border-left: 5px solid #007bff; /* Thicker accent border */
-    padding: 0.8em 1.2em; /* More padding */
-    margin-left: 0;
-    margin-right: 0;
-    margin-bottom: 1.2em;
-    color: #555;
-    font-style: italic;
-    background-color: #f8f9fa; /* Light background for blockquote */
-    border-radius: 0 4px 4px 0;
-}
-
-.documentation-container table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 1.5em;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border-radius: 4px;
-    overflow: hidden; /* For rounded corners on table */
-}
-
-.documentation-container th,
-.documentation-container td {
-    border: 1px solid #e0e0e0;
-    padding: 10px 12px; /* More padding in table cells */
-    text-align: left;
-}
-
-.documentation-container th {
-    background-color: #f0f2f5; /* Lighter, cleaner header for tables */
+/* Sidebar Buttons */
+[data-testid="stSidebar"] .stButton>button {
+    background-color: var(--sidebar-button-bg-color) !important;
+    color: var(--sidebar-button-text-color) !important;
+    border: 1px solid var(--main-accent-yellow-dark) !important;
     font-weight: 600;
-    color: #333;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
 }
 
-.documentation-container img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 6px; /* More rounded images */
-    margin-top: 0.8em;
-    margin-bottom: 0.8em;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+[data-testid="stSidebar"] .stButton>button:hover {
+    background-color: var(--sidebar-button-hover-bg-color) !important;
+    border-color: #EAA600 !important;
 }
 
-.documentation-container hr {
+[data-testid="stSidebar"] .stButton>button:focus {
+    box-shadow: 0 0 0 0.2rem rgba(255, 218, 99, 0.4) !important;
+}
+
+/* Sidebar input fields and select boxes */
+[data-testid="stSidebar"] .stTextInput input,
+[data-testid="stSidebar"] .stTextArea textarea,
+[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"]>div {
+    background-color: #293548 !important;
+    color: var(--sidebar-text-color) !important;
+    border: 1px solid var(--sidebar-border-color) !important;
+    border-radius: 6px !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+[data-testid="stSidebar"] .stTextInput input::placeholder,
+[data-testid="stSidebar"] .stTextArea textarea::placeholder {
+    color: #7a889c !important;
+}
+
+[data-testid="stSidebar"] .stTextInput input:focus,
+[data-testid="stSidebar"] .stTextArea textarea:focus,
+[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"]>div:focus-within {
+    border-color: var(--sidebar-accent-color) !important;
+    box-shadow: 0 0 0 0.1rem rgba(0, 188, 212, 0.4) !important;
+}
+
+
+/* Sidebar Expander */
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+    background-color: #202B3C;
+    border: 1px solid var(--sidebar-border-color);
+    border-radius: 8px;
+    color: var(--sidebar-heading-color) !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {
+    background-color: #293548;
+}
+
+[data-testid="stSidebar"] [data-testid="stExpander"] .streamlit-expanderContent {
+    background-color: var(--sidebar-background-color);
+}
+
+
+/* --- Main Content Area Styling (Light Theme) --- */
+.main h1,
+.main h2,
+.main h3,
+.main h4,
+.main h5,
+.main .stMarkdown h1,
+.main .stMarkdown h2,
+.main .stMarkdown h3,
+.main .stSubheader {
+    color: var(--main-heading-color);
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+.main .stMarkdown p,
+.main .stText,
+.main label {
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+
+.main .stCaption {
+    color: var(--main-muted-text-color);
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+/* Main content Tabs styling */
+.main [data-testid="stTabs"] .stTabs-tab {
+    color: var(--main-muted-text-color);
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+.main [data-testid="stTabs"] .stTabs-tab[aria-selected="true"] {
+    color: var(--main-primary-color);
+    border-bottom-color: var(--main-primary-color);
+    font-weight: 600;
+}
+
+/* Main content Expander styling */
+.main [data-testid="stExpander"] summary {
+    background-color: var(--main-secondary-background-color);
+    border: 1px solid var(--main-border-color);
+    color: var(--main-heading-color) !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+.main [data-testid="stExpander"] summary:hover {
+    background-color: #E0F2F7;
+}
+
+.main [data-testid="stExpander"] .streamlit-expanderContent {
+    background-color: var(--main-background-color);
+}
+
+/* Main content Metric cards */
+.main [data-testid="stMetric"] {
+    background-color: var(--main-secondary-background-color);
+    border: 1px solid var(--main-border-color);
+    border-radius: 10px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.main [data-testid="stMetric"] label {
+    color: var(--main-heading-color) !important;
+    font-weight: 600;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+.main [data-testid="stMetric"] div[data-testid="stMetricValue"] {
+    color: var(--main-primary-color) !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+/* Main content Buttons */
+.main .stButton>button {
+    background-color: var(--main-primary-color) !important;
+    color: white !important;
+    border: 1px solid #00838F !important;
+    font-weight: 600;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+.main .stButton>button:hover {
+    background-color: #00838F !important;
+    border-color: #006064 !important;
+}
+
+.main .stButton>button:focus:not(:active) {
+    box-shadow: 0 0 0 0.2rem rgba(0, 188, 212, 0.3) !important;
+}
+
+/* Dataframe styling */
+[data-testid="stDataFrame"] {
+    border: 1px solid var(--main-border-color);
+    border-radius: 8px;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+[data-testid="stDataFrame"] thead th {
+    background-color: #E0F7FA;
+    color: var(--main-heading-color) !important;
+    font-weight: 600;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+[data-testid="stDataFrame"] tbody td {
+    color: var(--main-text-color) !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+/* Main Content Input widgets */
+.main [data-testid="stTextInput"] input,
+.main [data-testid="stTextArea"] textarea,
+.main [data-testid="stSelectbox"] select,
+.main [data-testid="stMultiselect"] .stMultiSelect div[data-baseweb="select"]>div {
+    border: 1px solid var(--main-border-color) !important;
+    border-radius: 6px !important;
+    background-color: var(--main-background-color) !important;
+    color: var(--main-text-color) !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+.main [data-testid="stTextInput"] input:focus,
+.main [data-testid="stTextArea"] textarea:focus,
+.main [data-testid="stSelectbox"] select:focus,
+.main [data-testid="stMultiselect"] .stMultiSelect div[data-baseweb="select"]>div:focus-within {
+    border-color: var(--main-primary-color) !important;
+    box-shadow: 0 0 0 0.1rem rgba(0, 188, 212, 0.3) !important;
+}
+
+.main [data-testid="stTextInput"] input::placeholder,
+.main [data-testid="stTextArea"] textarea::placeholder {
+    color: var(--main-muted-text-color);
+    opacity: 0.7;
+}
+
+/* General Links */
+a {
+    color: var(--main-primary-color);
+    text-decoration: none;
+}
+
+a:hover {
+    color: #00838F;
+    text-decoration: underline;
+}
+
+/* Code blocks in markdown or st.code */
+pre,
+code,
+.stCodeBlock {
+    background-color: #263238 !important;
+    color: #ECEFF1 !important;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    border: 1px solid #455A64;
+    font-family: "Source Code Pro", "Consolas", "Monaco", monospace !important;
+    /* Keep monospace for code */
+}
+
+.stCodeBlock code {
+    background-color: transparent !important;
+    padding: 0;
     border: none;
-    border-top: 2px solid #e0e0e0;
-    margin-top: 2em;
-    margin-bottom: 2em;
 }
 
-/* Specific Streamlit elements if needed, but try to keep generic */
-/* For example, if we wrap the markdown in a div with this class */
-.stMarkdown .documentation-content {
-    /* Styles here would apply to markdown rendered by st.markdown
-       if the markdown content itself is wrapped in a div with class documentation-content */
+/* Ace Editor */
+.ace_editor {
+    border: 1px solid var(--main-border-color) !important;
+    border-radius: 8px !important;
+    font-family: "Source Code Pro", "Consolas", "Monaco", monospace !important;
+    /* Keep monospace for code editor */
+}
+
+/* Alerts / Info / Success / Warning boxes in Main Content */
+.main [data-testid="stAlert"] {
+    border-radius: 8px;
+    border-left-width: 6px;
+    padding: 1rem;
+}
+
+.main [data-testid="stAlert"] p {
+    color: var(--main-text-color) !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+.main [data-testid="stAlert"][data-st-alert-type="info"] {
+    border-left-color: var(--main-primary-color);
+    background-color: #E0F7FA;
+}
+
+.main [data-testid="stAlert"][data-st-alert-type="info"] p {
+    color: #005f6b !important;
+}
+
+.main [data-testid="stAlert"][data-st-alert-type="success"] {
+    border-left-color: #4CAF50;
+    background-color: #E8F5E9;
+}
+
+.main [data-testid="stAlert"][data-st-alert-type="success"] p {
+    color: #1B5E20 !important;
+}
+
+.main [data-testid="stAlert"][data-st-alert-type="warning"] {
+    border-left-color: var(--main-accent-yellow-dark);
+    background-color: #FFFDE7;
+}
+
+.main [data-testid="stAlert"][data-st-alert-type="warning"] p {
+    color: #795500 !important;
+}
+
+.main [data-testid="stAlert"][data-st-alert-type="error"] {
+    border-left-color: #F44336;
+    background-color: #FFEBEE;
+}
+
+.main [data-testid="stAlert"][data-st-alert-type="error"] p {
+    color: #B71C1C !important;
+}
+
+/* Divider */
+[data-testid="stDivider"] {
+    border-color: var(--main-border-color);
+}
+
+/* Main content divider */
+[data-testid="stSidebar"] [data-testid="stDivider"] {
+    border-color: var(--sidebar-border-color) !important;
+}
+
+/* Sidebar divider */
+
+
+/* Streamlit Menu Items */
+div[data-testid="stMainMenu"] ul {
+    background-color: var(--main-secondary-background-color);
+    border: 1px solid var(--main-border-color);
+}
+
+div[data-testid="stMainMenu"] ul li>div[role="button"]:hover {
+    background-color: rgba(0, 188, 212, 0.1);
+    color: var(--main-primary-color) !important;
+}
+
+/* Main Title and Caption */
+h1[data-testid="stHeading"],
+.stTitle {
+    color: var(--main-heading-color) !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
+}
+
+div[data-testid="stCaptionContainer"] {
+    color: var(--main-muted-text-color) !important;
+    font-family: var(--main-font) !important;
+    /* Ensure new font */
 }
