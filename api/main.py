@@ -50,24 +50,35 @@ app = FastAPI(
 # GitHub Pages will be like your-username.github.io/your-repo-name/
 # Render apps are typically your-app-name.onrender.com
 
-streamlit_app_url_placeholder = "https://your-streamlit-app-name.streamlit.app" # Replace with actual
-github_pages_url_placeholder = f"https://{os.environ.get('GITHUB_REPOSITORY_OWNER','your-username')}.github.io" # Replace with actual or derive
-# If your GH Pages site is for the repo, it might be /your-repo-name
+# --- CORS Configuration ---
+# Add your deployed frontend URLs here.
+# For local development with Streamlit on port 8503:
+local_streamlit_url = f"http://localhost:{settings.streamlit_server_port}"
+local_streamlit_url_ip = f"http://127.0.0.1:{settings.streamlit_server_port}"
+
+# For deployed environments:
+# Replace these with your actual URLs once deployed
+render_backend_url = settings.api_base_url # This will be your *.onrender.com URL for the backend
+streamlit_cloud_app_url = "https://your-streamlit-app-name.streamlit.app" # Replace with your Streamlit Cloud URL
+github_pages_url = f"https://{os.environ.get('GITHUB_REPOSITORY_OWNER','your-username')}.github.io" # If serving static landing page separately
 
 origins = [
-    "http://localhost", # General localhost
-    f"http://localhost:{settings.streamlit_server_port}", # Local Streamlit
-    f"http://127.0.0.1:{settings.streamlit_server_port}", # Local Streamlit
-    "http://localhost:8000", # Local FastAPI (itself for landing page)
-    "http://127.0.0.1:8000", # Local FastAPI
-    # Add deployed frontend URLs here once known:
-    streamlit_app_url_placeholder, 
-    github_pages_url_placeholder,
-    # If your Render backend has a custom domain, add that too.
-    # Example: "https://api.eidosentinel.com"
+    "http://localhost",             # General localhost
+    local_streamlit_url,            # Local Streamlit (e.g., http://localhost:8503)
+    local_streamlit_url_ip,         # Local Streamlit IP (e.g., http://127.0.0.1:8503)
+    f"http://localhost:{settings.api_port}", # Local FastAPI (itself for landing page)
+    f"http://127.0.0.1:{settings.api_port}", # Local FastAPI IP
 ]
-if settings.api_base_url and settings.api_base_url not in origins: # Add the deployed API_BASE_URL itself if distinct
-    origins.append(settings.api_base_url)
+
+# Add deployed URLs if they are set and different from localhost
+if render_backend_url and "localhost" not in render_backend_url:
+    origins.append(render_backend_url)
+if streamlit_cloud_app_url and "your-streamlit-app-name" not in streamlit_cloud_app_url: # Check for placeholder
+    origins.append(streamlit_cloud_app_url)
+if github_pages_url and "your-username" not in github_pages_url: # Check for placeholder
+    origins.append(github_pages_url)
+# Remove duplicates
+origins = sorted(list(set(origins)))
 
 
 app.add_middleware(
@@ -77,7 +88,7 @@ app.add_middleware(
     allow_methods=["*"], 
     allow_headers=["*"], 
 )
-logger_main.info(f"CORS middleware added. Allowed origins (ensure placeholders are updated for deployment): {origins}")
+logger_main.info(f"CORS middleware added. Allowed origins (ensure placeholders like 'your-streamlit-app-name' are updated for deployment): {origins}")
 
 
 # --- Static Files Mounting ---

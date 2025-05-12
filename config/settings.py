@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     api_host: str = Field("127.0.0.1", validation_alias='API_HOST')
     api_port: int = Field(8000, validation_alias='API_PORT')
 
-    streamlit_server_port: int = Field(8501, validation_alias='STREAMLIT_SERVER_PORT')
+    streamlit_server_port: int = Field(8503, validation_alias='STREAMLIT_SERVER_PORT') # Changed default port
 
     model_config = SettingsConfigDict(
         env_file=('.env', '.env.production', '.env.development'), 
@@ -119,11 +119,13 @@ try:
     elif settings.llm_provider == 'openrouter': logger.info(f"OpenRouter Model: {settings.openrouter_model_name}")
     elif settings.llm_provider == 'local': logger.info(f"Local LLM Model: {settings.local_llm_model_name}, URL: {settings.local_llm_api_base_url}")
     logger.info(f"Geocoding User Agent: {settings.geocoding_user_agent}")
+    logger.info(f"Default Streamlit Port (for reference): {settings.streamlit_server_port}")
+
 
 except Exception as e:
      logger.critical(f"CRITICAL ERROR: Failed to load settings: {e}", exc_info=True)
      class FallbackSettings: # type: ignore
-         log_level="ERROR"; llm_provider="none"; geocoding_user_agent="FallbackAgent/0.0"; streamlit_server_port=8501
+         log_level="ERROR"; llm_provider="none"; geocoding_user_agent="FallbackAgent/0.0"; streamlit_server_port=8503 # Changed
          api_host="127.0.0.1"; api_port=8000;
          google_model_options = ["gemini-2.0-flash"] 
          google_model_name = "gemini-2.0-flash"
