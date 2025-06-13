@@ -15,10 +15,10 @@ try:
     GEOCODING_USER_AGENT = settings.geocoding_user_agent
 except ImportError as e:
     print(f"WARNING: Could not import settings for geocoding user agent: {e}. Using default.")
-    GEOCODING_USER_AGENT = "EidoSentinelApp_Default/0.8 (contact: default@example.com)"
+    GEOCODING_USER_AGENT = "EidoSentinelApp_Default/0.9.1 (contact: default@example.com)"
 except AttributeError:
      print("WARNING: 'geocoding_user_agent' not found in settings. Using default.")
-     GEOCODING_USER_AGENT = "EidoSentinelApp_Default/0.8 (contact: default@example.com)"
+     GEOCODING_USER_AGENT = "EidoSentinelApp_Default/0.9.1 (contact: default@example.com)"
 
 logger = logging.getLogger(__name__)
 # Configure logger if not already configured by a higher-level basicConfig

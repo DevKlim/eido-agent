@@ -1,4 +1,3 @@
-# ui/app.py
 import streamlit as st
 import json
 import os
@@ -14,19 +13,6 @@ import pydeck as pdk
 from streamlit_ace import st_ace
 from typing import List, Dict, Optional, Union, Any 
 import requests # New import for API calls
-
-# --- Page Configuration ---
-st.set_page_config(
-    layout="wide",
-    page_title="EIDO Sentinel | AI Incident Processor Demo",
-    page_icon="img/logo_icon_light.png", 
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': 'http://localhost:8000', 
-        'Report a bug': "https://github.com/LXString/eido-sentinel/issues",
-        'About': "# EIDO Sentinel v0.9.1\nAI-Powered Emergency Incident Processor. Visit our main showcase at http://localhost:8000"
-    }
-)
 
 # --- Setup Python Path & Imports ---
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -46,9 +32,6 @@ try:
     logger_ui = logging.getLogger("EidoSentinelUIDemo") 
     logger_ui.info(f"UI Demo Logger initialized with level: {log_level_to_set}")
 
-    # Agent and store are no longer directly imported for core logic
-    # from agent.agent_core import eido_agent_instance 
-    # from services.storage import incident_store
     from data_models.schemas import Incident as PydanticIncident, ReportCoreData # Still needed for type hints, display
     from utils.ocr_processor import extract_text_from_image 
 except Exception as e:
@@ -56,13 +39,31 @@ except Exception as e:
     print(f"CRITICAL UI SETUP ERROR: {import_error_message}")
     if original_error: print(original_error)
 
+# --- Dynamic URL for Landing Page ---
+# This needs to be defined BEFORE st.set_page_config
+LANDING_PAGE_URL = f"http://{settings.api_host if settings.api_host and settings.api_host != '0.0.0.0' else 'localhost'}:{settings.api_port if settings.api_port else 8000}"
+
+
+# --- Page Configuration ---
+st.set_page_config(
+    layout="wide",
+    page_title="EIDO Sentinel | AI Incident Processor Demo",
+    page_icon="img/logo_icon_light.png", 
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': LANDING_PAGE_URL, 
+        'Report a bug': "https://github.com/LXString/eido-sentinel/issues",
+        'About': f"# EIDO Sentinel v0.9.1\nAI-Powered Emergency Incident Processor. Visit our main showcase at {LANDING_PAGE_URL}"
+    }
+)
+
 
 if not modules_imported_successfully:
     st.error(f"CRITICAL ERROR: Failed during application setup.")
     st.error(f"Details: {import_error_message}")
     if original_error: st.exception(original_error)
     st.warning("Please ensure dependencies are installed (`pip install -r requirements.txt`), Tesseract OCR is installed, the RAG index is built (`python utils/rag_indexer.py`), and environment variables (`.env`) are correctly configured.")
-    st.info("Run the app from the project's root directory: `streamlit run ui/app.py` or `./run_streamlit.sh`")
+    st.info("Run the app from the project's root directory: `streamlit run ui/app.py` or `./run_all.sh`")
     st.stop()
 
 # --- Log Capture Setup (for UI display) ---
@@ -84,8 +85,6 @@ TEMPLATE_DIR = os.path.join(PROJECT_ROOT_DIR, 'eido_templates')
 LOGO_PATH = os.path.join(PROJECT_ROOT_DIR, 'static', 'images', 'logo_icon_dark.png') 
 CUSTOM_CSS_PATH = os.path.join(UI_DIR, 'custom_styles.css')
 
-LANDING_PAGE_URL = f"http://{settings.api_host if settings.api_host and settings.api_host != '0.0.0.0' else 'localhost'}:{settings.api_port if settings.api_port else 8000}"
-
 API_BASE_URL = settings.api_base_url # Get from settings
 
 for dir_path in [SAMPLE_DIR, TEMPLATE_DIR]:
@@ -104,23 +103,14 @@ def init_session_state():
         'active_filters': {}, 
         'last_processed_alert_results': [],
         'ocr_text_output': "" ,
-        'all_incidents_from_api': [] # Cache for API fetched incidents
+        'all_incidents_from_api': [], # Cache for API fetched incidents
+        'local_geocoded_locations': {} # Cache for local geocoding tool
     }
     for key, value in defaults.items():
         if key not in st.session_state: st.session_state[key] = value
     if 'active_filters' not in st.session_state or not isinstance(st.session_state.active_filters, dict):
          st.session_state.active_filters = {}
 
-    # LLM settings are managed by the backend, Streamlit UI doesn't need to send them for processing
-    # It might need them if it makes direct LLM calls for UI-specific features NOT related to core agent processing
-    # For this version, let's assume all core processing (including LLM use) is via FastAPI backend.
-    # So, removing direct sync of LLM keys/models from session state here.
-    # The agent configuration expander will be removed or modified.
-    # For EIDO Generator, it will call a backend endpoint.
-    
-    # Agent config will be managed by backend's .env or platform env vars.
-    # If UI needs to *display* current backend config, an API endpoint could provide that.
-    # For simplicity, removing direct LLM config from UI for now.
     st.session_state.api_base_url = API_BASE_URL # Store API base URL in session state
 
 init_session_state()
@@ -261,12 +251,6 @@ st.sidebar.caption("AI Incident Processor - Interactive Demo")
 st.sidebar.divider()
 st.sidebar.header("Agent Status")
 st.sidebar.info(f"Backend API: {st.session_state.api_base_url}")
-# Simple check for API health (optional, can be slow)
-# if st.sidebar.button("Check API Health"):
-#     if make_api_request("GET", "/api/v1/incidents"): # Using /incidents as a basic health check endpoint
-#         st.sidebar.success("API Connected")
-#     else:
-#         st.sidebar.error("API Connection Failed")
 
 st.sidebar.divider(); st.sidebar.header("Data Ingestion")
 json_default_val = "" if st.session_state.clear_inputs_on_rerun else st.session_state.get('json_input_area_val', "")
@@ -385,9 +369,8 @@ with st.sidebar.expander("Admin Actions", expanded=False):
         api_response_clear = make_api_request("DELETE", "/api/v1/admin/clear_store")
         if api_response_clear:
             st.success(api_response_clear.get("message", "Store cleared."))
-        # else: st.error("Failed to clear store via API.") # make_api_request handles error display
 
-        keys_to_reset = ['filtered_incidents_cache', 'active_filters', 'last_processed_alert_results', 'ocr_text_output', 'all_incidents_from_api']
+        keys_to_reset = ['filtered_incidents_cache', 'active_filters', 'last_processed_alert_results', 'ocr_text_output', 'all_incidents_from_api', 'local_geocoded_locations']
         for key in keys_to_reset:
              if key in st.session_state:
                  if isinstance(st.session_state[key], list): st.session_state[key] = []
@@ -421,7 +404,6 @@ metric_cols = st.columns(4)
 metric_cols[0].metric("Total Incidents", st.session_state.total_incidents)
 metric_cols[1].metric("Active Incidents", st.session_state.active_incidents)
 
-# Calculate Avg Reports/Incident based on API fetched data
 all_incs_metric = st.session_state.all_incidents_from_api
 report_counts_metric = [len(inc.reports_core_data) for inc in all_incs_metric if inc.reports_core_data]
 avg_reports_val_metric = sum(report_counts_metric) / len(report_counts_metric) if report_counts_metric else 0
@@ -437,54 +419,49 @@ available_types = sorted(list(set(inc.incident_type for inc in all_incidents_for
 available_statuses = sorted(list(set(inc.status for inc in all_incidents_for_options if inc.status)))
 available_zips = sorted(list(set(zip_code for inc in all_incidents_for_options for zip_code in inc.zip_codes if zip_code)))
 
-def update_filters_ui(): # Renamed to avoid conflict if any other update_filters exists
+def update_filters_ui(): 
      st.session_state.active_filters['types'] = st.session_state.filter_type_ms
      st.session_state.active_filters['statuses'] = st.session_state.filter_status_ms
      st.session_state.active_filters['zips'] = st.session_state.filter_zip_ms
-     # No rerun needed here, update_dashboard_metrics_and_cache will be called before display
 
 with filter_col1: st.multiselect("Filter by Type:", options=available_types, default=st.session_state.active_filters.get('types',[]), key="filter_type_ms", on_change=update_filters_ui)
 with filter_col2: st.multiselect("Filter by Status:", options=available_statuses, default=st.session_state.active_filters.get('statuses',[]), key="filter_status_ms", on_change=update_filters_ui)
 with filter_col3: st.multiselect("Filter by ZIP Code:", options=available_zips, default=st.session_state.active_filters.get('zips',[]), key="filter_zip_ms", on_change=update_filters_ui)
 st.divider()
 
-# Tabs remain largely the same, but their data source (filtered_incidents_to_display) is now from API
-tab_list, tab_map, tab_charts, tab_details, tab_warning, tab_eido_explorer, tab_eido_generator, tab_tutorial = st.tabs([
-    "List", "Map", "Charts", "Details", "Warnings", "EIDO Explorer", "EIDO Generator", "Tutorial & Roadmap"
+tab_list, tab_map, tab_charts, tab_details, tab_warning, tab_eido_explorer, tab_eido_generator, tab_geocode_tools, tab_tutorial = st.tabs([
+    "List", "Map", "Charts", "Details", "Warnings", "EIDO Explorer", "EIDO Generator", "Geocoding Tools", "Tutorial & Roadmap"
 ])
 
 filtered_incidents_to_display = st.session_state.filtered_incidents_cache
 
-with tab_list: # Logic remains similar, using filtered_incidents_to_display
+with tab_list: 
     st.caption(f"Displaying {len(filtered_incidents_to_display)} incidents based on filters.")
     if filtered_incidents_to_display:
         list_data = []
-        for inc_obj in filtered_incidents_to_display: # inc_obj is PydanticIncident
+        for inc_obj in filtered_incidents_to_display:
              list_data.append({"ID": inc_obj.incident_id[:8], "Type": inc_obj.incident_type or "N/A", "Status": inc_obj.status or "N/A",
                                "Last Update": pd.to_datetime(inc_obj.last_updated_at, errors='coerce', utc=True),
-                               "Reports": inc_obj.trend_data.get('report_count', len(inc_obj.reports_core_data)), # Use actual if trend not there
+                               "Reports": inc_obj.trend_data.get('report_count', len(inc_obj.reports_core_data)),
                                "Locations": len(inc_obj.locations), "ZIPs": ", ".join(inc_obj.zip_codes or []) or "N/A",
                                "Summary": inc_obj.summary or "N/A"})
         df_list_display = pd.DataFrame(list_data)
         st.dataframe(df_list_display, use_container_width=True, hide_index=True,
                        column_order=("ID", "Type", "Status", "Last Update", "Reports", "Locations", "ZIPs", "Summary"),
                        column_config={
-                           "ID": st.column_config.TextColumn("ID", width="small"),
-                           "Type": st.column_config.TextColumn("Type", width="medium"),
+                           "ID": st.column_config.TextColumn("ID", width="small"), "Type": st.column_config.TextColumn("Type", width="medium"),
                            "Status": st.column_config.TextColumn("Status", width="small"),
                            "Last Update": st.column_config.DatetimeColumn("Last Update", format="YYYY-MM-DD HH:mm Z", width="medium"),
                            "Reports": st.column_config.NumberColumn("Reports", format="%d", width="small"),
                            "Locations": st.column_config.NumberColumn("Locs", format="%d", width="small"),
-                           "ZIPs": st.column_config.TextColumn("ZIPs", width="medium"),
-                           "Summary": st.column_config.TextColumn("Summary", width="large")
-                       }
-        )
+                           "ZIPs": st.column_config.TextColumn("ZIPs", width="medium"), "Summary": st.column_config.TextColumn("Summary", width="large")
+                       })
     else: st.info("No incidents match the current filter criteria, or API data not loaded.")
 
-with tab_map: # Logic remains similar
+with tab_map:
     st.caption(f"Displaying locations for {len(filtered_incidents_to_display)} filtered incidents.")
     map_points_filtered = []
-    for inc_obj in filtered_incidents_to_display: # inc_obj is PydanticIncident
+    for inc_obj in filtered_incidents_to_display:
         if inc_obj.locations:
             for lat, lon in inc_obj.locations:
                  if isinstance(lat, (int, float)) and isinstance(lon, (int, float)) and -90 <= lat <= 90 and -180 <= lon <= 180:
@@ -504,7 +481,7 @@ with tab_map: # Logic remains similar
         except Exception as map_error: st.error(f"Error displaying PyDeck map: {map_error}")
     else: st.info("No geocoded locations match the current filter criteria, or API data not loaded.")
 
-with tab_charts: # Logic remains similar
+with tab_charts:
     st.caption(f"Displaying charts for {len(filtered_incidents_to_display)} filtered incidents.")
     if filtered_incidents_to_display:
         chart_data = [{"Status": inc.status or "N/A", "Type": inc.incident_type or "N/A"} for inc in filtered_incidents_to_display]
@@ -522,7 +499,7 @@ with tab_charts: # Logic remains similar
             else: st.caption("No type data.")
     else: st.info("No incidents match filters to display charts, or API data not loaded.")
 
-with tab_details: # Logic remains similar, but incident fetching for detail can be direct
+with tab_details:
     st.caption(f"Select one of the {len(filtered_incidents_to_display)} filtered incidents for details.")
     if filtered_incidents_to_display:
         details_map = {f"{inc.incident_id[:8]} - {inc.incident_type or 'N/A'} ({inc.status})": inc.incident_id for inc in filtered_incidents_to_display}
@@ -531,13 +508,12 @@ with tab_details: # Logic remains similar, but incident fetching for detail can 
 
         if selected_label != "-- Select Incident --":
             selected_full_id = details_map.get(selected_label)
-            # Find the selected PydanticIncident from the already fetched list
             selected_incident: Optional[PydanticIncident] = next((inc for inc in st.session_state.all_incidents_from_api if inc.incident_id == selected_full_id), None)
 
             if selected_incident:
                 st.markdown(f"#### Incident `{selected_incident.incident_id[:8]}` Details"); st.divider()
                 info_col1, info_col2 = st.columns(2)
-                with info_col1: # Displaying data from PydanticIncident object
+                with info_col1:
                     st.markdown(f"**Type:** {selected_incident.incident_type or 'N/A'}")
                     st.markdown(f"**Status:** `{selected_incident.status or 'Unknown'}`")
                     st.markdown(f"**Reports:** {selected_incident.trend_data.get('report_count', len(selected_incident.reports_core_data))}")
@@ -561,9 +537,9 @@ with tab_details: # Logic remains similar, but incident fetching for detail can 
                          for r_core in sorted_reports_core:
                              ts = pd.to_datetime(r_core.timestamp, errors='coerce', utc=True)
                              report_data_list.append({
-                                 "Rept ID": r_core.report_id[:8], "Timestamp": ts,
-                                 "Ext. ID": r_core.external_incident_id or "N/A", "Source": r_core.source or "N/A",
-                                 "Description": r_core.description or "N/A", "Address": r_core.location_address or "N/A",
+                                 "Rept ID": r_core.report_id[:8], "Timestamp": ts, "Ext. ID": r_core.external_incident_id or "N/A",
+                                 "Source": r_core.source or "N/A", "Description": r_core.description or "N/A",
+                                 "Address": r_core.location_address or "N/A",
                                  "Coords": f"{r_core.coordinates[0]:.5f}, {r_core.coordinates[1]:.5f}" if r_core.coordinates and len(r_core.coordinates) == 2 else "N/A",
                                  "ZIP": r_core.zip_code or "N/A"
                              })
@@ -571,12 +547,11 @@ with tab_details: # Logic remains similar, but incident fetching for detail can 
                          st.dataframe(df_reports, hide_index=True, use_container_width=True, column_config={"Timestamp": st.column_config.DatetimeColumn("Timestamp", format="YYYY-MM-DD HH:mm:ss Z")})
                      else: st.info("No report data associated.")
                 with st.expander(f"Match/Update History", expanded=False):
-                    match_info = selected_incident.trend_data.get('last_match_info', 'N/A')
-                    st.caption(f"**Last Update Reason:** {match_info}")
+                    st.caption(f"**Last Update Reason:** {selected_incident.trend_data.get('last_match_info', 'N/A')}")
             else: st.warning(f"Could not retrieve details for incident ID {selected_label}.")
     else: st.info("No incidents match filters to show details, or API data not loaded.")
 
-with tab_warning: # Logic remains similar
+with tab_warning:
     st.subheader("Generate Incident Warning Text")
     st.caption(f"Based on the {len(filtered_incidents_to_display)} currently filtered incidents.")
     if filtered_incidents_to_display:
@@ -595,7 +570,7 @@ with tab_warning: # Logic remains similar
             st.text_area("Generated Warning Text (Copy below):", value=warning_text, height=300, key="warning_output_area")
     else: st.info("Apply filters to select incidents for warning generation, or API data not loaded.")
 
-with tab_eido_explorer: # Logic remains similar
+with tab_eido_explorer:
     st.subheader("Explore Original/Generated EIDO Data")
     st.caption("View the EIDO JSON associated with processed reports (original or LLM-generated).")
     if filtered_incidents_to_display:
@@ -607,14 +582,10 @@ with tab_eido_explorer: # Logic remains similar
             selected_inc_full_id_exp = explorer_map.get(selected_inc_label_exp)
             selected_inc_obj_exp: Optional[PydanticIncident] = next((inc for inc in st.session_state.all_incidents_from_api if inc.incident_id == selected_inc_full_id_exp), None)
 
-
             if selected_inc_obj_exp and selected_inc_obj_exp.reports_core_data:
                 sorted_reports_exp = sorted(selected_inc_obj_exp.reports_core_data, key=lambda r: r.timestamp if r.timestamp else datetime.min.replace(tzinfo=timezone.utc))
-                report_options_exp = {}
-                for idx, r_core in enumerate(sorted_reports_exp):
-                    ts = pd.to_datetime(r_core.timestamp, errors='coerce', utc=True)
-                    label = f"Report {idx+1} ({ts.strftime('%H:%M:%S Z') if pd.notna(ts) else 'No Time'}) - ID: {r_core.report_id[:8]}"
-                    report_options_exp[label] = r_core.report_id 
+                report_options_exp = {f"Report {idx+1} ({pd.to_datetime(r_core.timestamp, errors='coerce', utc=True).strftime('%H:%M:%S Z') if r_core.timestamp else 'No Time'}) - ID: {r_core.report_id[:8]}": r_core.report_id for idx, r_core in enumerate(sorted_reports_exp)}
+                
                 if not report_options_exp: st.warning("Selected incident has no associated reports to explore.")
                 else:
                     selected_report_label_exp = st.selectbox(f"Select Report for Incident {selected_inc_obj_exp.incident_id[:8]}:", options=["-- Select Report --"] + list(report_options_exp.keys()), index=0, key=f"eido_explorer_report_select_{selected_inc_obj_exp.incident_id}")
@@ -622,92 +593,109 @@ with tab_eido_explorer: # Logic remains similar
                         selected_report_id_exp = report_options_exp.get(selected_report_label_exp)
                         selected_report_core_exp = next((rc for rc in selected_inc_obj_exp.reports_core_data if rc.report_id == selected_report_id_exp), None)
                         if selected_report_core_exp and selected_report_core_exp.original_eido_dict:
-                            eido_to_display = selected_report_core_exp.original_eido_dict
-                            display_label = "Original/Generated EIDO JSON:"
                             try:
-                                eido_str_display = json.dumps(eido_to_display, indent=2)
-                                st.markdown(f"**{display_label}** (Report ID: `{selected_report_core_exp.report_id[:8]}`)")
+                                eido_str_display = json.dumps(selected_report_core_exp.original_eido_dict, indent=2)
+                                st.markdown(f"**Original/Generated EIDO JSON:** (Report ID: `{selected_report_core_exp.report_id[:8]}`)")
                                 st_ace(value=eido_str_display, language="json", theme="tomorrow_night_blue", readonly=True, key=f"ace_editor_exp_{selected_report_id_exp}", height=400, wrap=True) 
                                 st.download_button(label="Download this EIDO JSON", data=eido_str_display.encode('utf-8'), file_name=f"eido_report_{selected_report_core_exp.report_id[:8]}.json", mime="application/json", key=f"dl_eido_report_exp_{selected_report_id_exp}")
-                            except Exception as json_err: st.error(f"Error formatting EIDO JSON for display: {json_err}"); st.json(eido_to_display) 
+                            except Exception as json_err: st.error(f"Error formatting EIDO JSON for display: {json_err}"); st.json(selected_report_core_exp.original_eido_dict) 
                         elif selected_report_core_exp: st.warning("Selected report does not have stored EIDO data.")
             elif selected_inc_obj_exp: st.info("Selected incident has no associated report data.")
     else: st.info("No incidents match filters to explore EIDO data, or API data not loaded.")
 
 with tab_eido_generator: 
     st.subheader("Generate Compliant EIDO JSON"); st.info("Use LLM assistance to fill a standard EIDO template based on a scenario description.")
-    available_templates = list_files_in_dir(TEMPLATE_DIR) # Local file listing
+    available_templates = list_files_in_dir(TEMPLATE_DIR) 
     if not available_templates:
         st.warning(f"No EIDO templates found in `{TEMPLATE_DIR}`. Create JSON templates with placeholders like `[PLACEHOLDER]`.")
     else:
-        template_options = ["-- Select Template --"] + available_templates
-        selected_template_file = st.selectbox("Select EIDO Template:", options=template_options, index=0, key="generator_template_select")
+        selected_template_file = st.selectbox("Select EIDO Template:", options=["-- Select Template --"] + available_templates, index=0, key="generator_template_select")
         scenario_description = st.text_area("Enter Scenario Description:", height=150, key="generator_scenario_input", placeholder="Describe the incident (e.g., 'Structure fire at 100 Main St, Apt 5, reported by Engine 3 at 08:15 UTC...')")
 
         if st.button("Generate EIDO from Template via API", key="generator_button_api", disabled=(selected_template_file == "-- Select Template --" or not scenario_description)):
             with st.spinner("Generating EIDO JSON via API..."):
                 payload = {"template_name": selected_template_file, "scenario_description": scenario_description}
                 api_response_gen = make_api_request("POST", "/api/v1/generate_eido_from_template", payload=payload)
-                
                 if api_response_gen and "generated_eido" in api_response_gen:
-                    # API returns parsed JSON, so dump it back to string for display/download if needed
                     st.session_state.generated_eido_json = json.dumps(api_response_gen["generated_eido"], indent=2)
                     st.success("EIDO JSON generated successfully via API!")
                 else:
                     st.session_state.generated_eido_json = None
-                    st.error("Failed to generate EIDO JSON from template using API. Check logs/error above.")
                 get_captured_logs()
 
         if st.session_state.generated_eido_json:
             st.markdown("---"); st.markdown("**Generated EIDO JSON:**")
-            try:
-                # generated_eido_json is already a string from the API success path
-                st_ace(value=st.session_state.generated_eido_json, language="json", theme="tomorrow_night_blue", keybinding="vscode", font_size=12, height=400, show_gutter=True, show_print_margin=False, wrap=True, auto_update=False, readonly=True, key="ace_editor_generator_output") 
-                st.download_button(label="Download Generated EIDO", data=st.session_state.generated_eido_json.encode('utf-8'), file_name=f"generated_{selected_template_file.replace('.json','')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.json", mime="application/json", key="dl_generated_eido")
-            except Exception as display_err: st.error(f"Error displaying/formatting generated EIDO: {display_err}"); st.text_area("Raw Generated Output:", value=st.session_state.generated_eido_json, height=400)
+            st_ace(value=st.session_state.generated_eido_json, language="json", theme="tomorrow_night_blue", readonly=True, key="ace_editor_generator_output", height=400, wrap=True) 
+            st.download_button(label="Download Generated EIDO", data=st.session_state.generated_eido_json.encode('utf-8'), file_name=f"generated_{selected_template_file.replace('.json','')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.json", mime="application/json", key="dl_generated_eido")
 
-with tab_tutorial: # Logic remains same
+with tab_geocode_tools:
+    st.subheader("Manage Local Geocoding Store")
+    st.info("This tool allows you to manually add, update, or remove entries in the `geocoded_locations.json` file via the backend API. This local store is used by the `AdvancedGeocodingService`.")
+    st.divider()
+
+    st.markdown("##### Current Locally Stored Locations")
+    if st.button("Refresh Local Locations List"):
+        st.session_state.local_geocoded_locations = make_api_request("GET", "/api/v1/tools/geocoding/local_store") or {}
+        st.rerun()
+
+    if not st.session_state.get('local_geocoded_locations'):
+        st.session_state.local_geocoded_locations = make_api_request("GET", "/api/v1/tools/geocoding/local_store") or {}
+
+    local_locations_data = st.session_state.local_geocoded_locations
+    if local_locations_data:
+        loc_list_for_df = [{"name": name, **data} for name, data in local_locations_data.items()]
+        df_local_geo = pd.DataFrame(loc_list_for_df)
+        st.dataframe(df_local_geo[['name', 'lat', 'lon', 'source', 'notes', 'last_updated']], use_container_width=True, hide_index=True)
+    else: st.caption("No locations found in the local store.")
+    st.divider()
+
+    st.markdown("##### Add or Update Location")
+    with st.form("add_update_geo_form", clear_on_submit=True):
+        geo_name = st.text_input("Location Name (e.g., Geisel Library, Blue Coffee Cart)")
+        col1, col2 = st.columns(2)
+        with col1: geo_lat = st.number_input("Latitude", format="%.6f", value=0.0)
+        with col2: geo_lon = st.number_input("Longitude", format="%.6f", value=0.0)
+        geo_source = st.text_input("Source", value="manual_ui_input")
+        geo_notes = st.text_area("Notes")
+        
+        submitted = st.form_submit_button("Save to Local Store")
+        if submitted:
+            if not geo_name.strip(): st.warning("Location Name is required.")
+            else:
+                payload = {"location_name": geo_name, "latitude": geo_lat, "longitude": geo_lon, "source": geo_source, "notes": geo_notes}
+                response = make_api_request("POST", "/api/v1/tools/geocoding/local_store", payload=payload)
+                if response:
+                    st.success(response.get("message", "Location saved successfully! Refreshing list..."))
+                    st.session_state.local_geocoded_locations = {} # Force refresh
+                    time.sleep(1); st.rerun()
+
+    st.divider()
+    st.markdown("##### Remove Location")
+    if local_locations_data:
+        location_names_to_delete = sorted(list(local_locations_data.keys()))
+        selected_loc_to_delete = st.selectbox("Select location to remove:", options=["-- Select --"] + location_names_to_delete)
+        if selected_loc_to_delete != "-- Select --":
+            if st.button(f"Delete '{selected_loc_to_delete}'", type="primary"):
+                endpoint = f"/api/v1/tools/geocoding/local_store/{selected_loc_to_delete}"
+                response = make_api_request("DELETE", endpoint)
+                if response:
+                    st.success(response.get("message", "Location removed successfully! Refreshing list..."))
+                    st.session_state.local_geocoded_locations = {} # Force refresh
+                    time.sleep(1); st.rerun()
+    else: st.caption("No locations to remove.")
+
+with tab_tutorial:
     st.header("EIDO Sentinel Demo Application Tutorial")
-    st.markdown(f"""
-    Welcome to the EIDO Sentinel interactive demo! This guide will walk you through using the application's key features. 
-    The application sidebar uses a dark theme, while the main content area uses a light theme for clarity.
-    You can visit the main project showcase at [EIDO Sentinel Landing Page]({LANDING_PAGE_URL}).
-    """) 
+    st.markdown(f"Welcome to the EIDO Sentinel interactive demo! This guide will walk you through using the application's key features. You can visit the main project showcase at [EIDO Sentinel Landing Page]({LANDING_PAGE_URL}).") 
     st.subheader("1. Agent Status (Sidebar)")
-    st.markdown("""
-    - **Backend API URL:** Shows the configured URL for the FastAPI backend. All data processing and LLM interactions happen there.
-    - Ensure the backend is running and accessible from this Streamlit application.
-    """)
-
+    st.markdown("- **Backend API URL:** Shows the configured URL for the FastAPI backend. All data processing and LLM interactions happen there.")
     st.subheader("2. Ingesting Data (Sidebar)")
-    st.markdown("""
-    Input data into EIDO Sentinel via the **Data Ingestion** section in the sidebar. Processing requests are sent to the backend API.
-    - **EIDO JSON Tab:** Upload files, paste JSON, or load samples.
-    - **Raw Text Tab:** Input unstructured text. The backend agent will parse this.
-    - **Image (OCR) Tab:** Upload an image for text extraction. The extracted text populates the 'Raw Text' area for processing.
-    
-    Click **Process Inputs** to send data to the backend. Results will update the dashboard.
-    """)
+    st.markdown("Input data into EIDO Sentinel via the **Data Ingestion** section. Processing requests are sent to the backend API.\n- **EIDO JSON Tab:** Upload files, paste JSON, or load samples.\n- **Raw Text Tab:** Input unstructured text.\n- **Image (OCR) Tab:** Upload an image for text extraction.\n\nClick **Process Inputs** to send data to the backend.")
     st.subheader("3. Understanding the Dashboard Tabs")
-    st.markdown(f"""
-    The main dashboard visualizes data retrieved from the backend API:
-    - **Metrics Bar & Filters:** Overview stats and filtering options.
-    - **List, Map, Charts, Details Tabs:** Various views of incident data.
-    - **Warnings Tab:** Generate warning text based on filtered incidents.
-    - **EIDO Explorer Tab:** View original/generated EIDO for reports within incidents.
-    - **EIDO Generator Tab:** Use backend LLM assistance to fill EIDO templates.
-    - **Tutorial & Roadmap Tab:** This guide and project future plans. Visit the [Landing Page]({LANDING_PAGE_URL}) for more.
-    """)
+    st.markdown(f"The main dashboard visualizes data retrieved from the backend API:\n- **Metrics Bar & Filters:** Overview stats and filtering options.\n- **List, Map, Charts, Details Tabs:** Various views of incident data.\n- **EIDO Explorer Tab:** View original/generated EIDO for reports within incidents.\n- **EIDO Generator & Geocoding Tools Tabs:** Use backend assistance to generate EIDO data or manage the local geocoder.\n- **Tutorial & Roadmap Tab:** This guide and project future plans. Visit the [Landing Page]({LANDING_PAGE_URL}) for more.")
     st.info("Remember: This is a Proof-of-Concept. LLM outputs (via backend) can vary.")
 
 st.divider()
 st.caption(f"EIDO Sentinel v0.9.1 | Interactive Demo Application | API: {st.session_state.api_base_url}")
-st.markdown(
-    """
-    <div style="text-align: center; margin-top: 20px; padding-bottom: 20px; font-size: 0.9em;">
-        <a href="https://www.linkedin.com/in/yourprofile" target="_blank" style="margin: 0 10px;">LinkedIn</a> | 
-        <a href="https://github.com/LXString/eido-sentinel" target="_blank" style="margin: 0 10px;">GitHub</a> | 
-        <a href="https://www.sdsc.edu" target="_blank" style="margin: 0 10px;">UCSD SDSC</a>
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; margin-top: 20px; padding-bottom: 20px; font-size: 0.9em;'><a href='https://github.com/LXString/eido-sentinel' target='_blank' style='margin: 0 10px;'>GitHub</a> | <a href='https://www.sdsc.edu' target='_blank' style='margin: 0 10px;'>UCSD SDSC</a></div>", unsafe_allow_html=True)
 get_captured_logs()

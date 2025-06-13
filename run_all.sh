@@ -1,74 +1,234 @@
 #!/bin/bash
 
-# Get the directory where the script is located
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-VENV_DIR="${SCRIPT_DIR}/venv"
+# EIDO Sentinel - run_all.sh
+# Enhanced for robustness and better error reporting.
 
-# --- Configuration (Can be overridden by .env file if your apps read it) ---
-# Default values if not found in .env or if .env is not sourced here
-DEFAULT_API_HOST="0.0.0.0" # Listen on all interfaces
+# --- Configuration ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+VENV_DIR="${SCRIPT_DIR}/venv"
+ENV_FILE="${SCRIPT_DIR}/.env"
+
 DEFAULT_API_PORT="8000"
 DEFAULT_STREAMLIT_PORT="8501"
-# Note: Your Python apps (api/main.py, ui/app.py) should ideally load these from .env via config.settings
+FASTAPI_PARENT_PID="" # Stores PID of the uvicorn --reload parent process
 
-echo "🚀 Launching EIDO Sentinel (FastAPI Backend & Streamlit UI)..."
+# --- Temporary Directory for Script Operations ---
+# Needs to be created early for logs, cleaned up by trap
+TMP_DIR=$(mktemp -d -t eido_sentinel_run_XXXXXX)
+if [ ! -d "$TMP_DIR" ]; then
+    echo "FATAL: Could not create temporary directory. Exiting."
+    exit 1
+fi
+
+# --- Helper Functions ---
+log_info() {
+    echo "[INFO] $(date +'%Y-%m-%d %H:%M:%S') - $1"
+}
+
+log_warn() {
+    echo "[WARN] $(date +'%Y-%m-%d %H:%M:%S') - $1"
+}
+
+log_error() {
+    echo "[ERROR] $(date +'%Y-%m-%d %H:%M:%S') - $1" >&2
+}
+
+# --- Function to kill processes on specific ports ---
+# Takes port numbers as arguments
+kill_processes_on_ports() {
+    if [ $# -eq 0 ]; then
+        log_warn "kill_processes_on_ports: No ports specified."
+        return
+    fi
+
+    for port_to_kill in "$@"; do
+        if [ -z "$port_to_kill" ]; then
+            log_warn "kill_processes_on_ports: Empty port number received. Skipping."
+            continue
+        fi
+
+        log_info "Attempting to free port ${port_to_kill}..."
+        local pids_found=() # Array to store PIDs
+
+        if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+            # Windows (Git Bash, Cygwin, etc.)
+            log_info "OS Type: Windows. Using netstat and taskkill for port ${port_to_kill}."
+            
+            local netstat_output_file="${TMP_DIR}/netstat_port_${port_to_kill}.log"
+            netstat -aon > "$netstat_output_file"
+            if [ $? -ne 0 ]; then
+                log_error "netstat command failed. Cannot check port ${port_to_kill}."
+                rm -f "$netstat_output_file"
+                continue
+            fi
+
+            # Extract PIDs listening on the specific port
+            while IFS= read -r pid_val; do
+                clean_pid=$(echo "$pid_val" | tr -d '\r\n[:space:]')
+                if [[ "$clean_pid" =~ ^[0-9]+$ && "$clean_pid" != "0" ]]; then
+                    pids_found+=("$clean_pid")
+                fi
+            done < <(grep ":${port_to_kill}[[:space:]]" "$netstat_output_file" | awk '$4 == "LISTENING" {print $NF}' | sort -u)
+            
+            rm -f "$netstat_output_file"
+
+            if [ ${#pids_found[@]} -gt 0 ]; then
+                log_info "Found PIDs on port ${port_to_kill}: ${pids_found[*]}"
+                for pid_k in "${pids_found[@]}"; do
+                    log_info "Attempting to terminate process (PID: $pid_k) on port ${port_to_kill}..."
+                    local taskkill_log="${TMP_DIR}/taskkill_${pid_k}.log"
+                    
+                    cmd.exe /c "taskkill /F /PID $pid_k" > "$taskkill_log" 2>&1
+                    local taskkill_exit_code=$?
+                    
+                    if [ $taskkill_exit_code -eq 0 ]; then
+                        log_info "SUCCESS: taskkill for PID $pid_k completed."
+                    elif [ $taskkill_exit_code -eq 128 ]; then
+                        log_info "INFO: taskkill reported PID $pid_k not found (Error 128). Likely already terminated."
+                    else
+                        log_error "taskkill for PID $pid_k failed with exit code $taskkill_exit_code."
+                        if [ -s "$taskkill_log" ]; then
+                           log_error "Taskkill output for PID $pid_k:"; cat "$taskkill_log";
+                        fi
+                    fi
+                    rm -f "$taskkill_log"
+                done
+                log_info "Waiting a moment for port ${port_to_kill} to free up after taskkill attempts..."
+                sleep 3
+            else
+                log_info "No listening process found on port ${port_to_kill} by netstat."
+            fi
+        else
+            # Linux, macOS
+            log_info "OS Type: Non-Windows. Using lsof for port ${port_to_kill}."
+            if command -v lsof > /dev/null; then
+                local pids_lsof
+                pids_lsof=$(lsof -t -i:"${port_to_kill}" -sTCP:LISTEN)
+                
+                if [ -n "$pids_lsof" ]; then
+                    log_info "Found PIDs on port ${port_to_kill} via lsof: $pids_lsof. Terminating..."
+                    for single_pid in $pids_lsof; do kill -9 "$single_pid"; done
+                    log_info "Waiting a moment for port ${port_to_kill} to free up..."; sleep 1
+                else
+                    log_info "No listening process found on port ${port_to_kill} by lsof."
+                fi
+            else
+                 log_warn "'lsof' command not found. Cannot check/kill processes on port ${port_to_kill}."
+            fi
+        fi
+        log_info "Finished attempt to free port ${port_to_kill}."; echo "---"
+    done
+}
+
+# --- Function to clean up background processes on script exit ---
+cleanup() {
+    log_info "Performing cleanup..."
+    
+    if [ -n "$FASTAPI_PARENT_PID" ]; then
+        if kill -0 "$FASTAPI_PARENT_PID" > /dev/null 2>&1; then
+            log_info "Stopping FastAPI parent process (PID: $FASTAPI_PARENT_PID)..."
+            kill "$FASTAPI_PARENT_PID" # Send SIGTERM
+            sleep 1
+            if kill -0 "$FASTAPI_PARENT_PID" > /dev/null 2>&1; then
+                log_warn "FastAPI parent process (PID: $FASTAPI_PARENT_PID) still running. Forcing kill (SIGKILL)..."
+                kill -9 "$FASTAPI_PARENT_PID"
+            fi
+        fi
+        FASTAPI_PARENT_PID=""
+    fi
+    
+    log_info "Removing temporary directory: ${TMP_DIR}"; rm -rf "${TMP_DIR}"
+    log_info "Cleanup complete."
+}
+
+# Trap EXIT, SIGINT (Ctrl+C) and SIGTERM to run cleanup
+trap cleanup EXIT SIGINT SIGTERM
+
+# --- Main Script ---
+log_info "Launching EIDO Sentinel (FastAPI Backend & Streamlit UI)..."
+cd "$SCRIPT_DIR"
 
 # --- Activate Virtual Environment ---
 if [ -d "${VENV_DIR}" ]; then
-    echo "🐍 Activating virtual environment: ${VENV_DIR}"
+    log_info "Activating virtual environment: ${VENV_DIR}"
     if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
         source "${VENV_DIR}/Scripts/activate"
     else
         source "${VENV_DIR}/bin/activate"
     fi
-else
-    echo "⚠️ WARNING: Virtual environment '${VENV_DIR}' not found. Running with system Python."
-    echo "Please ensure dependencies are installed in your active Python environment."
-fi
-
-# --- Check for uvicorn and streamlit ---
-if ! command -v uvicorn &> /dev/null; then
-    echo "❌ ERROR: uvicorn command not found. Please install dependencies (pip install -r requirements.txt)."
-    exit 1
-fi
-if ! command -v streamlit &> /dev/null; then
-    echo "❌ ERROR: streamlit command not found. Please install dependencies (pip install -r requirements.txt)."
-    exit 1
-fi
-
-# --- Function to clean up background processes ---
-cleanup() {
-    echo -e "\n🧹 Cleaning up background processes..."
-    if [ -n "$FASTAPI_PID" ]; then
-        echo "🔪 Stopping FastAPI server (PID: $FASTAPI_PID)..."
-        kill "$FASTAPI_PID" 2>/dev/null
-        wait "$FASTAPI_PID" 2>/dev/null # Wait for it to actually terminate
+    if [ $? -ne 0 ]; then
+        log_error "Failed to activate virtual environment. Please check venv setup."; exit 1;
     fi
-    echo "🧼 Cleanup complete."
-    exit 0
-}
+else
+    log_warn "Virtual environment '${VENV_DIR}' not found. Using system Python.";
+fi
 
-# Trap SIGINT (Ctrl+C) and SIGTERM to run cleanup
-trap cleanup SIGINT SIGTERM
+# --- Check for dependencies ---
+for cmd in uvicorn streamlit; do
+    if ! command -v $cmd &> /dev/null; then
+        log_error "'$cmd' command not found. Please ensure dependencies are installed (e.g., pip install -r requirements.txt)."; exit 1;
+    fi
+done
 
-# --- Start FastAPI Backend in the background ---
-# The api/main.py should read host/port from config.settings (which reads .env)
-echo "⚙️ Starting FastAPI backend (uvicorn)..."
-# Use environment variables for host/port if set, otherwise defaults
-# These are passed to uvicorn command line, which might override settings in api.main.py if it doesn't prioritize its own config loading.
-# It's generally better if api.main.py's uvicorn.run() call is the source of truth for host/port from .env.
-# For this script, we'll assume api.main.py handles its own config for host/port.
-uvicorn api.main:app --reload --log-level info &
-FASTAPI_PID=$!
-echo "🔗 FastAPI backend started (PID: $FASTAPI_PID). Access API docs at http://localhost:${DEFAULT_API_PORT}/docs (adjust port if changed in .env)"
-sleep 2 # Give uvicorn a moment to start
+# --- Load variables from .env file ---
+if [ -f "${ENV_FILE}" ]; then
+    log_info "Loading environment variables from ${ENV_FILE}..."; set -o allexport; source "${ENV_FILE}"; set +o allexport;
+else
+    log_info "${ENV_FILE} not found. Using default port configurations."
+fi
+
+API_PORT_TO_USE="${API_PORT:-$DEFAULT_API_PORT}"
+STREAMLIT_PORT_TO_USE="${STREAMLIT_SERVER_PORT:-$DEFAULT_STREAMLIT_PORT}"
+API_HOST_TO_USE="${API_HOST:-127.0.0.1}"
+
+log_info "Effective API Host: $API_HOST_TO_USE"; log_info "Effective API Port: $API_PORT_TO_USE"; log_info "Effective Streamlit Port: $STREAMLIT_PORT_TO_USE"
+
+# --- Kill any pre-existing processes on the ports ---
+log_info "Performing initial port cleanup..."; kill_processes_on_ports "$API_PORT_TO_USE" "$STREAMLIT_PORT_TO_USE"; log_info "Initial port cleanup finished."
+
+# --- Start FastAPI Backend with robust logging ---
+log_info "Starting FastAPI backend with uvicorn on ${API_HOST_TO_USE}:${API_PORT_TO_USE}..."
+UVICORN_STDOUT_LOG="${TMP_DIR}/uvicorn_stdout.log"
+UVICORN_STDERR_LOG="${TMP_DIR}/uvicorn_stderr.log"
+log_info "Backend logs will be saved in ${TMP_DIR}"
+
+export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH}"
+uvicorn api.main:app --reload --log-level info --host "${API_HOST_TO_USE}" --port "${API_PORT_TO_USE}" > "$UVICORN_STDOUT_LOG" 2> "$UVICORN_STDERR_LOG" &
+FASTAPI_PARENT_PID=$!
+log_info "FastAPI backend initiated (Uvicorn Parent PID: $FASTAPI_PARENT_PID)."
+log_info "Access API docs at http://${API_HOST_TO_USE}:${API_PORT_TO_USE}/docs"
+log_info "Waiting for FastAPI to initialize (5 seconds)..."; sleep 5
+
+# Check if FastAPI parent process started correctly and display logs on failure
+if ! kill -0 "$FASTAPI_PARENT_PID" > /dev/null 2>&1; then
+    log_error "FATAL: FastAPI backend parent process (PID: $FASTAPI_PARENT_PID) failed to start or exited prematurely."
+    log_error "This is often due to a configuration error (e.g., database connection) or a missing dependency."
+    if [ -s "$UVICORN_STDERR_LOG" ]; then
+        log_error "Displaying backend error log from: $UVICORN_STDERR_LOG"
+        echo "--- BACKEND ERROR LOG START ---"
+        cat "$UVICORN_STDERR_LOG"
+        echo "--- BACKEND ERROR LOG END ---"
+    else
+        log_warn "Backend error log is empty, checking stdout..."
+        if [ -s "$UVICORN_STDOUT_LOG" ]; then
+            log_error "Displaying backend standard output log from: $UVICORN_STDOUT_LOG"
+            echo "--- BACKEND STDOUT LOG START ---"
+            cat "$UVICORN_STDOUT_LOG"
+            echo "--- BACKEND STDOUT LOG END ---"
+        fi
+    fi
+    log_error "Exiting now. Please fix the backend issue and restart."
+    exit 1
+fi
+log_info "FastAPI parent process seems to be running."
 
 # --- Start Streamlit UI in the foreground ---
-# ui/app.py should use settings.streamlit_server_port
-echo "🎨 Starting Streamlit UI..."
-streamlit run ui/app.py
-# Streamlit will run in the foreground. When it's stopped (e.g., Ctrl+C in terminal),
-# the trap will trigger the cleanup function.
+log_info "Attempting to start Streamlit UI on port ${STREAMLIT_PORT_TO_USE}..."
+log_info "Streamlit will run in the foreground. Press Ctrl+C to stop both services."
 
-# Fallback cleanup if Streamlit exits normally without trap
-cleanup
+streamlit run ui/app.py --server.port "${STREAMLIT_PORT_TO_USE}" --server.headless true
+
+STREAMLIT_EXIT_CODE=$? 
+log_info "Streamlit command has exited with code: $STREAMLIT_EXIT_CODE."
+
+exit $STREAMLIT_EXIT_CODE

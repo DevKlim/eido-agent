@@ -131,3 +131,7 @@ alembic/versions/
 docs/showcase_tutorial.html
 docs/showcase_styles.css
 docs/showcase_tutorial.md
+
+private/*
+PROJECT_MCP.md
+llm_project_context.md

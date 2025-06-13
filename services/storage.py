@@ -4,7 +4,8 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timezone
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import json # For casting some ReportCoreData fields before saving
+from sqlalchemy.orm import selectinload # Import selectinload
+import json 
 from sqlalchemy import delete
 
 from data_models.schemas import Incident as PydanticIncident, ReportCoreData as PydanticReportCoreData
@@ -17,8 +18,6 @@ class IncidentStore:
         logger.info("Database-backed IncidentStore initialized.")
 
     async def _pydantic_to_incident_db(self, p_incident: PydanticIncident) -> IncidentDB:
-        # Convert lists/tuples to JSON-serializable format if storing directly in JSONB
-        # For ReportCoreData, we'll handle its conversion when saving related reports
         return IncidentDB(
             id=uuid.UUID(p_incident.incident_id) if isinstance(p_incident.incident_id, str) else p_incident.incident_id,
             incident_type=p_incident.incident_type,
@@ -26,14 +25,18 @@ class IncidentStore:
             created_at=p_incident.created_at,
             last_updated_at=p_incident.last_updated_at,
             summary=p_incident.summary,
-            recommended_actions=p_incident.recommended_actions, # Already list of strings
-            locations_coords=[list(loc) if isinstance(loc, tuple) else loc for loc in p_incident.locations], # Ensure list of lists for JSON
+            recommended_actions=p_incident.recommended_actions, 
+            locations_coords=[list(loc) if isinstance(loc, tuple) else loc for loc in p_incident.locations], 
             addresses=p_incident.addresses,
             zip_codes=p_incident.zip_codes,
             trend_data=p_incident.trend_data
         )
 
     async def _incident_db_to_pydantic(self, db_incident: IncidentDB, reports_core_data: List[PydanticReportCoreData]) -> PydanticIncident:
+        # If reports_core_data is not passed, it means it was eagerly loaded via db_incident.reports
+        if not reports_core_data and db_incident.reports: # Check if reports were eagerly loaded
+             reports_core_data = [await self._report_core_db_to_pydantic(dbr) for dbr in db_incident.reports]
+
         return PydanticIncident(
             incident_id=str(db_incident.id),
             incident_type=db_incident.incident_type,
@@ -42,7 +45,7 @@ class IncidentStore:
             last_updated_at=db_incident.last_updated_at,
             summary=db_incident.summary,
             recommended_actions=db_incident.recommended_actions if isinstance(db_incident.recommended_actions, list) else [],
-            locations=[tuple(loc) if isinstance(loc, list) else loc for loc in (db_incident.locations_coords or [])], # Convert back to tuples
+            locations=[tuple(loc) if isinstance(loc, list) else loc for loc in (db_incident.locations_coords or [])], 
             addresses=db_incident.addresses if isinstance(db_incident.addresses, list) else [],
             zip_codes=db_incident.zip_codes if isinstance(db_incident.zip_codes, list) else [],
             trend_data=db_incident.trend_data if isinstance(db_incident.trend_data, dict) else {},
@@ -52,11 +55,9 @@ class IncidentStore:
     async def _pydantic_to_report_core_db(self, p_report: PydanticReportCoreData, incident_id_uuid: uuid.UUID) -> ReportCoreDataDB:
         coords_lat, coords_lon = (p_report.coordinates[0], p_report.coordinates[1]) if p_report.coordinates else (None, None)
         
-        # Ensure original_eido_dict is serializable; Pydantic might handle this, but explicit check is safer
         original_eido_dict_serializable = None
         if p_report.original_eido_dict:
             try:
-                # Test serialization (though SQLAlchemy JSONB handles dicts directly)
                 json.dumps(p_report.original_eido_dict) 
                 original_eido_dict_serializable = p_report.original_eido_dict
             except TypeError:
@@ -77,7 +78,7 @@ class IncidentStore:
             zip_code=p_report.zip_code,
             source=p_report.source,
             original_document_id=p_report.original_document_id,
-            original_eido_dict=original_eido_dict_serializable # Should be a dict
+            original_eido_dict=original_eido_dict_serializable 
         )
 
     async def _report_core_db_to_pydantic(self, db_report: ReportCoreDataDB) -> PydanticReportCoreData:
@@ -100,11 +101,14 @@ class IncidentStore:
         async with get_db_session() as session:
             incident_id_uuid = uuid.UUID(p_incident.incident_id) if isinstance(p_incident.incident_id, str) else p_incident.incident_id
             
-            # Check if incident exists
-            result = await session.execute(select(IncidentDB).where(IncidentDB.id == incident_id_uuid))
+            result = await session.execute(
+                select(IncidentDB)
+                .options(selectinload(IncidentDB.reports)) # Eagerly load reports for potential update logic
+                .where(IncidentDB.id == incident_id_uuid)
+            )
             db_incident = result.scalars().first()
 
-            if db_incident: # Update existing incident
+            if db_incident: 
                 db_incident.incident_type = p_incident.incident_type
                 db_incident.status = p_incident.status
                 db_incident.created_at = p_incident.created_at
@@ -116,13 +120,18 @@ class IncidentStore:
                 db_incident.zip_codes = p_incident.zip_codes
                 db_incident.trend_data = p_incident.trend_data
                 logger.debug(f"Updating Incident {p_incident.incident_id[:8]} in DB.")
-            else: # Create new incident
+            else: 
                 db_incident = await self._pydantic_to_incident_db(p_incident)
                 session.add(db_incident)
                 logger.debug(f"Saving new Incident {p_incident.incident_id[:8]} to DB.")
 
-            # Handle reports_core_data: delete existing for this incident and re-add all from PydanticIncident
-            # This is a simple way to sync; more complex merging could be done.
+            # Efficiently sync reports:
+            # 1. Get current report IDs from DB for this incident
+            # (This step can be skipped if we always delete and re-add, but is good for more fine-grained updates)
+            # current_db_report_ids = {report.id for report in db_incident.reports} if db_incident and db_incident.reports else set()
+            
+            # For simplicity and ensuring Pydantic model is source of truth: delete existing and re-add
+            # This is what was done before and is fine if performance is not an issue for report syncing.
             await session.execute(delete(ReportCoreDataDB).where(ReportCoreDataDB.incident_id == incident_id_uuid)) # type: ignore
             
             for p_report in p_incident.reports_core_data:
@@ -140,45 +149,51 @@ class IncidentStore:
                 logger.warning(f"Invalid UUID format for incident_id: {incident_id_str}")
                 return None
 
-            result = await session.execute(select(IncidentDB).where(IncidentDB.id == incident_id_uuid))
+            result = await session.execute(
+                select(IncidentDB)
+                .options(selectinload(IncidentDB.reports)) # Eagerly load reports
+                .where(IncidentDB.id == incident_id_uuid)
+            )
             db_incident = result.scalars().first()
 
             if not db_incident:
                 return None
-
-            reports_result = await session.execute(select(ReportCoreDataDB).where(ReportCoreDataDB.incident_id == incident_id_uuid).order_by(ReportCoreDataDB.timestamp))
-            db_reports = reports_result.scalars().all()
             
-            p_reports = [await self._report_core_db_to_pydantic(dbr) for dbr in db_reports]
+            # Reports are already loaded in db_incident.reports due to selectinload
+            p_reports = [await self._report_core_db_to_pydantic(dbr) for dbr in db_incident.reports]
             return await self._incident_db_to_pydantic(db_incident, p_reports)
 
     async def get_all_incidents(self) -> List[PydanticIncident]:
         async with get_db_session() as session:
-            result = await session.execute(select(IncidentDB).order_by(IncidentDB.last_updated_at.desc()))
-            db_incidents = result.scalars().all()
+            result = await session.execute(
+                select(IncidentDB)
+                .options(selectinload(IncidentDB.reports)) # Eagerly load reports
+                .order_by(IncidentDB.last_updated_at.desc())
+            )
+            db_incidents = result.scalars().unique().all() # Use .unique() when using eager loading strategies like selectinload
             
             p_incidents = []
             for db_inc in db_incidents:
-                reports_result = await session.execute(select(ReportCoreDataDB).where(ReportCoreDataDB.incident_id == db_inc.id).order_by(ReportCoreDataDB.timestamp))
-                db_reports = reports_result.scalars().all()
-                p_reports = [await self._report_core_db_to_pydantic(dbr) for dbr in db_reports]
+                # Reports are already loaded in db_inc.reports
+                p_reports = [await self._report_core_db_to_pydantic(dbr) for dbr in db_inc.reports]
                 p_incidents.append(await self._incident_db_to_pydantic(db_inc, p_reports))
             return p_incidents
 
     async def get_active_incidents(self) -> List[PydanticIncident]:
         async with get_db_session() as session:
             active_statuses = ["active", "updated", "received", "rcvd", "dispatched", "dsp", "acknowledged", "ack", "enroute", "enr", "onscene", "onscn", "monitoring"]
-            # Use 'in_' for multiple values; ensure IncidentDB.status is the correct column name
             result = await session.execute(
-                select(IncidentDB).where(IncidentDB.status.in_(active_statuses)).order_by(IncidentDB.last_updated_at.desc()) # type: ignore
+                select(IncidentDB)
+                .options(selectinload(IncidentDB.reports)) # Eagerly load reports
+                .where(IncidentDB.status.in_(active_statuses)) # type: ignore
+                .order_by(IncidentDB.last_updated_at.desc())
             )
-            db_incidents = result.scalars().all()
+            db_incidents = result.scalars().unique().all() # Use .unique()
             
             p_incidents = []
             for db_inc in db_incidents:
-                reports_result = await session.execute(select(ReportCoreDataDB).where(ReportCoreDataDB.incident_id == db_inc.id).order_by(ReportCoreDataDB.timestamp))
-                db_reports = reports_result.scalars().all()
-                p_reports = [await self._report_core_db_to_pydantic(dbr) for dbr in db_reports]
+                # Reports are already loaded in db_inc.reports
+                p_reports = [await self._report_core_db_to_pydantic(dbr) for dbr in db_inc.reports]
                 p_incidents.append(await self._incident_db_to_pydantic(db_inc, p_reports))
             return p_incidents
 
@@ -204,34 +219,15 @@ class IncidentStore:
 
     async def clear_store(self):
         async with get_db_session() as session:
-            # Order of deletion matters due to foreign key constraints
             deleted_reports_count = (await session.execute(delete(ReportCoreDataDB))).rowcount # type: ignore
             deleted_incidents_count = (await session.execute(delete(IncidentDB))).rowcount # type: ignore
             await session.commit()
             logger.warning(f"Cleared DB: {deleted_incidents_count} incidents and {deleted_reports_count} reports removed.")
 
-
-# Global instance
-# For FastAPI, dependency injection of sessions is preferred over global store instance for DB operations.
-# However, to maintain a similar interface for the agent_core for now, we might adapt.
-# Let's make agent_core methods async and pass session or make storage methods callable from endpoints.
-# The agent_core itself will now need to be async if it calls these storage methods.
-# The agent_core methods that interact with storage must become async and accept/use a db session.
-
-# For now, let's instantiate this, but it will be used by FastAPI endpoints which manage their own sessions.
-# The agent_core will need refactoring to work within FastAPI's async/session context.
-# A simpler approach for now for `incident_store` being used by non-FastAPI parts or Streamlit (before refactor):
-# Create synchronous wrappers or acknowledge that direct use outside FastAPI request lifecycle is problematic with this new DB store.
-# Given the UI refactor, direct use from Streamlit will cease. Agent core is called BY FastAPI, so it can use the session.
-
 _incident_store_instance = IncidentStore()
 
 async def get_incident_store() -> IncidentStore:
-    # This could be a dependency for FastAPI if we wanted to pass the store instance
-    # But individual methods are better for session management.
     return _incident_store_instance
 
-
-# Quick utility to get a session for scripts or non-FastAPI contexts (use with care)
 async def get_standalone_session() -> AsyncSession:
     return AsyncSessionLocal()
