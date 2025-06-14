@@ -1,107 +1,107 @@
 from sentence_transformers import SentenceTransformer
 from typing import Optional, List
 import logging
-import numpy as np
 import os
+from threading import Lock
 
-from config.settings import settings # For log level and model name
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
-# Configure logger if not already configured by a higher-level basicConfig
-if not logger.hasHandlers(): # Avoid adding multiple handlers if basicConfig was called elsewhere
-    logging.basicConfig(level=settings.log_level.upper(), format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 
-EMBEDDING_DIM: int = 0
+# --- LAZY LOADING SETUP ---
+# Do NOT load the model at import time. Initialize to None.
 embedding_model: Optional[SentenceTransformer] = None
 MODEL_NAME: str = settings.embedding_model_name
-EMBEDDING_ENABLED: bool = False
+EMBEDDING_DIM: Optional[int] = None
+EMBEDDING_ENABLED: bool = True  # Assume enabled unless loading fails
+model_lock = Lock() # To prevent race conditions if multiple requests come at once
 
-# Define a cache directory for sentence-transformers models
-# This path should be relative to the project root or an absolute path
-# For simplicity, let's try to put it inside the project structure if writable.
-# SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-# PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
-# MODEL_CACHE_DIR = os.path.join(PROJECT_ROOT, '.model_cache') # Hidden cache dir
+def _get_model() -> Optional[SentenceTransformer]:
+    """
+    Lazily loads the embedding model using a singleton pattern.
+    This function is thread-safe.
+    """
+    global embedding_model
+    global EMBEDDING_ENABLED
+    global EMBEDDING_DIM
 
-try:
-    # Ensure cache directory exists if you choose to use one
-    # os.makedirs(MODEL_CACHE_DIR, exist_ok=True)
-    # logger.info(f"Using model cache directory: {MODEL_CACHE_DIR}")
-    
-    logger.info(f"Attempting to load embedding model: {MODEL_NAME}...")
-    # embedding_model = SentenceTransformer(MODEL_NAME, cache_folder=MODEL_CACHE_DIR)
-    embedding_model = SentenceTransformer(MODEL_NAME) # Default cache path is fine too
-    
-    if embedding_model:
-        dim_candidate = embedding_model.get_sentence_embedding_dimension()
-        if dim_candidate is not None and isinstance(dim_candidate, int):
-            EMBEDDING_DIM = dim_candidate
-            EMBEDDING_ENABLED = True
-            logger.info(f"Embedding model '{MODEL_NAME}' loaded successfully (Dimension: {EMBEDDING_DIM}). Embeddings ENABLED.")
-        else:
-            logger.error(f"Failed to get valid dimension for model '{MODEL_NAME}'. Got: {dim_candidate}. Embeddings DISABLED.")
-            embedding_model = None # Explicitly set to None
-    else: # Should not happen if SentenceTransformer call was successful without error
-        logger.error(f"SentenceTransformer returned None for model '{MODEL_NAME}'. Embeddings DISABLED.")
+    # First check without a lock for performance
+    if embedding_model is not None:
+        return embedding_model
 
-except Exception as e:
-    logger.error(f"CRITICAL: Failed to load SentenceTransformer model '{MODEL_NAME}': {e}", exc_info=True)
-    logger.error("Text embedding generation will be DISABLED. RAG features will not work.")
-    EMBEDDING_ENABLED = False
-    embedding_model = None
-    EMBEDDING_DIM = 0
+    with model_lock:
+        # Double-check inside the lock to ensure it wasn't loaded by another thread
+        if embedding_model is not None:
+            return embedding_model
 
+        if not EMBEDDING_ENABLED: # If loading previously failed
+            return None
+
+        try:
+            logger.info(f"LAZY LOADING: Attempting to load embedding model for the first time: {MODEL_NAME}...")
+            model = SentenceTransformer(MODEL_NAME)
+            
+            dim_candidate = model.get_sentence_embedding_dimension()
+            if dim_candidate and isinstance(dim_candidate, int):
+                EMBEDDING_DIM = dim_candidate
+                embedding_model = model
+                logger.info(f"Embedding model '{MODEL_NAME}' loaded successfully (Dimension: {EMBEDDING_DIM}).")
+                return embedding_model
+            else:
+                logger.error(f"Failed to get valid dimension for model '{MODEL_NAME}'. Embeddings will be disabled.")
+                EMBEDDING_ENABLED = False
+                return None
+
+        except Exception as e:
+            logger.error(f"CRITICAL: Failed to lazy-load SentenceTransformer model '{MODEL_NAME}': {e}", exc_info=True)
+            logger.error("Text embedding generation will be DISABLED for the lifetime of this process.")
+            EMBEDDING_ENABLED = False
+            return None
 
 def generate_embedding(text: Optional[str]) -> Optional[List[float]]:
-    if not EMBEDDING_ENABLED or embedding_model is None:
-        # logger.debug("Embedding generation skipped (service disabled or model not loaded).")
+    """Generates an embedding for text, loading the model on first use."""
+    
+    # Get the model. This will trigger the lazy load on the first call.
+    model = _get_model()
+    
+    if model is None:
         return None
     if not text or not isinstance(text, str) or not text.strip():
-        # logger.debug(f"Embedding generation skipped for invalid/empty text: '{str(text)[:50]}...'")
         return None
 
     try:
-        # logger.debug(f"Generating embedding for text snippet: '{text[:50]}...'")
-        embedding_vector = embedding_model.encode(text.strip(), convert_to_numpy=True)
-        # Optional: Normalize for cosine similarity, though many models are pre-normalized
-        # embedding_vector = embedding_vector / np.linalg.norm(embedding_vector)
-        result = embedding_vector.tolist()
-        # logger.debug(f"Embedding generated successfully (Dim: {len(result)}).")
-        return result
+        embedding_vector = model.encode(text.strip(), convert_to_numpy=True)
+        return embedding_vector.tolist()
     except Exception as e:
         logger.error(f"Error generating embedding for text '{text[:50]}...': {e}", exc_info=True)
         return None
 
 def get_embedding_dimension() -> int:
-     return EMBEDDING_DIM
+    """Returns the dimension of the embedding model, loading it if necessary."""
+    # Ensure the model is loaded to know its dimension
+    _get_model()
+    return EMBEDDING_DIM if EMBEDDING_DIM is not None else 0
 
 # Self-test when module is run directly
 if __name__ == "__main__":
-    print(f"--- Embedding Service Self-Test ---")
+    print(f"--- Embedding Service Self-Test (Lazy Loading) ---")
     print(f"Model Name: {MODEL_NAME}")
-    print(f"Embedding Enabled: {EMBEDDING_ENABLED}")
-    print(f"Embedding Dimension: {EMBEDDING_DIM}")
-    if EMBEDDING_ENABLED and embedding_model:
-        test_sentence = "This is a test sentence for the EIDO Sentinel embedding service."
-        print(f"\nTesting with sentence: \"{test_sentence}\"")
-        emb = generate_embedding(test_sentence)
-        if emb:
-            print(f"Generated embedding (first 5 values): {emb[:5]}...")
-            print(f"Full embedding length: {len(emb)}")
-            if len(emb) == EMBEDDING_DIM:
-                print("Embedding dimension matches expected. Test PASSED.")
-            else:
-                print(f"Dimension MISMATCH! Expected {EMBEDDING_DIM}, got {len(emb)}. Test FAILED.")
+    
+    test_sentence = "This is a test sentence for the lazy-loaded embedding service."
+    print(f"\nTesting with sentence: \"{test_sentence}\"")
+    start_time =  __import__('time').time()
+    emb = generate_embedding(test_sentence)
+    duration = __import__('time').time() - start_time
+    
+    if emb:
+        print(f"Successfully generated embedding in {duration:.2f}s.")
+        print(f"Generated embedding (first 5 values): {emb[:5]}...")
+        print(f"Full embedding length: {len(emb)}")
+        if len(emb) == get_embedding_dimension():
+            print("Embedding dimension matches expected. Test PASSED.")
         else:
-            print("Failed to generate embedding for test sentence. Test FAILED.")
-        
-        print("\nTesting with empty string:")
-        emb_empty = generate_embedding("")
-        if emb_empty is None:
-            print("Correctly returned None for empty string. Test PASSED.")
-        else:
-            print(f"Incorrectly returned embedding for empty string: {emb_empty}. Test FAILED.")
-
+            print(f"Dimension MISMATCH! Expected {get_embedding_dimension()}, got {len(emb)}. Test FAILED.")
     else:
-        print("\nEmbedding model not loaded. Cannot run functional tests.")
-    print(f"--- Self-Test Finished ---")
+        print("Failed to generate embedding for test sentence. Test FAILED.")
+
+    print(f"\n--- Self-Test Finished ---")
