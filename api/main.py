@@ -90,13 +90,14 @@ logger_main.info("API router included at prefix /api/v1.")
 
 if __name__ == "__main__":
     uvicorn_host = os.getenv("HOST", settings.api_host)
-    uvicorn_port = int(os.getenv("PORT", str(settings.api_port)))
+    uvicorn_port = int(os.getenv("PORT", settings.api_port))
+
+    logger_main.info(f"Preparing to start Uvicorn server on {uvicorn_host}:{uvicorn_port}")
     
-    logger_main.info(f"Starting Uvicorn server on {uvicorn_host}:{uvicorn_port}")
     uvicorn.run(
-        "api.main:app",
+        "api.main:app", 
         host=uvicorn_host,
         port=uvicorn_port,
-        reload=True, # Set to False in production
-        log_level=log_level_str.lower()
+        log_level=settings.log_level.lower(),
+        reload=not os.getenv("RENDER", False)
     )

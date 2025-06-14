@@ -2,18 +2,46 @@ import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import Column, String, DateTime, Text, Float, ForeignKey, JSON, dialects
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID 
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 import uuid
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, List # Added List for relationship type hint
+from typing import AsyncGenerator, List
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = str(settings.database_url)
+db_url_str = str(settings.database_url) if settings.database_url else ""
+final_db_url = db_url_str
 
-engine = create_async_engine(DATABASE_URL, echo=False) 
+# --- Database URL Processing for Deployment Compatibility ---
+# The 'sslmode' parameter in connection URLs from services like Render
+# can cause a TypeError with asyncpg. We parse the URL, remove 'sslmode',
+# and rebuild it. asyncpg handles SSL automatically based on server
+# requirements or env vars like PGSSLMODE set by Render.
+if db_url_str.startswith("postgresql+asyncpg://"):
+    try:
+        parsed_url = urlparse(db_url_str)
+        query_params = parse_qs(parsed_url.query)
+
+        if 'sslmode' in query_params:
+            logger.info("Removing 'sslmode' from database URL for asyncpg compatibility.")
+            del query_params['sslmode']
+            
+            # Rebuild the URL without the 'sslmode' parameter
+            url_parts = list(parsed_url)
+            url_parts[4] = urlencode(query_params, doseq=True)
+            final_db_url = urlunparse(url_parts)
+    except Exception as e:
+        logger.error(f"Failed to parse and rebuild DATABASE_URL. Using original value. Error: {e}")
+        final_db_url = db_url_str
+
+if not final_db_url:
+    # This will cause a more obvious error than trying to create an engine with an empty string
+    raise ValueError("FATAL: DATABASE_URL is not configured in environment settings.")
+
+engine = create_async_engine(final_db_url, echo=False)
 
 AsyncSessionLocal = sessionmaker(
     bind=engine, class_=AsyncSession, expire_on_commit=False
@@ -60,6 +88,9 @@ class IncidentDB(Base):
 
 
 async def init_db():
+    if not engine:
+        logger.critical("Database engine is not initialized. Cannot run init_db().")
+        return
     async with engine.begin() as conn:
         logger.info("Initializing database and creating tables if they don't exist...")
         await conn.run_sync(Base.metadata.create_all)
