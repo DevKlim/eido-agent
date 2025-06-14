@@ -22,7 +22,7 @@ AsyncSessionLocal = sessionmaker(
 Base = declarative_base()
 
 # --- Database Models ---
-class ReportCoreDataDB(Base): # Define ReportCoreDataDB first if IncidentDB refers to it
+class ReportCoreDataDB(Base):
     __tablename__ = "reports_core_data"
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     incident_id = Column(PG_UUID(as_uuid=True), ForeignKey("incidents.id"), nullable=False, index=True)

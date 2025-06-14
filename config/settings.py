@@ -1,13 +1,11 @@
 import logging
 import os
-from typing import List, Optional, Literal, Union, Any, ClassVar # Added ClassVar
-from pydantic import field_validator, model_validator, Field, ValidationInfo # Added ValidationInfo
+from typing import List, Optional, Literal, Any, ClassVar
+from pydantic import field_validator, model_validator, Field, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Configure logging for the settings module itself
 settings_logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO) # Basic config for early log messages
-
+logging.basicConfig(level=logging.INFO)
 
 class Settings(BaseSettings):
     """
@@ -42,8 +40,8 @@ class Settings(BaseSettings):
     google_model_name: str = Field("gemini-2.5-flash-preview-05-20", validation_alias='GOOGLE_MODEL_NAME')
     
     # Supported Google models (examples, check Google Cloud for latest)
-    _google_model_options: ClassVar[List[str]] = [ # Changed to ClassVar[List[str]]
-        "gemini-2.5-flash-preview-05-20", "gemini-2.0-flash" # Original user's value kept, validator handles warning
+    _google_model_options: ClassVar[List[str]] = [
+        "gemini-2.5-flash-preview-05-20", "gemini-2.0-flash"
     ]
 
 
@@ -74,10 +72,10 @@ class Settings(BaseSettings):
 
 
     model_config = SettingsConfigDict(
-        env_file=(".env", ".env.local", ".env.prod"), # Load from .env files
+        env_file=(".env", ".env.local", ".env.prod"),
         env_file_encoding='utf-8',
-        extra='ignore', # Ignore extra fields from .env
-        case_sensitive=False # Environment variables are typically case-insensitive
+        extra='ignore',
+        case_sensitive=False
     )
 
     @field_validator('log_level')
@@ -91,44 +89,31 @@ class Settings(BaseSettings):
     @field_validator('google_model_name')
     @classmethod
     def validate_google_model_name(cls, value: str, info: ValidationInfo) -> str:
-        # Accessing _google_model_options via cls should now work correctly due to ClassVar.
-        if value not in cls._google_model_options: # type: ignore
+        if value not in cls._google_model_options:
             settings_logger.warning(
                 f"GOOGLE_MODEL_NAME '{value}' is not in the predefined list of common models: "
-                f"{cls._google_model_options}. Ensure it's a valid and available model for your API key." # type: ignore
+                f"{cls._google_model_options}. Ensure it's a valid and available model for your API key."
             )
         return value
 
     @model_validator(mode='before')
     @classmethod
-    def check_llm_dependencies(cls, values: Any) -> Any: # Changed type hint for values
-        if not isinstance(values, dict): # Check if values is a dict, common in 'before' mode
+    def check_llm_dependencies(cls, values: Any) -> Any:
+        if not isinstance(values, dict):
             return values
 
         def get_value_from_input_or_env(key_name: str, field_alias: Optional[str], default: Optional[Any] = None) -> Optional[Any]:
-            # In 'before' mode, 'values' is the raw input data (e.g., from .env or direct instantiation)
-            # Aliases are used as keys if present in .env or initial data
-            # Pydantic's BaseSettings has complex loading: .env -> os.environ -> defaults
-            # This validator runs *before* Pydantic fully resolves aliases and applies defaults.
-            
-            # 1. Check if the alias is in the raw input 'values' (e.g., from .env)
             if field_alias and field_alias in values:
                 return values[field_alias]
             
-            # 2. Check if the field name itself is in raw input 'values' (e.g., direct instantiation)
             if key_name in values:
                 return values[key_name]
 
-            # 3. Check actual environment variables (Pydantic might not have loaded them into 'values' yet)
-            # Use alias if available, otherwise uppercase field name.
             env_var_to_check = field_alias if field_alias else key_name.upper()
             env_val = os.environ.get(env_var_to_check)
             if env_val is not None:
                 return env_val
             
-            # 4. Fallback to default (or None if no default provided)
-            # This is tricky because Pydantic's own default application happens later.
-            # For simple presence checks (like API keys), it's often enough to see if it's None.
             return default
 
         llm_provider_alias = cls.model_fields['llm_provider'].validation_alias
@@ -180,8 +165,7 @@ try:
 except Exception as e:
     settings_logger.critical(f"CRITICAL ERROR: Failed to load application settings: {e}", exc_info=True)
     settings_logger.warning("Falling back to default settings. Application may not function correctly.")
-    # Create a default settings object so the application can at least try to import it
-    class FallbackSettings(BaseSettings): # Define a minimal fallback
+    class FallbackSettings(BaseSettings):
         app_name: str = "EIDO Sentinel (Fallback)"
         api_base_url: str = "http://localhost:8000"
         api_host: str = "127.0.0.1"
@@ -191,7 +175,7 @@ except Exception as e:
         log_level: Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] = "INFO"
         llm_provider: Literal['google', 'openrouter', 'local', 'none'] = "none" 
         google_api_key: Optional[str] = None
-        google_model_name: str = "gemini-1.0-pro" # A known valid default
+        google_model_name: str = "gemini-1.0-pro"
         openrouter_api_key: Optional[str] = None
         openrouter_model_name: Optional[str] = "openai/gpt-4o-mini"
         openrouter_api_base_url: str = "https://openrouter.ai/api/v1"

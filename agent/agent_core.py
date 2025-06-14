@@ -64,8 +64,8 @@ class EidoAgent:
             if confidence in [CONFIDENCE_HIGH, CONFIDENCE_MEDIUM]:
                 try:
                     local_geocoder.update_known_location(
-                        text_to_geocode, coords[0], coords[1], 
-                        source=f"adv_geo_{method.replace(' ', '_').lower()}", 
+                        text_to_geocode, coords[0], coords[1],
+                        source=f"adv_geo_{method.replace(' ', '_').lower()}",
                         notes=f"Confidence: {confidence}. Original: '{text_to_geocode[:100]}...'"
                     )
                     logger.info(f"Cached advanced geocoding result for '{text_to_geocode[:100]}...' in local store.")
@@ -144,8 +144,8 @@ class EidoAgent:
                 zip_code=zip_code, source=source_agency_name, original_document_id=message_id,
                 original_eido_dict=eido_dict
             )
-            # Correctly set the extra attribute for geocoding fallback. This works because extra='allow' is set on the Pydantic model.
-            core_data.location_narrative_for_geocoding = location_narrative_for_geocoding
+            core_data.model_extra = core_data.model_extra or {}
+            core_data.model_extra['location_narrative_for_geocoding'] = location_narrative_for_geocoding
             return core_data
         except ValidationError as p_err:
              logger.error(f"Pydantic validation error creating ReportCoreData for Msg {message_id}: {p_err}", exc_info=True)
@@ -158,7 +158,8 @@ class EidoAgent:
 
         if not core_data.coordinates:
             logger.info(f"Msg {message_id}: Coordinates not found. Attempting advanced geocoding.")
-            text_for_geocoding = getattr(core_data, 'location_narrative_for_geocoding', None) or core_data.description
+            narrative = core_data.model_extra.get('location_narrative_for_geocoding') if core_data.model_extra else None
+            text_for_geocoding = narrative or core_data.description
             if text_for_geocoding:
                 geocoded_coords = await self._attempt_geocode_and_update_store(str(text_for_geocoding))
                 if geocoded_coords:
@@ -256,7 +257,8 @@ class EidoAgent:
                 
                 # FIX: Correctly set the extra attribute for geocoding fallback.
                 # This works because extra='allow' is set on the Pydantic model.
-                core_data.location_narrative_for_geocoding = extracted_data.get('location_description') or extracted_data.get('location_address')
+                core_data.model_extra = core_data.model_extra or {}
+                core_data.model_extra['location_narrative_for_geocoding'] = extracted_data.get('location_description') or extracted_data.get('location_address')
 
                 # Process the validated core data
                 result_dict = await self._process_core_data(core_data)
