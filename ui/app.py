@@ -49,11 +49,15 @@ if not any(isinstance(h, logging.StreamHandler) and getattr(h, 'stream', None) =
 IS_DEPLOYED = hasattr(st, 'secrets') and 'API_BASE_URL' in st.secrets
 
 if IS_DEPLOYED:
-    # Use the API_BASE_URL from Streamlit Cloud secrets
+    # --- DEPLOYED MODE ---
+    # The app is running on Streamlit Cloud.
+    # It reads the API_BASE_URL from the secrets you provide in the dashboard.
     API_BASE_URL = st.secrets['API_BASE_URL']
     logger_ui.info(f"Running in DEPLOYED mode. API URL from secrets: {API_BASE_URL}")
 else:
-    # Fallback to local settings file for local development
+    # --- LOCAL DEVELOPMENT MODE ---
+    # The app is running on your local machine.
+    # It falls back to the settings loaded from your local .env file.
     API_BASE_URL = local_settings.api_base_url if modules_imported_successfully else "http://localhost:8000"
     logger_ui.info(f"Running in LOCAL mode. API URL from settings.py: {API_BASE_URL}")
 
@@ -67,7 +71,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items={
         'Get Help': LANDING_PAGE_URL,
-        'Report a bug': "https://github.com/LXString/eido-sentinel/issues",
+        'Report a bug': "https://github.com/DevKlim/eido-agent/issues",
         'About': f"# EIDO Sentinel v0.9.1\nAI-Powered Emergency Incident Processor. Visit our showcase at {LANDING_PAGE_URL}"
     }
 )
