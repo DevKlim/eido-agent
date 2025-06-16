@@ -1,77 +1,81 @@
+/* --- Font Import (THE FIX) --- */
+@import url("https://fonts.googleapis.com/css2?family=Urbanist:wght@400;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap");
+
 /* EIDO Sentinel Streamlit App Custom Styles */
 
 /* --- Root Variables for Main Content (Light Theme) --- */
 :root {
-    --main-primary-color: #00BCD4;
-    /* Aqua */
-    --main-background-color: #FFFFFF;
-    /* White */
-    --main-secondary-background-color: #F0F8FF;
-    /* AliceBlue - light aqua tint for some elements */
-    --main-text-color: #1E293B;
-    /* Dark Slate Gray */
-    --main-heading-color: #00798C;
-    /* Darker Aqua/Teal */
-    --main-accent-yellow: #FFDA63;
-    --main-accent-yellow-dark: #FFC107;
-    --main-border-color: #D1D5DB;
-    --main-muted-text-color: #4B5563;
-    --main-font: "Urbanist", sans-serif;
-    /* Changed font */
+  --main-primary-color: #00bcd4;
+  /* Aqua */
+  --main-background-color: #ffffff;
+  /* White */
+  --main-secondary-background-color: #f0f8ff;
+  /* AliceBlue - light aqua tint for some elements */
+  --main-text-color: #1e293b;
+  /* Dark Slate Gray */
+  --main-heading-color: #00798c;
+  /* Darker Aqua/Teal */
+  --main-accent-yellow: #ffda63;
+  --main-accent-yellow-dark: #ffc107;
+  --main-border-color: #d1d5db;
+  --main-muted-text-color: #4b5563;
+  --main-font: "Urbanist", sans-serif;
+  /* Changed font */
 }
 
 /* --- Sidebar Variables (Dark Theme) --- */
 :root {
-    --sidebar-background-color: #18202A;
-    /* Dark Blue/Charcoal from Palantir inspiration */
-    --sidebar-text-color: #D0D9E4;
-    /* Light Gray text for dark sidebar */
-    --sidebar-heading-color: #E0E7FF;
-    /* Bluish White for sidebar headings */
-    --sidebar-border-color: #334155;
-    /* Darker border for sidebar elements */
-    --sidebar-accent-color: var(--main-primary-color);
-    /* Use main Aqua for accents in sidebar */
-    --sidebar-button-bg-color: var(--main-accent-yellow);
-    --sidebar-button-text-color: #101820;
-    /* Very dark text for yellow buttons */
-    --sidebar-button-hover-bg-color: var(--main-accent-yellow-dark);
+  --sidebar-background-color: #18202a;
+  /* Dark Blue/Charcoal from Palantir inspiration */
+  --sidebar-text-color: #d0d9e4;
+  /* Light Gray text for dark sidebar */
+  --sidebar-heading-color: #e0e7ff;
+  /* Bluish White for sidebar headings */
+  --sidebar-border-color: #334155;
+  /* Darker border for sidebar elements */
+  --sidebar-accent-color: var(--main-primary-color);
+  /* Use main Aqua for accents in sidebar */
+  --sidebar-button-bg-color: var(--main-accent-yellow);
+  --sidebar-button-text-color: #101820;
+  /* Very dark text for yellow buttons */
+  --sidebar-button-hover-bg-color: var(--main-accent-yellow-dark);
 }
 
 /* --- General App Styling (Main Content Area) --- */
 body {
-    /* This applies to the whole app, but sidebar will override */
-    color: var(--main-text-color);
-    background-color: var(--main-background-color);
-    /* Base background for the app */
-    font-family: var(--main-font);
-    /* Ensure body uses new font */
+  /* This applies to the whole app, but sidebar will override */
+  color: var(--main-text-color);
+  background-color: var(--main-background-color);
+  /* Base background for the app */
+  font-family: var(--main-font);
+  /* Ensure body uses new font */
 }
 
 .stApp {
-    /* Target the root Streamlit app container */
-    font-family: var(--main-font) !important;
+  /* Target the root Streamlit app container */
+  font-family: var(--main-font) !important;
 }
 
 .main .block-container {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
-    padding-left: 2rem;
-    padding-right: 2rem;
-    background-color: var(--main-background-color);
-    /* Ensure main content area is light */
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  background-color: var(--main-background-color);
+  /* Ensure main content area is light */
 }
 
 /* --- Sidebar Styling (Dark Theme) --- */
 [data-testid="stSidebar"] {
-    background-color: var(--sidebar-background-color) !important;
-    border-right: 1px solid var(--sidebar-border-color) !important;
-    font-family: var(--main-font);
-    /* Sidebar uses new font */
+  background-color: var(--sidebar-background-color) !important;
+  border-right: 1px solid var(--sidebar-border-color) !important;
+  font-family: var(--main-font);
+  /* Sidebar uses new font */
 }
 
 [data-testid="stSidebar"] .stImage img {
-    border-radius: 8px;
+  border-radius: 8px;
 }
 
 /* All text-based elements in sidebar */
@@ -90,10 +94,10 @@ body {
 [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"]>div,
 /* Selectbox selected value */
 [data-testid="stSidebar"] .stRadio div[data-baseweb="radio"] label span {
-    /* Radio button labels */
-    color: var(--sidebar-text-color) !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  /* Radio button labels */
+  color: var(--sidebar-text-color) !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 [data-testid="stSidebar"] .stHeader,
@@ -101,80 +105,82 @@ body {
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] h3 {
-    color: var(--sidebar-heading-color) !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  color: var(--sidebar-heading-color) !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
-
 [data-testid="stSidebar"] .stCaption {
-    color: #98A2B3 !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  color: #98a2b3 !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 /* Sidebar Buttons */
-[data-testid="stSidebar"] .stButton>button {
-    background-color: var(--sidebar-button-bg-color) !important;
-    color: var(--sidebar-button-text-color) !important;
-    border: 1px solid var(--main-accent-yellow-dark) !important;
-    font-weight: 600;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+[data-testid="stSidebar"] .stButton > button {
+  background-color: var(--sidebar-button-bg-color) !important;
+  color: var(--sidebar-button-text-color) !important;
+  border: 1px solid var(--main-accent-yellow-dark) !important;
+  font-weight: 600;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
-[data-testid="stSidebar"] .stButton>button:hover {
-    background-color: var(--sidebar-button-hover-bg-color) !important;
-    border-color: #EAA600 !important;
+[data-testid="stSidebar"] .stButton > button:hover {
+  background-color: var(--sidebar-button-hover-bg-color) !important;
+  border-color: #eaa600 !important;
 }
 
-[data-testid="stSidebar"] .stButton>button:focus {
-    box-shadow: 0 0 0 0.2rem rgba(255, 218, 99, 0.4) !important;
+[data-testid="stSidebar"] .stButton > button:focus {
+  box-shadow: 0 0 0 0.2rem rgba(255, 218, 99, 0.4) !important;
 }
 
 /* Sidebar input fields and select boxes */
 [data-testid="stSidebar"] .stTextInput input,
 [data-testid="stSidebar"] .stTextArea textarea,
-[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"]>div {
-    background-color: #293548 !important;
-    color: var(--sidebar-text-color) !important;
-    border: 1px solid var(--sidebar-border-color) !important;
-    border-radius: 6px !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] > div {
+  background-color: #293548 !important;
+  color: var(--sidebar-text-color) !important;
+  border: 1px solid var(--sidebar-border-color) !important;
+  border-radius: 6px !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 [data-testid="stSidebar"] .stTextInput input::placeholder,
 [data-testid="stSidebar"] .stTextArea textarea::placeholder {
-    color: #7a889c !important;
+  color: #7a889c !important;
 }
 
 [data-testid="stSidebar"] .stTextInput input:focus,
 [data-testid="stSidebar"] .stTextArea textarea:focus,
-[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"]>div:focus-within {
-    border-color: var(--sidebar-accent-color) !important;
-    box-shadow: 0 0 0 0.1rem rgba(0, 188, 212, 0.4) !important;
+[data-testid="stSidebar"]
+  .stSelectbox
+  div[data-baseweb="select"]
+  > div:focus-within {
+  border-color: var(--sidebar-accent-color) !important;
+  box-shadow: 0 0 0 0.1rem rgba(0, 188, 212, 0.4) !important;
 }
-
 
 /* Sidebar Expander */
 [data-testid="stSidebar"] [data-testid="stExpander"] summary {
-    background-color: #202B3C;
-    border: 1px solid var(--sidebar-border-color);
-    border-radius: 8px;
-    color: var(--sidebar-heading-color) !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  background-color: #202b3c;
+  border: 1px solid var(--sidebar-border-color);
+  border-radius: 8px;
+  color: var(--sidebar-heading-color) !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 [data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {
-    background-color: #293548;
+  background-color: #293548;
 }
 
-[data-testid="stSidebar"] [data-testid="stExpander"] .streamlit-expanderContent {
-    background-color: var(--sidebar-background-color);
+[data-testid="stSidebar"]
+  [data-testid="stExpander"]
+  .streamlit-expanderContent {
+  background-color: var(--sidebar-background-color);
 }
-
 
 /* --- Main Content Area Styling (Light Theme) --- */
 .main h1,
@@ -186,266 +192,272 @@ body {
 .main .stMarkdown h2,
 .main .stMarkdown h3,
 .main .stSubheader {
-    color: var(--main-heading-color);
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  color: var(--main-heading-color);
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 .main .stMarkdown p,
 .main .stText,
 .main label {
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
-
 .main .stCaption {
-    color: var(--main-muted-text-color);
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  color: var(--main-muted-text-color);
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 /* Main content Tabs styling */
 .main [data-testid="stTabs"] .stTabs-tab {
-    color: var(--main-muted-text-color);
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  color: var(--main-muted-text-color);
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 .main [data-testid="stTabs"] .stTabs-tab[aria-selected="true"] {
-    color: var(--main-primary-color);
-    border-bottom-color: var(--main-primary-color);
-    font-weight: 600;
+  color: var(--main-primary-color);
+  border-bottom-color: var(--main-primary-color);
+  font-weight: 600;
 }
 
 /* Main content Expander styling */
 .main [data-testid="stExpander"] summary {
-    background-color: var(--main-secondary-background-color);
-    border: 1px solid var(--main-border-color);
-    color: var(--main-heading-color) !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  background-color: var(--main-secondary-background-color);
+  border: 1px solid var(--main-border-color);
+  color: var(--main-heading-color) !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 .main [data-testid="stExpander"] summary:hover {
-    background-color: #E0F2F7;
+  background-color: #e0f2f7;
 }
 
 .main [data-testid="stExpander"] .streamlit-expanderContent {
-    background-color: var(--main-background-color);
+  background-color: var(--main-background-color);
 }
 
 /* Main content Metric cards */
 .main [data-testid="stMetric"] {
-    background-color: var(--main-secondary-background-color);
-    border: 1px solid var(--main-border-color);
-    border-radius: 10px;
-    padding: 1rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: var(--main-secondary-background-color);
+  border: 1px solid var(--main-border-color);
+  border-radius: 10px;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .main [data-testid="stMetric"] label {
-    color: var(--main-heading-color) !important;
-    font-weight: 600;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  color: var(--main-heading-color) !important;
+  font-weight: 600;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 .main [data-testid="stMetric"] div[data-testid="stMetricValue"] {
-    color: var(--main-primary-color) !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  color: var(--main-primary-color) !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 /* Main content Buttons */
-.main .stButton>button {
-    background-color: var(--main-primary-color) !important;
-    color: white !important;
-    border: 1px solid #00838F !important;
-    font-weight: 600;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+.main .stButton > button {
+  background-color: var(--main-primary-color) !important;
+  color: white !important;
+  border: 1px solid #00838f !important;
+  font-weight: 600;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
-.main .stButton>button:hover {
-    background-color: #00838F !important;
-    border-color: #006064 !important;
+.main .stButton > button:hover {
+  background-color: #00838f !important;
+  border-color: #006064 !important;
 }
 
-.main .stButton>button:focus:not(:active) {
-    box-shadow: 0 0 0 0.2rem rgba(0, 188, 212, 0.3) !important;
+.main .stButton > button:focus:not(:active) {
+  box-shadow: 0 0 0 0.2rem rgba(0, 188, 212, 0.3) !important;
 }
 
 /* Dataframe styling */
 [data-testid="stDataFrame"] {
-    border: 1px solid var(--main-border-color);
-    border-radius: 8px;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  border: 1px solid var(--main-border-color);
+  border-radius: 8px;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 [data-testid="stDataFrame"] thead th {
-    background-color: #E0F7FA;
-    color: var(--main-heading-color) !important;
-    font-weight: 600;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  background-color: #e0f7fa;
+  color: var(--main-heading-color) !important;
+  font-weight: 600;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 [data-testid="stDataFrame"] tbody td {
-    color: var(--main-text-color) !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  color: var(--main-text-color) !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 /* Main Content Input widgets */
 .main [data-testid="stTextInput"] input,
 .main [data-testid="stTextArea"] textarea,
 .main [data-testid="stSelectbox"] select,
-.main [data-testid="stMultiselect"] .stMultiSelect div[data-baseweb="select"]>div {
-    border: 1px solid var(--main-border-color) !important;
-    border-radius: 6px !important;
-    background-color: var(--main-background-color) !important;
-    color: var(--main-text-color) !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+.main
+  [data-testid="stMultiselect"]
+  .stMultiSelect
+  div[data-baseweb="select"]
+  > div {
+  border: 1px solid var(--main-border-color) !important;
+  border-radius: 6px !important;
+  background-color: var(--main-background-color) !important;
+  color: var(--main-text-color) !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 .main [data-testid="stTextInput"] input:focus,
 .main [data-testid="stTextArea"] textarea:focus,
 .main [data-testid="stSelectbox"] select:focus,
-.main [data-testid="stMultiselect"] .stMultiSelect div[data-baseweb="select"]>div:focus-within {
-    border-color: var(--main-primary-color) !important;
-    box-shadow: 0 0 0 0.1rem rgba(0, 188, 212, 0.3) !important;
+.main
+  [data-testid="stMultiselect"]
+  .stMultiSelect
+  div[data-baseweb="select"]
+  > div:focus-within {
+  border-color: var(--main-primary-color) !important;
+  box-shadow: 0 0 0 0.1rem rgba(0, 188, 212, 0.3) !important;
 }
 
 .main [data-testid="stTextInput"] input::placeholder,
 .main [data-testid="stTextArea"] textarea::placeholder {
-    color: var(--main-muted-text-color);
-    opacity: 0.7;
+  color: var(--main-muted-text-color);
+  opacity: 0.7;
 }
 
 /* General Links */
 a {
-    color: var(--main-primary-color);
-    text-decoration: none;
+  color: var(--main-primary-color);
+  text-decoration: none;
 }
 
 a:hover {
-    color: #00838F;
-    text-decoration: underline;
+  color: #00838f;
+  text-decoration: underline;
 }
 
 /* Code blocks in markdown or st.code */
 pre,
 code,
 .stCodeBlock {
-    background-color: #263238 !important;
-    color: #ECEFF1 !important;
-    border-radius: 6px;
-    padding: 0.75rem 1rem;
-    border: 1px solid #455A64;
-    font-family: "Source Code Pro", "Consolas", "Monaco", monospace !important;
-    /* Keep monospace for code */
+  background-color: #263238 !important;
+  color: #eceff1 !important;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  border: 1px solid #455a64;
+  font-family: "Source Code Pro", "Consolas", "Monaco", monospace !important;
+  /* Keep monospace for code */
 }
 
 .stCodeBlock code {
-    background-color: transparent !important;
-    padding: 0;
-    border: none;
+  background-color: transparent !important;
+  padding: 0;
+  border: none;
 }
 
 /* Ace Editor */
 .ace_editor {
-    border: 1px solid var(--main-border-color) !important;
-    border-radius: 8px !important;
-    font-family: "Source Code Pro", "Consolas", "Monaco", monospace !important;
-    /* Keep monospace for code editor */
+  border: 1px solid var(--main-border-color) !important;
+  border-radius: 8px !important;
+  font-family: "Source Code Pro", "Consolas", "Monaco", monospace !important;
+  /* Keep monospace for code editor */
 }
 
 /* Alerts / Info / Success / Warning boxes in Main Content */
 .main [data-testid="stAlert"] {
-    border-radius: 8px;
-    border-left-width: 6px;
-    padding: 1rem;
+  border-radius: 8px;
+  border-left-width: 6px;
+  padding: 1rem;
 }
 
 .main [data-testid="stAlert"] p {
-    color: var(--main-text-color) !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  color: var(--main-text-color) !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 .main [data-testid="stAlert"][data-st-alert-type="info"] {
-    border-left-color: var(--main-primary-color);
-    background-color: #E0F7FA;
+  border-left-color: var(--main-primary-color);
+  background-color: #e0f7fa;
 }
 
 .main [data-testid="stAlert"][data-st-alert-type="info"] p {
-    color: #005f6b !important;
+  color: #005f6b !important;
 }
 
 .main [data-testid="stAlert"][data-st-alert-type="success"] {
-    border-left-color: #4CAF50;
-    background-color: #E8F5E9;
+  border-left-color: #4caf50;
+  background-color: #e8f5e9;
 }
 
 .main [data-testid="stAlert"][data-st-alert-type="success"] p {
-    color: #1B5E20 !important;
+  color: #1b5e20 !important;
 }
 
 .main [data-testid="stAlert"][data-st-alert-type="warning"] {
-    border-left-color: var(--main-accent-yellow-dark);
-    background-color: #FFFDE7;
+  border-left-color: var(--main-accent-yellow-dark);
+  background-color: #fffde7;
 }
 
 .main [data-testid="stAlert"][data-st-alert-type="warning"] p {
-    color: #795500 !important;
+  color: #795500 !important;
 }
 
 .main [data-testid="stAlert"][data-st-alert-type="error"] {
-    border-left-color: #F44336;
-    background-color: #FFEBEE;
+  border-left-color: #f44336;
+  background-color: #ffebee;
 }
 
 .main [data-testid="stAlert"][data-st-alert-type="error"] p {
-    color: #B71C1C !important;
+  color: #b71c1c !important;
 }
 
 /* Divider */
 [data-testid="stDivider"] {
-    border-color: var(--main-border-color);
+  border-color: var(--main-border-color);
 }
 
 /* Main content divider */
 [data-testid="stSidebar"] [data-testid="stDivider"] {
-    border-color: var(--sidebar-border-color) !important;
+  border-color: var(--sidebar-border-color) !important;
 }
 
 /* Sidebar divider */
 
-
 /* Streamlit Menu Items */
 div[data-testid="stMainMenu"] ul {
-    background-color: var(--main-secondary-background-color);
-    border: 1px solid var(--main-border-color);
+  background-color: var(--main-secondary-background-color);
+  border: 1px solid var(--main-border-color);
 }
 
-div[data-testid="stMainMenu"] ul li>div[role="button"]:hover {
-    background-color: rgba(0, 188, 212, 0.1);
-    color: var(--main-primary-color) !important;
+div[data-testid="stMainMenu"] ul li > div[role="button"]:hover {
+  background-color: rgba(0, 188, 212, 0.1);
+  color: var(--main-primary-color) !important;
 }
 
 /* Main Title and Caption */
 h1[data-testid="stHeading"],
 .stTitle {
-    color: var(--main-heading-color) !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  color: var(--main-heading-color) !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }
 
 div[data-testid="stCaptionContainer"] {
-    color: var(--main-muted-text-color) !important;
-    font-family: var(--main-font) !important;
-    /* Ensure new font */
+  color: var(--main-muted-text-color) !important;
+  font-family: var(--main-font) !important;
+  /* Ensure new font */
 }

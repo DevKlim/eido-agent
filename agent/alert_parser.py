@@ -1,173 +1,210 @@
 import logging
 import json
-import uuid
+import os
 from datetime import datetime, timezone
 from typing import Dict, Optional, Any
 
 try:
-    from agent.llm_interface import extract_eido_from_alert_text
+    from agent.llm_interface import fill_eido_template, choose_eido_template
 except ImportError as e:
-    print(f"CRITICAL ERROR in alert_parser.py: {e}"); raise SystemExit(f"Alert Parser import failed: {e}") from e
+    print(f"CRITICAL ERROR in alert_parser.py: {e}")
+    raise SystemExit(f"Alert Parser import failed: {e}") from e
 
 logger = logging.getLogger(__name__)
 
-def _generate_eido_compatible_dict(extracted_data: Dict[str, Any]) -> Dict[str, Any]:
-    """ Maps extracted LLM data to an EIDO-like dictionary. """
-    eido_dict = {}
-    report_uuid = str(uuid.uuid4())
-    message_id = f"llm_parsed_{report_uuid[:8]}"
-    loc_ref_id = f"loc-{report_uuid[:8]}"
-    agency_ref_id = f"agency-{report_uuid[:8]}"
-    note_ref_id = f"note-{report_uuid[:8]}"
-
-    eido_dict['eidoMessageIdentifier'] = message_id
-    eido_dict['$id'] = message_id # Add $id for consistency with some EIDO samples
-    timestamp_str = extracted_data.get('timestamp_iso', datetime.now(timezone.utc).isoformat(timespec='seconds'))
-    eido_dict['lastUpdateTimeStamp'] = timestamp_str
-
-    # --- Incident Component ---
-    incident_comp = {}
-    incident_comp['componentIdentifier'] = f"inc-{report_uuid[:8]}"
-    incident_comp['lastUpdateTimeStamp'] = timestamp_str
-    incident_comp['incidentTypeCommonRegistryText'] = extracted_data.get('incident_type', 'Unknown - Parsed Alert')
-    incident_comp['incidentTrackingIdentifier'] = extracted_data.get('external_id') # e.g., CAD ID
-    incident_comp['locationReference'] = f"$ref:{loc_ref_id}"
-    
-    source_agency_name = extracted_data.get('source_agency')
-    if source_agency_name:
-        incident_comp['updatedByAgencyReference'] = f"$ref:{agency_ref_id}" # Point to an agency component
-        # Also store the sending system ID as the agency if it's the only source info
-        eido_dict['sendingSystemIdentifier'] = source_agency_name # Or a URN like "urn:agency:llm-parsed-source"
-    else: # If no source agency, use a generic sender
-        eido_dict['sendingSystemIdentifier'] = "LLM-Parser-Agent"
-    eido_dict['incidentComponent'] = [incident_comp]
+# --- Template Loading Helpers ---
+EIDO_TEMPLATE_DIR = os.path.abspath(os.path.join(
+    os.path.dirname(__file__), '..', 'eido_templates'))
+_template_cache: Dict[str, str] = {}
+_template_summaries: Dict[str, str] = {}
 
 
-    # --- Notes Component ---
-    description = extracted_data.get('description')
-    note_comp = {'componentIdentifier': note_ref_id, 'noteDateTimeStamp': timestamp_str}
-    if description:
-        note_comp['noteText'] = description
-    else:
-        note_comp['noteText'] = "No detailed description extracted by LLM."
-    eido_dict['notesComponent'] = [note_comp]
+def _load_templates():
+    """Loads all EIDO templates from the specified directory into a cache."""
+    if _template_cache:  # Already loaded
+        return
+    if not os.path.isdir(EIDO_TEMPLATE_DIR):
+        logger.error(f"EIDO template directory not found: {EIDO_TEMPLATE_DIR}")
+        return
 
-    # --- Location Component ---
-    location_comp = {}
-    location_comp['$id'] = loc_ref_id
-    location_comp['componentIdentifier'] = loc_ref_id
-    
-    location_address = extracted_data.get('location_address')
-    location_description = extracted_data.get('location_description') # Broader location text
-    coords = extracted_data.get('coordinates') # Expect [lat, lon]
-    zip_code = extracted_data.get('zip_code')
+    for filename in os.listdir(EIDO_TEMPLATE_DIR):
+        if filename.endswith(".json"):
+            try:
+                filepath = os.path.join(EIDO_TEMPLATE_DIR, filename)
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    _template_cache[filename] = content
+                    # Create a simple summary for the LLM
+                    try:
+                        template_json = json.loads(content)
+                        # Look for a descriptive field, e.g., in a top-level "description" or from the incident type
+                        desc = template_json.get("description", "")
+                        if not desc:
+                            inc_comp = template_json.get(
+                                "incidentComponent", [{}])[0]
+                            inc_type = inc_comp.get(
+                                "incidentTypeCommonRegistryText", f"Generic incident ({filename})")
+                            desc = f"Template for a '{inc_type}' incident."
+                        _template_summaries[filename] = desc
+                    except json.JSONDecodeError:
+                        _template_summaries[
+                            filename] = f"A general EIDO template named {filename}."
 
-    full_location_text = location_address or location_description or ""
-    if zip_code and zip_code not in full_location_text: # Avoid duplicating ZIP if already in address
-        full_location_text += f" ZIP: {zip_code}"
-    full_location_text = full_location_text.strip()
+            except Exception as e:
+                logger.error(
+                    f"Failed to load or parse EIDO template '{filename}': {e}")
 
-    # Construct locationByValue XML
-    # We'll create a simple XML structure that agent_core can parse
-    # It includes gml:Point for coordinates and civicAddressText for the address string
-    location_xml_parts = []
-    if coords and isinstance(coords, (list, tuple)) and len(coords) == 2:
-        try:
-            lat, lon = float(coords[0]), float(coords[1])
-            location_xml_parts.append(f'<gml:Point xmlns:gml="http://www.opengis.net/gml"><gml:pos>{lat} {lon}</gml:pos></gml:Point>')
-            logger.debug(f"Generated location with coordinates: ({lat}, {lon}) for message {message_id}")
-        except (ValueError, TypeError):
-             logger.warning(f"Invalid coordinates from LLM: {coords} for message {message_id}. Using text only.")
-             coords = None # Clear invalid coords
-    
-    # Add civic address text, including zip code if present and not already in full_location_text
-    civic_address_text_content = full_location_text or "Location information unavailable"
-    location_xml_parts.append(f"<civicAddressText>{civic_address_text_content}</civicAddressText>")
-    
-    # If we have structured ZIP, ensure it's captured, even if not in civicAddressText
-    # The agent_core's XML parser will also look for ca:PC
-    if zip_code:
-        location_xml_parts.append(f'<ca:civicAddress xmlns:ca="urn:ietf:params:xml:ns:pidf:geopriv10:civicAddr"><ca:PC>{zip_code}</ca:PC></ca:civicAddress>')
+    logger.info(
+        f"Loaded {len(_template_cache)} EIDO templates from {EIDO_TEMPLATE_DIR}")
 
 
-    location_comp['locationByValue'] = f"""<?xml version="1.0" encoding="UTF-8"?><location>{"".join(location_xml_parts)}</location>"""
-    eido_dict['locationComponent'] = [location_comp]
+def _get_template_summaries_str() -> str:
+    """Returns a formatted string of template names and their summaries."""
+    if not _template_summaries:
+        _load_templates()
 
-    # --- Agency Component (if source_agency was provided) ---
-    if source_agency_name:
-        agency_comp = {
-            '$id': agency_ref_id,
-            'agencyIdentifier': agency_ref_id, # Could be more formal if agency IDs are known/generated
-            'agencyName': source_agency_name
-        }
-        eido_dict['agencyComponent'] = [agency_comp]
-
-    logger.info(f"Generated EIDO-like dictionary from LLM data for message {message_id}")
-    return eido_dict
+    return "\n".join([f"- {filename}: {_template_summaries[filename]}" for filename in sorted(_template_summaries.keys())])
 
 
 def parse_alert_to_eido_dict(alert_text: str) -> Optional[Dict[str, Any]]:
     """
-    Takes raw alert text for a SINGLE event, uses LLM to extract structured info,
-    and formats it into an EIDO-like dictionary.
+    Takes raw alert text, uses an LLM to select the best EIDO template,
+    and then uses another LLM call to fill that template with the alert's data.
     """
     if not alert_text or not isinstance(alert_text, str):
         logger.error("Invalid input: alert_text must be a non-empty string.")
         return None
 
-    logger.info("Attempting to parse single event alert text using LLM...")
-    
-    extracted_json_str = extract_eido_from_alert_text(alert_text)
+    # Ensure templates are loaded
+    _load_templates()
+    if not _template_cache:
+        logger.error(
+            "No EIDO templates are available. Cannot process alert text.")
+        return None
 
-    if not extracted_json_str:
-        logger.error("LLM did not return structured data from the alert text.")
+    logger.info(
+        "Attempting to parse single event alert text using new 'choose-then-fill' LLM workflow...")
+
+    # 1. Choose the best template
+    template_summaries_str = _get_template_summaries_str()
+    chosen_template_name = choose_eido_template(
+        alert_text, template_summaries_str)
+
+    if not chosen_template_name or chosen_template_name not in _template_cache:
+        logger.warning(
+            f"LLM did not choose a valid template for the alert. Aborting processing for this event. Chosen: '{chosen_template_name}'")
+        return None
+
+    template_content = _template_cache[chosen_template_name]
+
+    # 2. Fill the chosen template
+    logger.info(
+        f"Attempting to fill template '{chosen_template_name}' with alert text.")
+    # The alert text itself serves as the scenario description
+    filled_eido_json_str = fill_eido_template(template_content, alert_text)
+
+    if not filled_eido_json_str:
+        logger.error(
+            f"LLM failed to fill the chosen EIDO template '{chosen_template_name}'.")
         return None
 
     try:
-        extracted_data = json.loads(extracted_json_str)
-        if not isinstance(extracted_data, dict):
-             logger.error(f"LLM returned JSON, but not a dictionary (type: {type(extracted_data)}). Data: {extracted_data}")
-             return None
-        logger.info("Successfully parsed structured data from LLM response for alert parsing.")
+        eido_dict = json.loads(filled_eido_json_str)
+        if not isinstance(eido_dict, dict):
+            logger.error(
+                f"LLM returned JSON, but not a dictionary (type: {type(eido_dict)}). Data: {eido_dict}")
+            return None
+        logger.info(
+            f"Successfully generated EIDO dictionary from alert using template '{chosen_template_name}'.")
+
+        # The following diagnostic prints are commented out as they are for development/debugging
+        # and should not be active in production code.
+        # message_id = eido_dict.get('eidoMessageIdentifier', 'N/A')
+        # logger.debug(
+        #     f"DIAGNOSTIC: EIDO Dict from Template (message_id: {message_id})")
+        # print(json.dumps(eido_dict, indent=2))
+        # print("="*80 + "\n")
+
+        return eido_dict
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse JSON response from LLM: {e}")
-        logger.warning(f"LLM Raw Response (potential non-JSON for alert parsing):\n{extracted_json_str}")
+        logger.error(
+            f"Failed to parse JSON response from LLM after filling template: {e}")
+        logger.warning(
+            f"LLM Raw Response (potential non-JSON for template fill):\n{filled_eido_json_str}")
         return None
     except Exception as e:
-        logger.error(f"Unexpected error processing LLM response for alert parsing: {e}", exc_info=True)
+        logger.error(
+            f"Unexpected error processing LLM template fill response: {e}", exc_info=True)
         return None
 
-    try:
-        eido_compatible_dict = _generate_eido_compatible_dict(extracted_data)
-        
-        # --- DIAGNOSTIC PRINT STATEMENT ---
-        # This will show you the exact dictionary being created by this function.
-        message_id = eido_compatible_dict.get('eidoMessageIdentifier', 'N/A')
-        print("\n" + "="*80)
-        print(f"DIAGNOSTIC: EIDO-like Dict Generated by alert_parser (message_id: {message_id})")
-        print(json.dumps(eido_compatible_dict, indent=2))
-        print("="*80 + "\n")
-        
-        return eido_compatible_dict
-    except Exception as e:
-        logger.error(f"Failed to generate EIDO-compatible dictionary from extracted data: {e}", exc_info=True)
-        return None
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    def mock_extract_eido_from_alert_text(text: str) -> Optional[str]:
-        print(f"[MOCK] LLM Interface 'extract_eido_from_alert_text' called with: '{text[:50]}...'")
-        return json.dumps({
-            "incident_type": "Vehicle Accident",
-            "timestamp_iso": "2024-05-21T15:30:00-07:00",
-            "location_address": "Intersection of Main St and Elm Ave, Springfield",
-            "coordinates": [34.0522, -118.2437],
-            "zip_code": "98765",
-            "description": "Two car collision, minor injuries reported. Blocking eastbound lane. Patient complains of neck pain.",
-            "source_agency": "Springfield Police Dept Traffic Unit",
-            "external_id": "CAD-2024-98765"
-        })
-    extract_eido_from_alert_text = mock_extract_eido_from_alert_text
 
-    sample_alert = "ALERT from SPD: Vehicle collision reported at Main St / Elm Ave"
+    # Mock the LLM calls for a standalone test
+    def mock_choose_eido_template(text: str, summaries: str) -> Optional[str]:
+        print(
+            f"[MOCK] LLM 'choose_eido_template' called with: '{text[:50]}...'")
+        if "fire" in text.lower():
+            return "ucsd_vegetation_fire_template.json"
+        if "collision" in text.lower():
+            return "traffic_collision.json"
+        return None
+
+    def mock_fill_eido_template(template: str, scenario: str) -> Optional[str]:
+        print(
+            f"[MOCK] LLM 'fill_eido_template' called for scenario: '{scenario[:50]}...'")
+        # Just return a valid JSON string for testing the flow
+        return json.dumps({
+            "$id": "urn:emergency:uid:incidentid:mock-filled:bcf.state.pa.us",
+            "lastUpdateTimeStamp": datetime.now(timezone.utc).isoformat(),
+            "incidentComponent": [{
+                "incidentTypeCommonRegistryText": "Mock Filled Incident",
+                "incidentSummaryText": f"This is a mocked response for the scenario: {scenario}"
+            }]
+        })
+
+    # Replace the actual LLM calls with mocks for the test
+    original_choose_eido_template = choose_eido_template
+    original_fill_eido_template = fill_eido_template
+    choose_eido_template = mock_choose_eido_template
+    fill_eido_template = mock_fill_eido_template
+
+    # Create dummy template files for the mock _load_templates to find
+    mock_template_dir = os.path.join(
+        os.path.dirname(__file__), '..', 'eido_templates')
+    os.makedirs(mock_template_dir, exist_ok=True)
+
+    # Dummy content for the mock templates
+    with open(os.path.join(mock_template_dir, "ucsd_vegetation_fire_template.json"), "w") as f:
+        f.write(json.dumps({"description": "Template for a vegetation fire incident.",
+                "incidentComponent": [{"incidentTypeCommonRegistryText": "Vegetation Fire"}]}))
+    with open(os.path.join(mock_template_dir, "traffic_collision.json"), "w") as f:
+        f.write(json.dumps({"description": "Template for a traffic collision incident.",
+                "incidentComponent": [{"incidentTypeCommonRegistryText": "Traffic Collision"}]}))
+
+    # Clear cache to force _load_templates to run and find the mock files
+    _template_cache.clear()
+    _template_summaries.clear()
+
+    sample_alert = "ALERT from UCPD: Report of a small brush fire near the canyon."
     result_dict = parse_alert_to_eido_dict(sample_alert)
+
+    if result_dict:
+        print("\n--- Successfully parsed alert text into EIDO dict ---")
+        print(json.dumps(result_dict, indent=2))
+    else:
+        print("\n--- Failed to parse alert text ---")
+
+    # Clean up dummy template files and directory
+    os.remove(os.path.join(mock_template_dir,
+              "ucsd_vegetation_fire_template.json"))
+    os.remove(os.path.join(mock_template_dir, "traffic_collision.json"))
+    try:
+        os.rmdir(mock_template_dir)
+    except OSError:
+        pass  # Directory not empty, or other error
+
+    # Restore original functions
+    choose_eido_template = original_choose_eido_template
+    fill_eido_template = original_fill_eido_template
