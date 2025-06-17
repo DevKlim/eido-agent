@@ -25,7 +25,7 @@ logger.info(f"RAG Indexer started with log level {log_level_script}")
 # Assuming this script is in utils/
 UTILS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(UTILS_DIR, '..'))
-SCHEMA_PATH = os.path.join(PROJECT_ROOT, 'EIDO-JSON', 'Schema', 'openapi.yaml')
+SCHEMA_PATH = os.path.join(PROJECT_ROOT, 'schema', 'openapi.yaml')
 INDEX_DIR = os.path.join(PROJECT_ROOT, 'services') # Save index in services dir
 INDEX_FILE_PATH = os.path.join(INDEX_DIR, 'eido_schema_index.json')
 
