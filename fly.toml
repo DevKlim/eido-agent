@@ -1,38 +1,26 @@
-# ./fly.toml (for the API)
+# ./fly.toml
 
-app = "eido-sentinel-api" # Use the app name you chose
-primary_region = "sjc"  # Use the region you chose
+# This file defines the configuration for the API backend service.
+# It MUST be committed to your GitHub repository for Fly.io to build the app.
+
+# Replace "eido-sentinel-api" with the name of your app on Fly.io.
+app = "eido-sentinel-api"
+# Replace "sjc" with the primary region you selected for your app.
+primary_region = "sjc"
 
 [build]
-  # No build args needed, Dockerfile is self-contained
+  # No extra build arguments are needed; Fly will use the Dockerfile by default.
 
+# This section tells Fly how to handle incoming web traffic.
 [http_service]
   internal_port = 8000
   force_https = true
   auto_stop_machines = true
   auto_start_machines = true
-  min_machines_running = 0 # Set to 1 if you want it always on, 0 for free tier sleep
+  min_machines_running = 0 # Set to 0 for free tier to allow machines to sleep.
   processes = ["app"]
 
-# Mount the persistent volume to the /app/data directory
-# This is where your SQLite DB and geocoding JSON will live.
+# This section mounts the persistent volume we created for the SQLite database.
 [mounts]
   source = "eido_data"
   destination = "/app/data"
-
-# The 'app' process is the default command from the Dockerfile's CMD
-# which is to run the 'api'.
-[[processes]]
-  app = "api"
-
-# Health checks to ensure the API is running correctly
-[[services]]
-  protocol = "tcp"
-  internal_port = 8000
-  processes = ["app"]
-
-  [[services.http_checks]]
-    interval = "15s"
-    timeout = "10s"
-    method = "get"
-    path = "/" # Check the static landing page endpoint
