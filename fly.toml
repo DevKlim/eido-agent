@@ -1,23 +1,42 @@
 # ./fly.toml
-
-# This file defines the configuration for the API backend service.
-# It MUST be committed to your GitHub repository for Fly.io to build the app.
-
-app = "eido-sentinel-api"
-primary_region = "sjc"
+app = "eido-agent"
+primary_region = "lax"
 
 [build]
 
-# This section tells Fly how to handle incoming web traffic.
 [http_service]
   internal_port = 8000
   force_https = true
   auto_stop_machines = true
   auto_start_machines = true
-  min_machines_running = 0 # Set to 0 for free tier to allow machines to sleep.
+  min_machines_running = 0
   processes = ["app"]
 
-# This section mounts the persistent volume we created for the SQLite database.
 [mounts]
   source = "eido_data"
   destination = "/app/data"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8000
+  processes = ["app"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "10s"
+    method = "get"
+    path = "/"
