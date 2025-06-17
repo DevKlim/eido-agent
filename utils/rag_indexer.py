@@ -8,9 +8,11 @@ from typing import List, Dict, Tuple, Any
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# Import settings first to configure logging level
+from config.settings import settings
 from utils.schema_parser import load_openapi_schema, format_component_details_for_llm
 from services.embedding import generate_embedding, get_embedding_dimension, EMBEDDING_ENABLED
-from config.settings import settings # For logging level
+
 
 # --- Logging Setup ---
 # Configure logger for this script

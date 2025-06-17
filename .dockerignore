@@ -1,0 +1,44 @@
+# ./.dockerignore
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Docker build-related files that shouldn't be in the image
+Dockerfile
+docker-compose.yml
+.dockerignore
+# entrypoint.sh was removed from here. It NEEDS to be in the build context.
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*~
+.devcontainer/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.env.*
+!.env.example
+.venv
+env/
+venv/
+ENV/
+
+# Generated local data and DB files that should not be in the image
+*.db
+*.sqlite3
+data/eido_sentinel_local.db
+data/geocoded_locations.json
+
+# Stack dumps and build artifacts
+bash.exe.stackdump
+build/
+dist/
+*.egg-info/

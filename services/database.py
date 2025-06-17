@@ -54,7 +54,8 @@ else:
 if not final_db_url:
     # This will cause a more obvious error than trying to create an engine with an empty string
     raise ValueError(
-        "FATAL: DATABASE_URL is not configured in environment settings.")
+        "FATAL: DATABASE_URL is not configured. Please set it in your .env file or environment variables."
+    )
 
 # Ensure data directory exists for SQLite
 if "sqlite" in final_db_url:

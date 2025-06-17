@@ -13,7 +13,7 @@ if not logger.hasHandlers():
 # Define path relative to this script file
 UTILS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(UTILS_DIR, '..'))
-DEFAULT_SCHEMA_PATH = os.path.join(PROJECT_ROOT, 'EIDO-JSON', 'Schema', 'openapi.yaml')
+DEFAULT_SCHEMA_PATH = os.path.join(PROJECT_ROOT, 'schema', 'openapi.yaml')
 
 def load_openapi_schema(file_path: str = DEFAULT_SCHEMA_PATH) -> Optional[Dict[str, Any]]:
     """Loads the OpenAPI YAML schema."""

@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  # The FastAPI backend service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["api"] # This command is passed to entrypoint.sh
+    env_file:
+      - .env # Load environment variables from .env file
+    environment:
+      # Override host and port for the container environment
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      # Use the DATABASE_URL from .env, or default to a Docker-specific SQLite DB
+      - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///./data/eido_sentinel_docker.db}
+    volumes:
+      # Persist the SQLite database and local geocoding store outside the container
+      - ./data:/app/data
+    ports:
+      - "8000:8000" # Map host port 8000 to container port 8000
+    networks:
+      - eido_sentinel_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # The Streamlit frontend service
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["ui"] # This command is passed to entrypoint.sh
+    depends_on:
+      api:
+        condition: service_healthy # Wait for the API to be healthy before starting
+    env_file:
+      - .env
+    environment:
+      # CRITICAL: Tell the Streamlit UI where to find the API.
+      # 'api' is the service name defined above, accessible on the Docker network.
+      - API_BASE_URL=http://api:8000
+      - STREAMLIT_SERVER_PORT=8501
+    ports:
+      - "8501:8501" # Map host port 8501 to container port 8501
+    networks:
+      - eido_sentinel_net
+
+networks:
+  eido_sentinel_net:
+    driver: bridge
