@@ -3,13 +3,10 @@
 # This file defines the configuration for the API backend service.
 # It MUST be committed to your GitHub repository for Fly.io to build the app.
 
-# Replace "eido-sentinel-api" with the name of your app on Fly.io.
 app = "eido-sentinel-api"
-# Replace "sjc" with the primary region you selected for your app.
 primary_region = "sjc"
 
 [build]
-  # No extra build arguments are needed; Fly will use the Dockerfile by default.
 
 # This section tells Fly how to handle incoming web traffic.
 [http_service]
