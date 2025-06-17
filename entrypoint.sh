@@ -9,9 +9,6 @@ COMMAND=$1
 
 echo "Entrypoint received command: '$COMMAND'"
 
-# The database initialization (creating tables) is handled automatically
-# by the FastAPI application's lifespan event manager (`api/main.py`).
-
 if [ "$COMMAND" = "api" ]; then
     echo "Starting FastAPI server on port 8000..."
     # Bind to 0.0.0.0 to make the server accessible from outside the container.
