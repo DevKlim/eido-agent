@@ -13,6 +13,7 @@ from typing import List, Dict, Optional, Any
 import requests
 from PIL import Image
 from pydantic import ValidationError
+import urllib.parse
 
 # --- Page Configuration ---
 try:
@@ -490,9 +491,94 @@ def render_map_view():
         tooltip={"text": "{tooltip}"}
     ))
 
+def render_geocoding_editor():
+    st.subheader("Local Geocoding Store Editor")
+    st.caption("Manage custom location-to-coordinate mappings. These entries are prioritized by the geocoding service.")
+
+    # Fetch current locations
+    locations_data = make_api_request("GET", "/api/v1/tools/geocoding/local_store")
+
+    if locations_data is None:
+        st.error("Could not fetch locations from the backend. The service may be down.")
+        return
+
+    # --- Section to Add a New Location ---
+    with st.expander("➕ Add New Location", expanded=False):
+        with st.form("new_location_form"):
+            new_loc_name = st.text_input("Location Name (e.g., 'Geisel Library Entrance')")
+            col1, col2 = st.columns(2)
+            new_lat = col1.number_input("Latitude", format="%.6f", value=0.0)
+            new_lon = col2.number_input("Longitude", format="%.6f", value=0.0)
+            new_source = st.text_input("Source", value="manual_ui_input")
+            new_notes = st.text_area("Notes")
+            
+            submitted = st.form_submit_button("Add Location")
+            if submitted:
+                if not new_loc_name or new_lat == 0.0 or new_lon == 0.0:
+                    st.warning("Please fill in Location Name, Latitude, and Longitude.")
+                else:
+                    payload = {
+                        "location_name": new_loc_name,
+                        "latitude": new_lat,
+                        "longitude": new_lon,
+                        "source": new_source,
+                        "notes": new_notes
+                    }
+                    if make_api_request("POST", "/api/v1/tools/geocoding/local_store", payload=payload):
+                        st.success(f"Location '{new_loc_name}' added successfully.")
+                        time.sleep(1)
+                        st.rerun()
+
+    st.divider()
+
+    # --- Display and Edit Existing Locations ---
+    st.markdown(f"**{len(locations_data)} Existing Locations**")
+    
+    if not locations_data:
+        st.info("No custom locations in the store. Add one using the form above.")
+        return
+
+    sorted_locations = sorted(locations_data.items())
+
+    for name, data in sorted_locations:
+        with st.container(border=True):
+            col_disp1, col_disp2 = st.columns([3, 1])
+            with col_disp1:
+                st.markdown(f"**{name}**")
+                st.caption(f"Source: `{data.get('source', 'N/A')}` | Updated: `{data.get('last_updated', 'N/A').split('T')[0]}`")
+                st.code(f"Lat: {data.get('lat', 0.0):.6f}, Lon: {data.get('lon', 0.0):.6f}", language='bash')
+            
+            with col_disp2:
+                if st.button("Delete", key=f"delete_{name}", use_container_width=True, type="secondary"):
+                    encoded_name = urllib.parse.quote(name)
+                    if make_api_request("DELETE", f"/api/v1/tools/geocoding/local_store/{encoded_name}"):
+                        st.success(f"Location '{name}' deleted.")
+                        time.sleep(1)
+                        st.rerun()
+
+            with st.expander("Edit"):
+                with st.form(key=f"form_edit_{name}"):
+                    edit_col1, edit_col2 = st.columns(2)
+                    edited_lat = edit_col1.number_input("Latitude", value=data.get('lat', 0.0), format="%.6f", key=f"lat_{name}")
+                    edited_lon = edit_col2.number_input("Longitude", value=data.get('lon', 0.0), format="%.6f", key=f"lon_{name}")
+                    edited_source = st.text_input("Source", value=data.get('source', ''), key=f"source_{name}")
+                    edited_notes = st.text_area("Notes", value=data.get('notes', ''), key=f"notes_{name}")
+                    
+                    if st.form_submit_button("Update Location", use_container_width=True):
+                        payload = {
+                            "location_name": name,
+                            "latitude": edited_lat,
+                            "longitude": edited_lon,
+                            "source": edited_source,
+                            "notes": edited_notes
+                        }
+                        if make_api_request("POST", "/api/v1/tools/geocoding/local_store", payload=payload):
+                            st.success(f"Location '{name}' updated.")
+                            time.sleep(1)
+                            st.rerun()
 
 # --- MAIN NAVIGATION AND VIEW RENDERING ---
-view_options = ["Incident Feed", "Dashboard", "Map View", "Incident Details"]
+view_options = ["Incident Feed", "Dashboard", "Map View", "Geocoding Editor", "Incident Details"]
 
 current_view_in_session = st.session_state.get('active_view', 'Incident Feed')
 if current_view_in_session not in view_options:
@@ -521,7 +607,8 @@ elif st.session_state.active_view == "Incident Details":
     render_incident_details()
 elif st.session_state.active_view == "Map View":
     render_map_view()
-
+elif st.session_state.active_view == "Geocoding Editor":
+    render_geocoding_editor()
 
 st.divider()
 st.caption("EIDO Sentinel v0.9.1 | End of Dashboard")
