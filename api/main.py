@@ -36,7 +36,7 @@ app = FastAPI(
     description="API for ingesting EIDO reports, managing emergency incidents, and serving a showcase landing page.",
     version="0.9.1",
     contact={"name": "EIDO Sentinel Support",
-             "url": "https://github.com/LXString/eido-sentinel"},
+             "url": "https://github.com/DevKlim/eido-sentinel"},
     license_info={"name": "MIT License",
                   "url": "https://opensource.org/licenses/MIT"},
     lifespan=lifespan
