@@ -28,5 +28,5 @@ EXPOSE 8000
 EXPOSE 8501
 ENTRYPOINT ["/bin/sh", "/usr/local/bin/entrypoint.sh"]
 
-# Set the default command to run the API service
-CMD ["api"]
+# Set the default command to run the UI (Streamlit) service for deployment
+CMD ["ui"]

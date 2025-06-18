@@ -1,3 +1,4 @@
+# entrypoint.sh
 #!/bin/sh
 
 # Exit immediately if a command exits with a non-zero status.
@@ -16,10 +17,10 @@ if [ "$COMMAND" = "api" ]; then
     exec uvicorn api.main:app --host 0.0.0.0 --port 8000 --log-level "$log_level_lower"
 
 elif [ "$COMMAND" = "ui" ]; then
-    echo "Starting Streamlit UI on port 8501..."
-    # The API_BASE_URL environment variable is set in docker-compose.yml to
-    # point the UI to the API container.
-    exec streamlit run ui/app.py --server.port 8501 --server.address 0.0.0.0
+    # The port is set to 8000 to match the expected internal_port for Fly.io deployment, based on error logs.
+    # The local docker-compose.yml has been updated to map external port 8501 to this internal port 8000.
+    echo "Starting Streamlit UI on port 8000..."
+    exec streamlit run ui/app.py --server.port 8000 --server.address 0.0.0.0
 
 else
     echo "Error: Unknown command '$COMMAND'"
