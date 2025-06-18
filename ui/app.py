@@ -91,7 +91,7 @@ def init_session_state():
         'api_is_reachable': None,
         'json_input_area_val': "", 'alert_text_input_area_val': "",
         'active_view': 'Incident Feed', 'selected_incident_id': None,
-        'force_data_refresh': True, # Force refresh on first load
+        'force_data_refresh': True,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -107,7 +107,7 @@ def make_api_request(method: str, endpoint: str, payload: Optional[Dict] = None,
         response = requests.request(method.upper(), url, json=payload, params=params, timeout=30)
         st.session_state.api_is_reachable = True 
         response.raise_for_status()
-        if response.status_code == 204: # No Content
+        if response.status_code == 204:
             return True
         return response.json() if response.content else True
     except requests.exceptions.HTTPError as e:
@@ -376,8 +376,33 @@ def render_incident_details():
         st.markdown("\n".join(f"- {action}" for action in incident.recommended_actions) or "_No actions recommended._")
         st.divider()
         with st.expander("**Location Information**", expanded=True):
+            # FIX: Replace st.map with pydeck for consistent styling
             if incident.locations:
-                st.map(pd.DataFrame(incident.locations, columns=["latitude", "longitude"]))
+                location_df = pd.DataFrame(incident.locations, columns=["latitude", "longitude"])
+                
+                view_state = pdk.ViewState(
+                    latitude=location_df["latitude"].mean(),
+                    longitude=location_df["longitude"].mean(),
+                    zoom=14,
+                    pitch=50,
+                )
+
+                layer = pdk.Layer(
+                    "ScatterplotLayer",
+                    data=location_df,
+                    get_position=["longitude", "latitude"],
+                    get_color="[200, 30, 0, 160]",
+                    get_radius=50,
+                    pickable=True,
+                )
+
+                st.pydeck_chart(pdk.Deck(
+                    map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+                    initial_view_state=view_state,
+                    layers=[layer],
+                    tooltip={"html": "<b>Location:</b><br/>Lat: {latitude}<br/>Lon: {longitude}"}
+                ))
+
             st.markdown(f"**Addresses:** `{' | '.join(incident.addresses) or 'N/A'}`")
             st.markdown(f"**ZIP Codes:** `{', '.join(incident.zip_codes) or 'N/A'}`")
         with st.expander("**Full Description History**"):
@@ -454,8 +479,9 @@ def render_map_view():
         pickable=True,
     )
 
+    # FIX: Use an OpenStreetMap-based style for consistency
     st.pydeck_chart(pdk.Deck(
-        map_style='mapbox://styles/mapbox/light-v10',
+        map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
         initial_view_state=view_state,
         layers=[layer],
         tooltip={"text": "{tooltip}"}

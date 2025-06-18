@@ -60,9 +60,6 @@ if streamlit_app_url and streamlit_app_url not in allowed_origins:
 if "localhost" not in settings.api_base_url and settings.api_base_url not in allowed_origins:
     allowed_origins.append(settings.api_base_url)
 
-# Use "*" for development if you face persistent issues, but be specific for production.
-# allowed_origins = ["*"]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -73,8 +70,8 @@ app.add_middleware(
 logger_main.info(f"CORS middleware configured. Allowed origins: {allowed_origins}")
 
 # --- Static Files Mounting ---
-PROJECT_ROOT_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..")) # Navigate up to project root
+# FIX: Correctly navigate from 'api/main.py' up to the project root.
+PROJECT_ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 STATIC_DIR = os.path.join(PROJECT_ROOT_DIR, "static")
 
 if not os.path.isdir(STATIC_DIR):

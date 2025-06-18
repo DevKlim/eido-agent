@@ -3,6 +3,7 @@ import json
 import logging
 import numpy as np
 from typing import List, Dict, Tuple, Any
+import xml.etree.ElementTree as ET
 
 # Ensure services and utils are importable
 import sys
@@ -22,12 +23,73 @@ logger = logging.getLogger("RAGIndexer")
 logger.info(f"RAG Indexer started with log level {log_level_script}")
 
 # Define paths relative to project root
-# Assuming this script is in utils/
 UTILS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(UTILS_DIR, '..'))
 SCHEMA_PATH = os.path.join(PROJECT_ROOT, 'schema', 'openapi.yaml')
-INDEX_DIR = os.path.join(PROJECT_ROOT, 'services') # Save index in services dir
+XML_CONTEXT_PATH = os.path.join(PROJECT_ROOT, 'eido_templates', 'EIDOContext.xml')
+INDEX_DIR = os.path.join(PROJECT_ROOT, 'services')
 INDEX_FILE_PATH = os.path.join(INDEX_DIR, 'eido_schema_index.json')
+
+def create_xml_context_chunks(xml_path: str) -> List[Tuple[str, str]]:
+    """Parses the EIDOContext.xml file and creates text chunks."""
+    chunks = []
+    if not os.path.exists(xml_path):
+        logger.error(f"XML context file not found at: {xml_path}")
+        return chunks
+    
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+
+        # Extract from Summary
+        summary = root.find('Summary')
+        if summary is not None and summary.text:
+            chunks.append(('EIDO Summary', f"Overall EIDO Summary: {' '.join(summary.text.strip().split())}"))
+
+        # Extract from CoreConcepts
+        for concept in root.findall('.//Concept'):
+            name = concept.get('name')
+            desc_element = concept.find('Description')
+            if name and desc_element is not None and desc_element.text:
+                desc_text = ' '.join(desc_element.text.strip().split())
+                chunks.append((f'Concept: {name}', f"EIDO Concept '{name}': {desc_text}"))
+
+        # Extract from NIEM_Integration
+        niem_integration = root.find('NIEM_Integration')
+        if niem_integration is not None:
+            purpose = niem_integration.find('Purpose')
+            if purpose is not None and purpose.text:
+                chunks.append(('NIEM Integration Purpose', f"Purpose of NIEM Integration: {' '.join(purpose.text.strip().split())}"))
+            
+            for child in niem_integration:
+                if child.tag not in ['Purpose'] and child.text:
+                    tag_name = child.tag.replace('_', ' ')
+                    text_content = ' '.join(child.itertext()).strip().replace('\n', ' ').replace('  ', ' ')
+                    chunks.append((f'NIEM Integration: {tag_name}', f"{tag_name} for NIEM Integration: {text_content}"))
+
+        # Extract from DataComponents
+        for component in root.findall('.//DataComponents/Component'):
+            name = component.get('name')
+            desc_element = component.find('Description')
+            if name and desc_element is not None and desc_element.text:
+                text_parts = [f"Component Name: {name}", f"Description: {' '.join(desc_element.text.strip().split())}"]
+                
+                fields = component.findall('Fields/Field')
+                if fields:
+                    text_parts.append("Key Fields:")
+                    for field in fields:
+                        field_name = field.get('name')
+                        field_desc_element = field.find('Description')
+                        if field_name and field_desc_element is not None and field_desc_element.text:
+                             field_desc_text = ' '.join(field_desc_element.text.strip().split())
+                             text_parts.append(f"  - {field_name}: {field_desc_text}")
+                chunks.append((f'Component Context: {name}', "\n".join(text_parts)))
+
+        logger.info(f"Created {len(chunks)} text chunks from XML context file.")
+        return chunks
+    except Exception as e:
+        logger.error(f"Failed to parse or process XML context file {xml_path}: {e}", exc_info=True)
+        return []
 
 def create_schema_chunks(schema: Dict[str, Any]) -> List[Tuple[str, str]]:
     """Creates text chunks from schema components suitable for RAG."""
@@ -41,13 +103,6 @@ def create_schema_chunks(schema: Dict[str, Any]) -> List[Tuple[str, str]]:
 
     skipped_count = 0
     for component_name, component_data in component_schemas.items():
-        # Optionally skip overly simple or generic types if they don't add much value
-        # Example: skip primitive type aliases if they exist
-        # if component_data.get('type') in ['string', 'integer', 'boolean', 'number'] and not component_data.get('properties'):
-        #      logger.debug(f"Skipping simple type component: {component_name}")
-        #      skipped_count += 1
-        #      continue
-
         chunk_text = format_component_details_for_llm(schema, component_name)
         if chunk_text:
             chunks.append((component_name, chunk_text)) # Tuple: (ComponentName, FormattedText)
@@ -74,17 +129,17 @@ def build_and_save_index(chunks: List[Tuple[str, str]], output_path: str = INDEX
 
     logger.info(f"Generating embeddings for {len(chunks)} chunks (Dimension: {embedding_dim})...")
     embeddings_list = []
-    chunk_data_list = [] # Store {"name": ComponentName, "text": FormattedText}
+    chunk_data_list = []
 
     for i, (name, text) in enumerate(chunks):
         logger.debug(f"Embedding chunk {i+1}/{len(chunks)}: '{name}'")
         embedding = generate_embedding(text)
-        if embedding and len(embedding) == embedding_dim: # Ensure correct dimension
+        if embedding and len(embedding) == embedding_dim:
             embeddings_list.append(embedding)
             chunk_data_list.append({"name": name, "text": text})
-        elif embedding: # Log dimension mismatch
+        elif embedding:
              logger.warning(f"Failed to generate embedding for chunk '{name}' with correct dimension ({len(embedding)} vs {embedding_dim}). Skipping.")
-        else: # Log failure
+        else:
             logger.warning(f"Failed to generate embedding for chunk '{name}'. Skipping.")
 
     if not embeddings_list:
@@ -93,19 +148,18 @@ def build_and_save_index(chunks: List[Tuple[str, str]], output_path: str = INDEX
 
     logger.info(f"Generated {len(embeddings_list)} valid embeddings.")
 
-    # Prepare index data for JSON serialization (embeddings as list of lists)
     index_data_to_save = {
-        "embedding_model": settings.embedding_model_name, # Store which model was used
+        "embedding_model": settings.embedding_model_name,
         "embedding_dim": embedding_dim,
         "chunks": chunk_data_list,
         "embeddings": embeddings_list
     }
 
     try:
-        os.makedirs(os.path.dirname(output_path), exist_ok=True) # Ensure directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(index_data_to_save, f, indent=2) # Use indent for readability
-        logger.info(f"Successfully saved EIDO schema RAG index ({len(chunk_data_list)} chunks) to: {output_path}")
+            json.dump(index_data_to_save, f, indent=2)
+        logger.info(f"Successfully saved RAG index with {len(chunk_data_list)} total chunks to: {output_path}")
         return True
     except IOError as e:
         logger.error(f"Error saving index file to {output_path}: {e}")
@@ -116,17 +170,37 @@ def build_and_save_index(chunks: List[Tuple[str, str]], output_path: str = INDEX
 
 # --- Main Execution ---
 if __name__ == "__main__":
-    logger.info("--- Starting EIDO Schema RAG Indexing ---")
+    logger.info("--- Starting EIDO RAG Indexing ---")
+    
+    all_chunks = []
+    
+    # 1. Process OpenAPI Schema for technical details
     eido_schema = load_openapi_schema(SCHEMA_PATH)
     if eido_schema:
         schema_chunks = create_schema_chunks(eido_schema)
         if schema_chunks:
-            if build_and_save_index(schema_chunks, INDEX_FILE_PATH):
-                 logger.info("Indexing completed successfully.")
-            else:
-                 logger.error("Index building failed.")
+            all_chunks.extend(schema_chunks)
+            logger.info(f"Added {len(schema_chunks)} chunks from OpenAPI schema.")
         else:
-            logger.error("Failed to create schema chunks. Indexing aborted.")
+            logger.warning("No chunks created from OpenAPI schema.")
     else:
-        logger.error(f"Failed to load EIDO schema from {SCHEMA_PATH}. Indexing aborted.")
+        logger.error(f"Failed to load EIDO schema from {SCHEMA_PATH}.")
+
+    # 2. Process XML Context for conceptual understanding
+    xml_chunks = create_xml_context_chunks(XML_CONTEXT_PATH)
+    if xml_chunks:
+        all_chunks.extend(xml_chunks)
+        logger.info(f"Added {len(xml_chunks)} chunks from XML context.")
+    else:
+        logger.warning("No chunks created from XML context file.")
+
+    # 3. Build and save the combined index
+    if all_chunks:
+        if build_and_save_index(all_chunks, INDEX_FILE_PATH):
+             logger.info("Indexing completed successfully.")
+        else:
+             logger.error("Index building failed.")
+    else:
+        logger.error("No chunks were created from any source. Indexing aborted.")
+        
     logger.info("--- RAG Indexing Finished ---")
