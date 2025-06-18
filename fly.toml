@@ -9,9 +9,6 @@ primary_region = "lax"
   min_machines_running = 0
   processes = ["app"]
 
-[deploy]
-  release_command = "alembic upgrade head"
-
 [[vm]]
 cpu_kind = "shared"
 cpus = 1
