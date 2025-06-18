@@ -254,6 +254,19 @@ def recommend_actions(summary: str, core_data: ReportCoreData) -> Optional[List[
     return None
 
 
+def generate_incident_name(incident_type: str, location: str, summary: str) -> Optional[str]:
+    """Generates a short, descriptive name for an incident."""
+    prompt = PROMPTS['GENERATE_INCIDENT_NAME'].format(
+        incident_type=incident_type,
+        location=location,
+        summary=summary
+    )
+    logger.debug("Calling LLM to generate an incident name.")
+    response = _call_llm(prompt)
+    # Clean up response to remove potential markdown or quotes
+    return response.strip().strip('"`') if response else None
+
+
 def fill_eido_template(template_str: str, scenario_desc: str) -> Optional[str]:
     if not template_str or not scenario_desc:
         return None

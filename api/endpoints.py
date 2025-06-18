@@ -150,14 +150,20 @@ async def ingest_alert_text_endpoint(payload: AlertTextPayload, response: Respon
         elif some_successful:
             response.status_code = status.HTTP_207_MULTI_STATUS
         else:
-            # FIX: Return 422 Unprocessable Entity when all events fail due to processing/parsing issues.
+            # All events failed. Provide a more specific error message.
+            first_error_message = "All events failed to process. Check server logs for details."
+            if results_list and isinstance(results_list[0], dict):
+                # Get the specific error from the agent's response
+                first_error_message = results_list[0].get('status', first_error_message)
+
+            if "llm" in first_error_message.lower() or "parse" in first_error_message.lower():
+                detail_message = f"AI processing failed. The model may not have understood the input. Please try again or rephrase the text. (Agent message: {first_error_message})"
+            else:
+                detail_message = f"Input could not be processed. Reason: {first_error_message}"
+
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="All events failed to process or parse.",
-                # Optionally, you could include the details in the HTTPException body if needed,
-                # but FastAPI's HTTPException detail is typically a string.
-                # For more complex error responses, a custom Pydantic model for the error
-                # response could be defined and returned directly.
+                detail=detail_message,
             )
 
         return response_data

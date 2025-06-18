@@ -63,6 +63,7 @@ class ReportCoreData(BaseModel):
 class Incident(BaseModel):
     """ Consolidated view of an emergency incident. """
     incident_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: Optional[str] = Field("Untitled Incident", description="A short, descriptive name for the incident.")
     incident_type: Optional[str] = Field(None)
     status: str = Field(
         "Active", description="Current status, e.g., Active, Updated, Resolved, Closed.")

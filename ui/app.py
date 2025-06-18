@@ -6,22 +6,21 @@ import time
 from datetime import datetime, timezone
 import sys
 import logging
-from io import StringIO, BytesIO
+from io import StringIO
+import altair as alt
 import pydeck as pdk
-from streamlit_ace import st_ace
 from typing import List, Dict, Optional, Any
 import requests
 from PIL import Image
-import urllib.parse
+from pydantic import ValidationError
 
 # --- Page Configuration ---
-# Load the icon as a PIL Image object to ensure the path is always correct.
 try:
     PAGE_ICON_PATH = os.path.abspath(os.path.join(os.path.dirname(
         __file__), '..', 'static', 'images', 'logo_icon_light.png'))
     page_icon_img = Image.open(PAGE_ICON_PATH)
 except FileNotFoundError:
-    page_icon_img = "🤖"  # Fallback to an emoji if the image is not found
+    page_icon_img = ""
 
 st.set_page_config(
     layout="wide",
@@ -36,7 +35,6 @@ st.set_page_config(
 )
 
 # --- Defensive Setup with Graceful Error Handling ---
-# This block prevents the "blank page" crash by catching startup errors.
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
@@ -44,577 +42,486 @@ if PROJECT_ROOT not in sys.path:
 modules_imported_successfully = False
 import_error_message = ""
 original_error = None
-local_settings = None  # Initialize local_settings to None
+local_settings = None
 
-# --- Logging Setup ---
-# Setup logging to capture messages for display in the UI
 log_stream = StringIO()
 log_formatter = logging.Formatter(
     '%(asctime)s [%(levelname)s] %(name)s: %(message)s', datefmt='%H:%M:%S')
 stream_handler_ui = logging.StreamHandler(log_stream)
 stream_handler_ui.setFormatter(log_formatter)
 root_logger = logging.getLogger()
-# Avoid adding handler multiple times on reruns
 if not any(isinstance(h, logging.StreamHandler) and getattr(h, 'stream', None) == log_stream for h in root_logger.handlers):
     root_logger.addHandler(stream_handler_ui)
 
-# Set root logger level based on settings, or default to INFO
-log_level_to_set = 'INFO'  # Default
+log_level_to_set = 'INFO'
 try:
     from config.settings import settings as temp_settings
-    local_settings = temp_settings  # Assign to local_settings for later use
+    local_settings = temp_settings
     log_level_to_set = getattr(local_settings, 'log_level', 'INFO').upper()
     root_logger.setLevel(log_level_to_set)
-    # These imports are now safe to perform within the success block
     from data_models.schemas import Incident as PydanticIncident
-    from utils.ocr_processor import extract_text_from_image
     modules_imported_successfully = True
 except Exception as e:
     import_error_message = f"A required module failed to import. This is often caused by missing dependencies or a misconfigured '.env' file that prevents 'config/settings.py' from loading."
     original_error = e
-    # Set to ERROR if settings can't be loaded
     root_logger.setLevel(logging.ERROR)
 
 logger_ui = logging.getLogger("EidoSentinelUI")
 if modules_imported_successfully:
     logger_ui.debug("UI Log Capture StreamHandler added to root logger.")
 
-
 # --- Environment and API Configuration ---
-API_BASE_URL = "http://localhost:8000"  # Default fallback
+API_BASE_URL = "http://localhost:8000"
 IS_DEPLOYED = False
 
 try:
     if 'API_BASE_URL' in st.secrets:
         API_BASE_URL = st.secrets['API_BASE_URL']
         IS_DEPLOYED = True
-        logger_ui.info(
-            f"Running in DEPLOYED mode. API URL from secrets: {API_BASE_URL}")
-    elif local_settings:  # Use local_settings if successfully loaded
-        API_BASE_URL = local_settings.api_base_url
-        logger_ui.info(
-            f"Running in LOCAL mode. API URL from settings.py: {API_BASE_URL}")
-    else:  # Fallback if local_settings could not be loaded
-        logger_ui.info(
-            f"Running in LOCAL mode (settings not loaded). Default API URL: {API_BASE_URL}")
+        logger_ui.info(f"Running in DEPLOYED mode. API URL from secrets: {API_BASE_URL}")
+    elif local_settings:
+        API_BASE_URL = os.environ.get("API_BASE_URL", local_settings.api_base_url)
+        logger_ui.info(f"Running in LOCAL mode. API URL from settings.py/env: {API_BASE_URL}")
+    else:
+        logger_ui.info(f"Running in LOCAL mode (settings not loaded). Default API URL: {API_BASE_URL}")
 except (FileNotFoundError, AttributeError):
-    # This error is raised when st.secrets is accessed and no secrets file is found,
-    # or if local_settings was not successfully loaded and its attribute is accessed.
     if local_settings:
-        API_BASE_URL = local_settings.api_base_url
-    logger_ui.info(
-        f"Running in LOCAL mode (no secrets file or settings error). API URL: {API_BASE_URL}")
+        API_BASE_URL = os.environ.get("API_BASE_URL", local_settings.api_base_url)
+    logger_ui.info(f"Running in LOCAL mode (no secrets file or settings error). API URL: {API_BASE_URL}")
 
-# This is now correctly set based on the environment.
+
 LANDING_PAGE_URL = API_BASE_URL
 
 # --- Session State Initialization ---
-
-
 def init_session_state():
-    """Initializes all required session_state keys to prevent KeyErrors."""
     defaults = {
-        'log_messages': [], 'map_data': pd.DataFrame(columns=['lat', 'lon']),
+        'log_messages': [],
         'total_incidents': 0, 'active_incidents': 0,
-        'clear_inputs_on_rerun': False, 'generated_eido_json': None,
+        'clear_inputs_on_rerun': False,
         'filtered_incidents_cache': [], 'active_filters': {},
-        'ocr_text_output': "", 'all_incidents_from_api': [],
-        'local_geocoded_locations': {},
-        'api_is_reachable': None,  # Track API status: None=unknown, True=ok, False=fail
-        'json_input_area_val': "",      # Initialize widget key
-        'alert_text_input_area_val': ""  # Initialize widget key
+        'all_incidents_from_api': [],
+        'api_is_reachable': None,
+        'json_input_area_val': "", 'alert_text_input_area_val': "",
+        'active_view': 'Incident Feed', 'selected_incident_id': None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
-
     st.session_state.api_base_url = API_BASE_URL
-
 
 init_session_state()
 
 # --- API Helper Functions ---
+def handle_api_error_and_reload(message: str, delay: int = 5):
+    """Displays an error and triggers a page reload via JavaScript."""
+    st.error(message)
+    st.components.v1.html(
+        f"""
+        <script>
+            setTimeout(function() {{
+                window.parent.location.reload();
+            }}, {delay * 1000});
+        </script>
+        """,
+        height=0,
+    )
+    st.stop()
 
 
 def make_api_request(method: str, endpoint: str, payload: Optional[Dict] = None, params: Optional[Dict] = None) -> Optional[Any]:
     url = f"{st.session_state.api_base_url}{endpoint}"
     try:
-        if method.upper() == "GET":
-            response = requests.get(url, params=params, timeout=30)
-        elif method.upper() == "POST":
-            response = requests.post(url, json=payload, timeout=60)
-        elif method.upper() == "PUT":
-            response = requests.put(url, json=payload, timeout=30)
-        elif method.upper() == "DELETE":
-            response = requests.delete(url, timeout=30)
-        else:
-            st.error(f"Unsupported HTTP method: {method}")
-            st.session_state.api_is_reachable = False
-            return None
-
+        response = requests.request(method.upper(), url, json=payload, params=params, timeout=30)
+        st.session_state.api_is_reachable = True 
         response.raise_for_status()
-        st.session_state.api_is_reachable = True
-        if response.status_code == 204:  # No Content
-            return True
-        return response.json() if response.content else True
+        return response.json() if response.content and response.status_code != 204 else True
     except requests.exceptions.HTTPError as e:
+        # For standard HTTP errors (like 4xx, 5xx), just show the error text.
         st.error(f"API Error ({e.response.status_code}): {e.response.text}")
-        logger_ui.error(
-            f"API HTTP Error for {url}: {e.response.status_code} - {e.response.text}", exc_info=True)
-        st.session_state.api_is_reachable = False  # Mark as unreachable on HTTP error
+        logger_ui.error(f"API HTTP Error for {url}: {e.response.status_code} - {e.response.text}", exc_info=False)
     except requests.exceptions.RequestException as e:
-        st.error(
-            f"API Connection Error: Could not connect to {st.session_state.api_base_url}. Is the backend running?")
-        logger_ui.error(f"API Connection Error for {url}: {e}", exc_info=True)
-        # Mark as unreachable on connection error
+        # For connection errors, trigger the auto-reload.
+        logger_ui.critical(f"API Connection Error for {url}: {e}", exc_info=False)
         st.session_state.api_is_reachable = False
+        handle_api_error_and_reload(
+            f"Connection to the backend failed. The application will attempt to reload in 5 seconds."
+        )
     return None
 
-# --- UI Helper Functions ---
-
-
+# --- UI Helper & Data Functions ---
 def get_captured_logs():
     log_stream.seek(0)
-    logs_captured_this_run = log_stream.read()
+    logs_captured = log_stream.read()
     log_stream.truncate(0)
     log_stream.seek(0)
-    new_entries = [entry for entry in logs_captured_this_run.strip().split(
-        '\n') if entry.strip()]
-    if new_entries:
-        st.session_state.log_messages = new_entries + \
-            st.session_state.log_messages[:199]
-
+    if new_entries := [entry for entry in logs_captured.strip().split('\n') if entry.strip()]:
+        st.session_state.log_messages = new_entries + st.session_state.log_messages[:199]
 
 def fetch_all_incidents_from_api():
-    """Fetches all incidents and correctly parses them into Pydantic models."""
-    # Only attempt if modules were imported and API is not known to be unreachable
-    if not modules_imported_successfully or st.session_state.api_is_reachable is False:
+    if not modules_imported_successfully:
         st.session_state.all_incidents_from_api = []
         return
-
+    
+    # Do not check api_is_reachable here, always attempt the request.
+    # make_api_request will handle the error state.
     data = make_api_request("GET", "/api/v1/incidents")
+    
     if data and isinstance(data, list):
-        try:
-            # Use the imported PydanticIncident class directly
-            st.session_state.all_incidents_from_api = [
-                PydanticIncident(**inc) for inc in data]
-        except Exception as e:
-            st.error(f"Error parsing incidents from API: {e}")
-            logger_ui.error(f"Pydantic parsing error: {e}", exc_info=True)
-            st.session_state.all_incidents_from_api = []
-    # If make_api_request returns None or non-list, it sets api_is_reachable to False.
-    # We clear the data to reflect this.
-    elif st.session_state.api_is_reachable is False:
+        incidents = []
+        for i, inc_data in enumerate(data):
+            try:
+                incidents.append(PydanticIncident(**inc_data))
+            except ValidationError as e:
+                st.error(f"Data parsing error for incident #{i+1}. The data from the API does not match the expected format. Please check for outdated models or API changes.")
+                logger_ui.error(f"Pydantic validation error on incident data: {e.errors()}", exc_info=False)
+                st.code(json.dumps(inc_data, indent=2), language="json")
+                continue
+        st.session_state.all_incidents_from_api = sorted(incidents, key=lambda x: x.last_updated_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    elif data is None: # Explicitly check for None, which indicates an API error was handled
         st.session_state.all_incidents_from_api = []
-
 
 def update_dashboard_metrics_and_cache():
     fetch_all_incidents_from_api()
     all_incidents = st.session_state.all_incidents_from_api
     st.session_state.total_incidents = len(all_incidents)
-    active_statuses = ["active", "updated", "monitoring"]
-    st.session_state.active_incidents = sum(
-        1 for inc in all_incidents if inc.status and inc.status.lower() in active_statuses)
+    active_statuses = ["active", "updated", "monitoring", "dispatched", "acknowledged", "enroute", "onscene"]
+    st.session_state.active_incidents = sum(1 for inc in all_incidents if inc.status and inc.status.lower() in active_statuses)
 
-    filtered_inc_list = all_incidents
-    active_filters = st.session_state.get('active_filters', {})
-    if active_filters.get('types'):
-        filtered_inc_list = [
-            inc for inc in filtered_inc_list if inc.incident_type in active_filters['types']]
-    if active_filters.get('statuses'):
-        filtered_inc_list = [
-            inc for inc in filtered_inc_list if inc.status in active_filters['statuses']]
-    if active_filters.get('zips'):
-        filtered_inc_list = [inc for inc in filtered_inc_list if any(
-            zip_code in active_filters['zips'] for zip_code in inc.zip_codes)]
+    filters = st.session_state.get('active_filters', {})
+    filtered = all_incidents
+    if filters.get('types'):
+        filtered = [inc for inc in filtered if inc.incident_type in filters['types']]
+    if filters.get('statuses'):
+        filtered = [inc for inc in filtered if inc.status in filters['statuses']]
+    if filters.get('zips'):
+        filtered = [inc for inc in filtered if any(zip_code in filters['zips'] for zip_code in inc.zip_codes)]
 
-    st.session_state.filtered_incidents_cache = sorted(
-        filtered_inc_list,
-        key=lambda x: x.last_updated_at if x.last_updated_at else datetime.min.replace(
-            tzinfo=timezone.utc),
-        reverse=True
-    )
-
+    st.session_state.filtered_incidents_cache = filtered
 
 def list_files_in_dir(dir_path, extension=".json"):
-    if not os.path.exists(dir_path):
-        return []
-    return sorted([f for f in os.listdir(dir_path) if f.endswith(extension)])
-
+    return sorted([f for f in os.listdir(dir_path) if f.endswith(extension)]) if os.path.exists(dir_path) else []
 
 # --- Load static assets ---
 UI_DIR = os.path.dirname(os.path.abspath(__file__))
-LOGO_PATH = os.path.join(UI_DIR, '..', 'static',
-                         'images', 'logo_icon_dark.png')
+LOGO_PATH = os.path.join(UI_DIR, '..', 'static', 'images', 'logo_icon_dark.png')
 CUSTOM_CSS_PATH = os.path.join(UI_DIR, 'custom_styles.css')
 with open(CUSTOM_CSS_PATH) as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# --- Sidebar (Initial Render) ---
+# --- Sidebar ---
 st.sidebar.image(LOGO_PATH, width=60)
 st.sidebar.markdown(f"**[Project Showcase]({LANDING_PAGE_URL})**")
 st.sidebar.caption("AI Incident Processor")
 st.sidebar.divider()
 
-# --- Main Dashboard (Initial Render) ---
+# --- Main App Title ---
 st.title("EIDO Sentinel Dashboard")
 st.caption(f"v0.9.1 | Connected to: {API_BASE_URL}")
-st.divider()
 
 # --- STOP HERE IF SETUP FAILED ---
 if not modules_imported_successfully:
-    st.error("### 🚨 Application Setup Failed!")
+    st.error("### Application Setup Failed!")
     st.error(import_error_message)
-    st.warning("This usually means one of two things:")
-    st.markdown("""
-    1.  **Missing Dependencies:** You need to install the required packages.
-    2.  **Configuration Error:** The `.env` file is missing or misconfigured.
-
-    **Please follow these steps in your terminal:**
-    ```bash
-    # 1. Install all required packages
-    pip install -r requirements.txt
-
-    # 2. Create your environment file from the example
-    cp .env.example .env
-
-    # 3. IMPORTANT: Edit the new .env file with your details
-    #    You MUST provide a real email for GEOCODING_USER_AGENT
-    #    and any necessary API keys (e.g., GOOGLE_API_KEY).
-    ```
-    """)
-    st.info(
-        f"**Error Details:**\n```\n{original_error}\n```\n\n"
-        f"**Python Path:** `{sys.path[0]}`\n\n"
-        "After fixing the issue, you may need to restart the Streamlit process."
-    )
+    st.warning("This usually means missing dependencies or a misconfigured `.env` file.")
+    st.code(f"Error Details: {original_error}", language='bash')
     st.stop()
 
 # --- Initial Data Fetch and API Status Display ---
-# Always attempt to update metrics and cache. This will set st.session_state.api_is_reachable.
+# This is the first point of contact with the API. If it fails, the auto-reloader will trigger.
 update_dashboard_metrics_and_cache()
 
-# Display API status based on the result of the first API call
 st.sidebar.header("Agent Status")
 if st.session_state.api_is_reachable:
-    st.sidebar.success(f"Backend API is reachable.")
-else:
-    st.sidebar.error(f"Backend API is unreachable.")
-    st.error(f"**Could not connect to the backend API at `{API_BASE_URL}`.**")
-    st.warning("Please ensure the FastAPI backend server is running. You can start it with `./run_api.sh` or by running `run_all.sh` in your terminal.")
-    st.info("The UI will automatically try to reconnect. Some features will be disabled until a connection is established.")
-    # Clear caches if API is confirmed unreachable
-    st.session_state.all_incidents_from_api = []
-    st.session_state.filtered_incidents_cache = []
-
+    st.sidebar.success("Backend API is reachable.")
+elif st.session_state.api_is_reachable is False:
+    # The auto-reloader will have already been triggered, so this state is temporary.
+    st.sidebar.error("Backend API is unreachable. Attempting to reconnect...")
 
 st.sidebar.divider()
 st.sidebar.header("Data Ingestion")
 
-# Clear inputs if needed
+# Clear inputs if flag is set
 if st.session_state.get('clear_inputs_on_rerun', False):
-    st.session_state.json_input_area_val = ""
-    st.session_state.alert_text_input_area_val = ""
-    st.session_state.ocr_text_output = ""
+    st.session_state.update(json_input_area_val="", alert_text_input_area_val="")
     st.session_state.clear_inputs_on_rerun = False
 
-ingest_tab1, ingest_tab2, ingest_tab3 = st.sidebar.tabs(
-    ["EIDO JSON", "Raw Text", "Image (OCR)"])
+ingest_tab1, ingest_tab2 = st.sidebar.tabs(["EIDO JSON", "Raw Text"])
 with ingest_tab1:
-    uploaded_files = st.file_uploader(
-        "Upload EIDO JSON File(s)", type="json", accept_multiple_files=True, key="file_uploader_key",
-        disabled=not st.session_state.api_is_reachable)
-    json_input_area = st.text_area(
-        "Paste EIDO JSON", key="json_input_area_val", height=150,
-        disabled=not st.session_state.api_is_reachable)
+    uploaded_files = st.file_uploader("Upload EIDO JSON File(s)", type="json", accept_multiple_files=True, disabled=not st.session_state.api_is_reachable)
+    json_input_area = st.text_area("Paste EIDO JSON", key="json_input_area_val", height=150, disabled=not st.session_state.api_is_reachable)
     sample_dir = os.path.join(PROJECT_ROOT, 'sample_eido')
-    selected_sample = st.selectbox("Or Load Sample EIDO:", options=[
-                                   "-- Select Sample --"] + list_files_in_dir(sample_dir), key="sample_select_key",
-                                   disabled=not st.session_state.api_is_reachable)
+    selected_sample = st.selectbox("Or Load Sample EIDO:", options=["-- Select Sample --"] + list_files_in_dir(sample_dir), disabled=not st.session_state.api_is_reachable)
+
 with ingest_tab2:
-    alert_text_input_area = st.text_area(
-        "Paste Raw Alert Text", key="alert_text_input_area_val", height=200,
-        disabled=not st.session_state.api_is_reachable)
-with ingest_tab3:
-    uploaded_image_ocr = st.file_uploader(
-        "Upload Image for OCR", type=["png", "jpg", "jpeg"],
-        # modules_imported_successfully check is now handled by st.stop()
-        disabled=not st.session_state.api_is_reachable)
-    if uploaded_image_ocr:
-        if st.button("Extract Text from Image", key="ocr_extract_button",
-                     # modules_imported_successfully check is now handled by st.stop()
-                     disabled=not st.session_state.api_is_reachable):
-            with st.spinner("Performing OCR..."):
-                # Use extract_text_from_image directly as it's guaranteed to be imported or app stopped
-                ocr_text = extract_text_from_image(
-                    BytesIO(uploaded_image_ocr.getvalue()))
-                if ocr_text:
-                    st.session_state.alert_text_input_area_val = ocr_text
-                    st.success(
-                        "OCR successful! Text placed in 'Raw Alert Text' tab.")
-                else:
-                    st.error(
-                        "OCR failed. Is Tesseract installed and in PATH?")
-                get_captured_logs()
+    alert_text_input_area = st.text_area("Paste Raw Alert Text", key="alert_text_input_area_val", height=200, disabled=not st.session_state.api_is_reachable)
 
-if st.sidebar.button("Process Inputs", type="primary", use_container_width=True,
-                     disabled=not st.session_state.api_is_reachable):
-    status_placeholder = st.sidebar.empty()
-    status_placeholder.info("Sending inputs to backend for processing...")
-
-    with st.spinner('Agent is processing...'):
-        # Process JSON
+if st.sidebar.button("Process Inputs", type="primary", use_container_width=True, disabled=not st.session_state.api_is_reachable):
+    with st.spinner('Agent is processing... This may take a moment.'):
+        processing_error = False
         json_to_process = []
         if st.session_state.json_input_area_val:
             try:
-                json_to_process.append(json.loads(
-                    st.session_state.json_input_area_val))
+                json_to_process.append(json.loads(st.session_state.json_input_area_val))
             except json.JSONDecodeError:
                 st.error("Pasted JSON is invalid.")
-        if st.session_state.sample_select_key != "-- Select Sample --":
-            with open(os.path.join(sample_dir, st.session_state.sample_select_key), 'r') as f:
+                processing_error = True
+        if selected_sample != "-- Select Sample --":
+            with open(os.path.join(sample_dir, selected_sample), 'r') as f:
                 json_to_process.append(json.load(f))
         for uf in uploaded_files:
             json_to_process.append(json.loads(uf.getvalue()))
+        
+        if not processing_error:
+            for item in json_to_process:
+                if make_api_request("POST", "/api/v1/ingest", payload=item) is None:
+                    processing_error = True
+                    break
+        
+        if not processing_error and st.session_state.alert_text_input_area_val:
+            if make_api_request("POST", "/api/v1/ingest_alert", payload={"alert_text": st.session_state.alert_text_input_area_val}) is None:
+                processing_error = True
 
-        for item in json_to_process:
-            make_api_request("POST", "/api/v1/ingest", payload=item)
-
-        # Process Raw Text
-        if st.session_state.alert_text_input_area_val:
-            make_api_request("POST", "/api/v1/ingest_alert",
-                             payload={"alert_text": st.session_state.alert_text_input_area_val})
-
-    status_placeholder.success("Processing complete!")
-    st.session_state.clear_inputs_on_rerun = True
-    update_dashboard_metrics_and_cache()
-    get_captured_logs()
-    time.sleep(1)
-    st.rerun()
+    if not processing_error:
+        st.sidebar.success("Processing complete!")
+        st.session_state.clear_inputs_on_rerun = True
+        # Give the backend a moment to stabilize before the frontend refetches
+        time.sleep(2)
+        st.rerun()
 
 st.sidebar.divider()
 with st.sidebar.expander("Admin Actions"):
-    if st.button("Clear All Incidents", use_container_width=True,
-                 disabled=not st.session_state.api_is_reachable):
+    if st.button("Clear All Incidents", use_container_width=True, disabled=not st.session_state.api_is_reachable):
         if make_api_request("DELETE", "/api/v1/admin/clear_store"):
             st.success("Incident store cleared.")
-            st.session_state.all_incidents_from_api = []
-            st.session_state.filtered_incidents_cache = []
-            update_dashboard_metrics_and_cache()
+            st.session_state.update(all_incidents_from_api=[], filtered_incidents_cache=[], selected_incident_id=None)
             time.sleep(1)
             st.rerun()
 
-with st.sidebar.expander("Processing Log", expanded=False):
+with st.sidebar.expander("Processing Log"):
     get_captured_logs()
     st.code("\n".join(st.session_state.log_messages), language='log')
 
-# --- Main Dashboard (Continued) ---
+st.divider()
 
+# --- METRICS and FILTERS ---
 metric_cols = st.columns(3)
 metric_cols[0].metric("Total Incidents", st.session_state.total_incidents)
 metric_cols[1].metric("Active Incidents", st.session_state.active_incidents)
-report_counts = [len(inc.reports_core_data)
-                 for inc in st.session_state.all_incidents_from_api]
-avg_reports = sum(report_counts) / len(report_counts) if report_counts else 0
-metric_cols[2].metric("Avg Reports/Incident", f"{avg_reports:.1f}")
+report_counts = [len(inc.reports_core_data) for inc in st.session_state.all_incidents_from_api]
+metric_cols[2].metric("Avg Reports/Incident", f"{sum(report_counts) / len(report_counts) if report_counts else 0:.1f}")
 st.divider()
 
-st.subheader("Incident Data")
-
-if not st.session_state.all_incidents_from_api:
-    if st.session_state.api_is_reachable:
-        st.info("No incident data loaded. Please ingest data using the sidebar.")
-    else:
-        st.warning("No incident data available. Backend API is unreachable.")
-    # No st.stop() here, allow the rest of the UI to render with empty data
-else:
-    # --- Filtering ---
+if st.session_state.all_incidents_from_api:
+    st.markdown("##### Filter Controls")
     filter_col1, filter_col2, filter_col3 = st.columns([0.4, 0.3, 0.3])
     all_incidents = st.session_state.all_incidents_from_api
-    available_types = sorted(
-        list(set(inc.incident_type for inc in all_incidents if inc.incident_type)))
-    available_statuses = sorted(
-        list(set(inc.status for inc in all_incidents if inc.status)))
-    available_zips = sorted(
-        list(set(zip_code for inc in all_incidents for zip_code in inc.zip_codes)))
+    available_types = sorted(list(set(inc.incident_type for inc in all_incidents if inc.incident_type)))
+    available_statuses = sorted(list(set(inc.status for inc in all_incidents if inc.status)))
+    available_zips = sorted(list(set(zip_code for inc in all_incidents for zip_code in inc.zip_codes)))
 
     def update_filters():
-        st.session_state.active_filters['types'] = st.session_state.get(
-            'filter_type_ms', [])
-        st.session_state.active_filters['statuses'] = st.session_state.get(
-            'filter_status_ms', [])
-        st.session_state.active_filters['zips'] = st.session_state.get(
-            'filter_zip_ms', [])
+        st.session_state.active_filters['types'] = st.session_state.filter_type_ms
+        st.session_state.active_filters['statuses'] = st.session_state.filter_status_ms
+        st.session_state.active_filters['zips'] = st.session_state.filter_zip_ms
+        update_dashboard_metrics_and_cache()
 
-    with filter_col1:
-        st.multiselect("Filter by Type:", options=available_types,
-                       key="filter_type_ms", on_change=update_filters)
-    with filter_col2:
-        st.multiselect("Filter by Status:", options=available_statuses,
-                       key="filter_status_ms", on_change=update_filters)
-    with filter_col3:
-        st.multiselect("Filter by ZIP Code:", options=available_zips,
-                       key="filter_zip_ms", on_change=update_filters)
-    st.divider()
+    filter_col1.multiselect("Filter by Type:", options=available_types, key="filter_type_ms", on_change=update_filters, default=st.session_state.get('active_filters', {}).get('types'))
+    filter_col2.multiselect("Filter by Status:", options=available_statuses, key="filter_status_ms", on_change=update_filters, default=st.session_state.get('active_filters', {}).get('statuses'))
+    filter_col3.multiselect("Filter by ZIP Code:", options=available_zips, key="filter_zip_ms", on_change=update_filters, default=st.session_state.get('active_filters', {}).get('zips'))
+st.divider()
 
-    filtered_incidents = st.session_state.filtered_incidents_cache
+# --- MAIN VIEW RENDER FUNCTIONS ---
+def render_dashboard():
+    st.subheader("Analytics Dashboard")
+    incidents = st.session_state.filtered_incidents_cache
+    if not incidents:
+        st.info("No incident data to display. Please adjust filters or ingest data.")
+        return
 
-    # --- TABS ---
-    tab_list, tab_map, tab_details, tab_tools = st.tabs(
-        ["Incident Feed", "Incident Map", "Incident Details", "Agentic Tools"])
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("##### Incidents by ZIP Code")
+        zip_codes = [zip_code for inc in incidents for zip_code in inc.zip_codes if zip_code]
+        if zip_codes:
+            zip_df = pd.DataFrame(zip_codes, columns=['zip_code']).value_counts().reset_index(name='count').rename(columns={'zip_code': 'ZIP Code', 'count': 'Incidents'})
+            chart = alt.Chart(zip_df).mark_bar().encode(x=alt.X('ZIP Code:N', sort='-y'), y='Incidents:Q', tooltip=['ZIP Code', 'Incidents']).interactive()
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.caption("No ZIP code data available.")
+    with col2:
+        st.markdown("##### Incidents by Type")
+        types = [inc.incident_type for inc in incidents if inc.incident_type]
+        if types:
+            type_df = pd.DataFrame(types, columns=['type']).value_counts().reset_index(name='count').rename(columns={'type': 'Type', 'count': 'Incidents'})
+            chart = alt.Chart(type_df).mark_bar().encode(x=alt.X('Type:N', sort='-y'), y='Incidents:Q', color=alt.Color('Type:N').legend(None), tooltip=['Type', 'Incidents']).interactive()
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.caption("No incident type data available.")
 
-    with tab_list:
-        st.caption(
-            f"Displaying {len(filtered_incidents)} incidents based on filters.")
-        if filtered_incidents:
-            df_list = pd.DataFrame([{
-                "ID": inc.incident_id[:8], "Type": inc.incident_type, "Status": inc.status,
-                "Last Update": inc.last_updated_at, "Reports": len(inc.reports_core_data),
-                "Summary": inc.summary[:100] + '...' if inc.summary else ''
-            } for inc in filtered_incidents])
-            st.dataframe(df_list, use_container_width=True, hide_index=True, column_config={
-                "Last Update": st.column_config.DatetimeColumn(
-                    "Last Update",
-                    format="YYYY-MM-DD HH:mm:ss",
+def render_incident_feed():
+    st.subheader("Incident Feed")
+    st.caption(f"Displaying {len(st.session_state.filtered_incidents_cache)} incidents. Click an incident to inspect.")
+    if not st.session_state.filtered_incidents_cache:
+        st.info("No incidents match the current filters.")
+        return
+
+    for inc in st.session_state.filtered_incidents_cache:
+        with st.container(border=True):
+            c1, c2, c3 = st.columns([5, 3, 2])
+            c1.markdown(f"**{inc.name or 'Untitled Incident'}**")
+            c1.caption(f"Type: `{inc.incident_type or 'N/A'}` | ID: `{inc.incident_id[:8]}`")
+            c2.markdown(f"**Status:** `{inc.status}`")
+            c2.caption(f"Last Update: `{inc.last_updated_at.strftime('%Y-%m-%d %H:%M') if inc.last_updated_at else 'N/A'}`")
+            if c3.button("View Details", key=f"btn_{inc.incident_id}", use_container_width=True):
+                st.session_state.selected_incident_id = inc.incident_id
+                st.session_state.active_view = "Incident Details"
+                st.rerun()
+
+def render_incident_details():
+    st.subheader("Incident Details")
+    if not st.session_state.selected_incident_id:
+        st.info("Select an incident from the 'Incident Feed' to see details.")
+        return
+
+    incident = next((inc for inc in st.session_state.all_incidents_from_api if inc.incident_id == st.session_state.selected_incident_id), None)
+    if not incident:
+        st.error(f"Could not find incident ID: {st.session_state.selected_incident_id}")
+        st.session_state.selected_incident_id = None
+        return
+
+    view_tab, export_tab = st.tabs(["Formatted View", "Export Source EIDO"])
+    with view_tab:
+        st.markdown(f"#### {incident.name or 'Untitled Incident'}")
+        st.caption(f"`{incident.incident_id}`")
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Status", incident.status)
+        c2.metric("Incident Type", incident.incident_type or "N/A")
+        c3.metric("# of Reports", len(incident.reports_core_data))
+        st.divider()
+        st.markdown("##### **AI-Generated Summary**")
+        st.info(incident.summary or "_No summary generated._")
+        st.markdown("##### **AI-Recommended Next Actions**")
+        st.markdown("\n".join(f"- {action}" for action in incident.recommended_actions) or "_No actions recommended._")
+        st.divider()
+        with st.expander("**Location Information**", expanded=True):
+            if incident.locations:
+                st.map(pd.DataFrame(incident.locations, columns=["latitude", "longitude"]))
+            st.markdown(f"**Addresses:** `{' | '.join(incident.addresses) or 'N/A'}`")
+            st.markdown(f"**ZIP Codes:** `{', '.join(incident.zip_codes) or 'N/A'}`")
+        with st.expander("**Full Description History**"):
+            st.text_area("History", value=incident.get_full_description_history(), height=250, disabled=True, label_visibility="collapsed")
+    
+    with export_tab:
+        st.markdown("#### Export Source Report as EIDO JSON")
+        st.caption("An incident is composed of one or more reports. Select a source report below to view, copy, or download its original EIDO JSON data.")
+        
+        reports = sorted(incident.reports_core_data, key=lambda r: r.timestamp, reverse=True)
+        
+        if not any(r.original_eido_dict for r in reports):
+            st.warning("This incident has no associated reports with original EIDO data to export.")
+        else:
+            report_options = {
+                f"Report from {r.timestamp.strftime('%Y-%m-%d %H:%M:%S')} ({r.source or 'N/A'})": r 
+                for r in reports if r.original_eido_dict
+            }
+            
+            if not report_options:
+                 st.warning("This incident has no associated reports with original EIDO data to export.")
+                 return
+
+            selected_key = st.selectbox("Select a source report to export:", options=list(report_options.keys()))
+            selected_report = report_options.get(selected_key)
+            
+            if selected_report and selected_report.original_eido_dict:
+                json_string = json.dumps(selected_report.original_eido_dict, indent=2)
+                st.code(json_string, language="json", line_numbers=True)
+                
+                st.download_button(
+                    label="Download EIDO JSON",
+                    data=json_string,
+                    file_name=f"EIDO_Report_{selected_report.report_id[:8]}.json",
+                    mime="application/json",
+                    key=f"download_btn_{selected_report.report_id}"
                 )
+            elif selected_key:
+                st.info("The selected report does not have an original EIDO document attached.")
+
+def render_map_view():
+    st.subheader("Incident Map View")
+    incidents = st.session_state.filtered_incidents_cache
+    
+    map_data = []
+    for inc in incidents:
+        if inc.locations:
+            lat, lon = inc.locations[0]
+            map_data.append({
+                "latitude": lat,
+                "longitude": lon,
+                "tooltip": f"{inc.name}\nType: {inc.incident_type}\nStatus: {inc.status}"
             })
-        else:
-            st.info("No incidents match the current filters.")
 
-    with tab_map:
-        map_points = []
-        for inc in filtered_incidents:
-            if inc.locations:
-                for lat, lon in inc.locations:
-                    map_points.append(
-                        {'lat': lat, 'lon': lon, 'tooltip': f"ID: {inc.incident_id[:8]}\nType: {inc.incident_type}"})
-        if map_points:
-            df_map = pd.DataFrame(map_points)
-            view_state = pdk.ViewState(latitude=df_map['lat'].mean(
-            ), longitude=df_map['lon'].mean(), zoom=11, pitch=45)
-            layer = pdk.Layer('ScatterplotLayer', data=df_map,
-                              get_position='[lon, lat]', get_color='[200, 30, 0, 160]', get_radius=100, pickable=True)
-            st.pydeck_chart(pdk.Deck(map_style='mapbox://styles/mapbox/dark-v10',
-                            initial_view_state=view_state, layers=[layer], tooltip={"text": "{tooltip}"}))
-        else:
-            st.info("No geocoded locations to display for the current filter.")
+    if not map_data:
+        st.info("No incidents with location data to display on map.")
+        return
 
-    with tab_details:
-        if filtered_incidents:
-            options = {
-                f"{inc.incident_id[:8]} - {inc.incident_type}": inc for inc in filtered_incidents}
-            selected_key = st.selectbox(
-                "Select Incident:", options=list(options.keys()))
-            if selected_key:
-                selected_incident = options[selected_key]
-                st.subheader(f"Incident: {selected_incident.incident_id}")
-                st.json(selected_incident.model_dump_json(indent=2))
-        else:
-            st.info("No incidents to display details for based on current filters.")
+    df = pd.DataFrame(map_data)
+    
+    view_state = pdk.ViewState(
+        latitude=df["latitude"].mean(),
+        longitude=df["longitude"].mean(),
+        zoom=11,
+        pitch=50,
+    )
 
-    with tab_tools:
-        st.subheader("Agentic Tools")
-        tool_eido, tool_geocode = st.tabs(
-            ["EIDO Generator", "Local Geocoding Store"])
+    layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=df,
+        get_position=["longitude", "latitude"],
+        get_color="[200, 30, 0, 160]",
+        get_radius=100,
+        pickable=True,
+    )
 
-        with tool_eido:
-            st.write("#### EIDO Generator")
-            st.caption(
-                "Create compliant EIDO JSON examples from scenario descriptions.")
-            template_dir = os.path.join(PROJECT_ROOT, 'eido_templates')
-            templates = list_files_in_dir(template_dir)
-            selected_template = st.selectbox("Select Template", options=templates,
-                                             disabled=not st.session_state.api_is_reachable)
-            scenario = st.text_area("Scenario Description",
-                                    disabled=not st.session_state.api_is_reachable)
-            if st.button("Generate EIDO", disabled=not st.session_state.api_is_reachable):
-                if selected_template and scenario:
-                    payload = {"template_name": selected_template,
-                               "scenario_description": scenario}
-                    response = make_api_request(
-                        "POST", "/api/v1/generate_eido_from_template", payload=payload)
-                    if response and 'generated_eido' in response:
-                        st.session_state.generated_eido_json = json.dumps(
-                            response['generated_eido'], indent=2)
-            if st.session_state.get('generated_eido_json'):
-                st_ace(value=st.session_state.generated_eido_json,
-                       language='json', readonly=True, height=300)
-            else:
-                if st.session_state.api_is_reachable:
-                    st.info(
-                        "Enter a scenario and select a template to generate EIDO JSON.")
-                else:
-                    st.warning(
-                        "EIDO Generator is disabled because the backend API is unreachable.")
+    st.pydeck_chart(pdk.Deck(
+        map_style='mapbox://styles/mapbox/light-v10',
+        initial_view_state=view_state,
+        layers=[layer],
+        tooltip={"text": "{tooltip}"}
+    ))
 
-        with tool_geocode:
-            st.write("#### Manage Local Geocoding Store")
-            st.caption(
-                "Add or remove custom location names for the advanced geocoding service.")
 
-            def fetch_local_locations():
-                data = make_api_request(
-                    "GET", "/api/v1/tools/geocoding/local_store")
-                if data and isinstance(data, dict):
-                    st.session_state.local_geocoded_locations = data
-                else:
-                    st.session_state.local_geocoded_locations = {}
+# --- MAIN NAVIGATION AND VIEW RENDERING ---
+view_options = ["Incident Feed", "Dashboard", "Map View", "Incident Details"]
 
-            if st.button("Refresh Locations", key="refresh_geolocations", disabled=not st.session_state.api_is_reachable):
-                fetch_local_locations()
+current_view_in_session = st.session_state.get('active_view', 'Incident Feed')
+if current_view_in_session not in view_options:
+    current_view_in_session = 'Incident Feed' 
 
-            locations = st.session_state.get('local_geocoded_locations', {})
-            if not locations and st.session_state.api_is_reachable:
-                fetch_local_locations()
-                locations = st.session_state.get(
-                    'local_geocoded_locations', {})
+if not st.session_state.get('selected_incident_id') and current_view_in_session == 'Incident Details':
+    st.session_state.active_view = 'Incident Feed'
+    current_view_in_session = 'Incident Feed'
 
-            st.markdown("##### Add or Update a Location")
-            with st.form("add_location_form", clear_on_submit=True):
-                add_name = st.text_input(
-                    "Location Name (e.g., Geisel Library, Warren Mall)")
-                c1, c2 = st.columns(2)
-                add_lat = c1.number_input(
-                    "Latitude", format="%.6f", value=0.0)
-                add_lon = c2.number_input(
-                    "Longitude", format="%.6f", value=0.0)
-                add_notes = st.text_input("Notes (optional)")
-                submitted = st.form_submit_button(
-                    "Add/Update Location", disabled=not st.session_state.api_is_reachable)
+view_index = view_options.index(current_view_in_session)
 
-                if submitted:
-                    if add_name and add_lat is not None and add_lon is not None:
-                        payload = {"location_name": add_name, "latitude": add_lat,
-                                   "longitude": add_lon, "notes": add_notes}
-                        if make_api_request("POST", "/api/v1/tools/geocoding/local_store", payload=payload):
-                            st.success(f"Location '{add_name}' added/updated.")
-                            fetch_local_locations()
-                            st.rerun()
-                    else:
-                        st.warning(
-                            "Please fill in Name, Latitude, and Longitude.")
+st.session_state.active_view = st.radio(
+    "Navigation", options=view_options, key="navigation_radio", horizontal=True, label_visibility="collapsed",
+    index=view_index
+)
 
-            st.markdown("##### Existing Locations")
-            if locations:
-                loc_list = [{"Location Name": name, **details}
-                            for name, details in locations.items()]
-                st.dataframe(pd.DataFrame(loc_list), use_container_width=True, hide_index=True, column_config={
-                    "lat": "Latitude", "lon": "Longitude"
-                })
+if st.session_state.active_view != "Incident Details":
+    st.session_state.selected_incident_id = None
 
-                st.markdown("---")
-                st.write("###### Remove a Location")
-                loc_to_delete = st.selectbox(
-                    "Select location to remove", options=[""] + sorted(list(locations.keys())))
-                if loc_to_delete:
-                    if st.button(f"Delete '{loc_to_delete}'", type="secondary", disabled=not st.session_state.api_is_reachable):
-                        encoded_loc_name = urllib.parse.quote(loc_to_delete)
-                        if make_api_request("DELETE", f"/api/v1/tools/geocoding/local_store/{encoded_loc_name}"):
-                            st.success(f"Location '{loc_to_delete}' removed.")
-                            fetch_local_locations()
-                            st.rerun()
-            else:
-                st.info("No custom locations in the local store.")
+# Render the selected view
+if st.session_state.active_view == "Dashboard":
+    render_dashboard()
+elif st.session_state.active_view == "Incident Feed":
+    render_incident_feed()
+elif st.session_state.active_view == "Incident Details":
+    render_incident_details()
+elif st.session_state.active_view == "Map View":
+    render_map_view()
+
 
 st.divider()
-st.caption(f"EIDO Sentinel v0.9.1 | End of Dashboard")
+st.caption("EIDO Sentinel v0.9.1 | End of Dashboard")

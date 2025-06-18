@@ -100,6 +100,7 @@ class ReportCoreDataDB(Base):
 class IncidentDB(Base):
     __tablename__ = "incidents"
     id = Column(UUID_TYPE, primary_key=True, default=uuid_pkg.uuid4)
+    name = Column(String, default="Untitled Incident")
     incident_type = Column(String, nullable=True)
     status = Column(String, default="Active")
     created_at = Column(DateTime(timezone=True), nullable=True)

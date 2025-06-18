@@ -10,7 +10,10 @@ from data_models.schemas import ReportCoreData, Incident as PydanticIncident
 from services.storage import IncidentStore
 from services import local_geocoder
 from agent.matching import find_match_for_report
-from agent.llm_interface import summarize_incident, recommend_actions, split_raw_text_into_events, extract_eido_from_alert_text
+from agent.llm_interface import (
+    summarize_incident, recommend_actions, split_raw_text_into_events,
+    extract_eido_from_alert_text, generate_incident_name
+)
 from services.advanced_geocoding_service import get_advanced_geocoding_service, CONFIDENCE_HIGH, CONFIDENCE_MEDIUM, CONFIDENCE_NONE
 from utils.helpers import parse_civic_address_from_pidf, format_address_from_components
 from agent.alert_parser import parse_alert_to_eido_dict
@@ -265,6 +268,17 @@ class EidoAgent:
                 history, core_data) or incident_to_process.summary
             incident_to_process.recommended_actions = recommend_actions(
                 incident_to_process.summary, core_data) or incident_to_process.recommended_actions
+            
+            # Generate a name if it's new or doesn't have one
+            if not incident_to_process.name or incident_to_process.name == "Untitled Incident":
+                location_context = core_data.location_address or (incident_to_process.addresses[0] if incident_to_process.addresses else "Unknown Location")
+                incident_to_process.name = generate_incident_name(
+                    incident_to_process.incident_type or "Incident",
+                    location_context,
+                    incident_to_process.summary
+                ) or incident_to_process.name
+                logger.info(f"Generated name for Incident {incident_to_process.incident_id[:8]}: '{incident_to_process.name}'")
+
         except Exception as e:
             logger.error(
                 f"Incident {incident_to_process.incident_id[:8]}: Error during LLM interaction: {e}", exc_info=True)

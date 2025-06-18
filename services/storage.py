@@ -20,6 +20,7 @@ class IncidentStore:
     async def _pydantic_to_incident_db(self, p_incident: PydanticIncident) -> IncidentDB:
         return IncidentDB(
             id=uuid.UUID(p_incident.incident_id) if isinstance(p_incident.incident_id, str) else p_incident.incident_id,
+            name=p_incident.name,
             incident_type=p_incident.incident_type,
             status=p_incident.status,
             created_at=p_incident.created_at,
@@ -39,6 +40,7 @@ class IncidentStore:
 
         return PydanticIncident(
             incident_id=str(db_incident.id),
+            name=db_incident.name,
             incident_type=db_incident.incident_type,
             status=db_incident.status,
             created_at=db_incident.created_at,
@@ -109,6 +111,7 @@ class IncidentStore:
             db_incident = result.scalars().first()
 
             if db_incident: 
+                db_incident.name = p_incident.name
                 db_incident.incident_type = p_incident.incident_type
                 db_incident.status = p_incident.status
                 db_incident.created_at = p_incident.created_at

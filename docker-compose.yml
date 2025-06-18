@@ -1,4 +1,3 @@
-# ./docker-compose.yml
 services:
   # The FastAPI backend service
   api:
@@ -9,12 +8,13 @@ services:
     env_file:
       - .env
     environment:
+      # These are set to be accessible within the Docker network
       - API_HOST=0.0.0.0
       - API_PORT=8000
-      # This correctly passes the DATABASE_URL from the .env file without complex parsing.
+      # Pass DATABASE_URL from the .env file to the container
       - DATABASE_URL=${DATABASE_URL}
     volumes:
-      # Persist the SQLite database and geocoding store on the host machine.
+      # Persist the SQLite database and geocoding store on the host machine
       - ./data:/app/data
     ports:
       - "8000:8000"
@@ -25,6 +25,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 5s
 
   # The Streamlit frontend service
   ui:
