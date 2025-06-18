@@ -162,5 +162,6 @@ sudo docker-compose up --build -d
     If you push new code to your repository:
     ```bash
     cd eido-sentinel
-    git pull                      # Get the latest code
-    sudo docker-compose up --build -d # Rebuild and restart with the new code
+    git pull                     
+    sudo docker-compose up --build -d
+    ```

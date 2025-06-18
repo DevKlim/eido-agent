@@ -30,7 +30,7 @@ st.set_page_config(
     menu_items={
         'Get Help': "https://github.com/LXString/eido-sentinel",
         'Report a bug': "https://github.com/LXString/eido-sentinel/issues",
-        'About': "# EIDO Sentinel v0.9.1\nAI-Powered Emergency Incident Processor. A dynamic link to the project showcase is in the sidebar."
+        'About': "# EIDO Sentinel v0.9.1\nAgent Driven Emergency Incident Processor. A dynamic link to the project showcase is in the sidebar."
     }
 )
 

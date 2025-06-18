@@ -1,5 +1,4 @@
-// (No significant changes planned for main.js in this step, focusing on 3D.
-// Provided for completeness and if minor adjustments for scroll behavior become necessary later.)
+
 document.addEventListener('DOMContentLoaded', () => {
     // Smooth scrolling for internal links
     const navLinks = document.querySelectorAll('nav a[href^="#"]');
