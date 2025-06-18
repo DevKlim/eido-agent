@@ -12,21 +12,21 @@ from config.settings import settings
 logger = logging.getLogger(__name__)
 
 db_url_str = str(settings.database_url) if settings.database_url else ""
-# MODIFICATION: Removed the logic that strips 'sslmode' from the URL.
-# For modern cloud providers like NeonDB, the full connection string is required,
-# and asyncpg can handle 'sslmode=require' correctly.
 final_db_url = db_url_str
 
 # --- Database-Aware Type Definitions ---
-# This logic helps choose optimized types for PostgreSQL when available.
 if "sqlite" in db_url_str:
     logger.info("Configuring for SQLite database.")
     JSON_TYPE = JSON
+    # For SQLite, SQLAlchemy's generic Uuid works well.
+    # It stores UUIDs as strings but handles the conversion.
     UUID_TYPE = Uuid
 else:
     logger.info("Configuring for PostgreSQL database.")
     from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
     JSON_TYPE = JSONB
+    # For PostgreSQL, use the native UUID type and specify as_uuid=True
+    # to ensure Python's uuid.UUID objects are used.
     UUID_TYPE = PG_UUID
 
 if not final_db_url:
@@ -36,11 +36,9 @@ if not final_db_url:
 
 # Ensure data directory exists for SQLite
 if "sqlite" in final_db_url:
-    # final_db_url is like "sqlite+aiosqlite:///./data/file.db"
-    # We need to extract the path part: "./data/file.db"
     db_path = final_db_url.split("///", 1)[-1]
     db_dir = os.path.dirname(db_path)
-    if db_dir:  # Only create if a directory path exists (not just a file name)
+    if db_dir:
         os.makedirs(db_dir, exist_ok=True)
         logger.info(f"Ensured database directory exists: {db_dir}")
 
@@ -52,15 +50,12 @@ AsyncSessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-# --- Database Models (Now using generic types) ---
-
 
 class ReportCoreDataDB(Base):
     __tablename__ = "reports_core_data"
     id = Column(UUID_TYPE(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     incident_id = Column(UUID_TYPE(as_uuid=True), ForeignKey(
         "incidents.id"), nullable=False, index=True)
-
     external_incident_id = Column(String, nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=False)
     incident_type = Column(String, nullable=True)
@@ -83,31 +78,32 @@ class IncidentDB(Base):
     created_at = Column(DateTime(timezone=True), nullable=True)
     last_updated_at = Column(DateTime(timezone=True), nullable=True)
     summary = Column(Text, default="Summary not yet generated.")
-
     recommended_actions = Column(JSON_TYPE, default=list)
     locations_coords = Column(JSON_TYPE, default=list)
     addresses = Column(JSON_TYPE, default=list)
     zip_codes = Column(JSON_TYPE, default=list)
     trend_data = Column(JSON_TYPE, default=dict)
-
-    # Define the relationship to ReportCoreDataDB
-    # This allows SQLAlchemy to eagerly load reports associated with an incident
     reports = relationship("ReportCoreDataDB", backref="incident", lazy="noload",
                            order_by="ReportCoreDataDB.timestamp", cascade="all, delete-orphan")
 
 
 async def init_db():
+    """
+    Drops all existing tables and recreates them based on the current models.
+    This is a destructive operation suitable for development or stateless deployments.
+    """
     if not engine:
         logger.critical(
             "Database engine is not initialized. Cannot run init_db().")
         return
     async with engine.begin() as conn:
-        logger.info(
-            "Initializing database and creating tables if they don't exist...")
-        # Note: In a production setup with Alembic, `create_all` is usually not needed
-        # as Alembic handles table creation. However, it's harmless to keep.
+        logger.warning("Dropping all existing database tables...")
+        await conn.run_sync(Base.metadata.drop_all)
+        logger.info("All tables dropped successfully.")
+        
+        logger.info("Creating all tables from current models...")
         await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database tables checked/created.")
+        logger.info("All tables created successfully.")
 
 
 @asynccontextmanager
