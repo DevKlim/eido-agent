@@ -1,13 +1,16 @@
-app = "eido-agent"
+app = "your-app-name"
 primary_region = "lax"
 
 [http_service]
-auto_start_machines = true
-auto_stop_machines = true
-force_https = true
-internal_port = 8_000
-min_machines_running = 0
-processes = [ "app" ]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[deploy]
+  release_command = "alembic upgrade head"
 
 [[vm]]
 cpu_kind = "shared"

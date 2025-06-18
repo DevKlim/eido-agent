@@ -12,5 +12,12 @@
     "source": "adv_geo_nominatim_(direct_address)",
     "notes": "Confidence: High. Original: 'Lakeside, CA 92040, (Lakeside Area)...'",
     "last_updated": "2025-06-18T04:58:31.750611+00:00"
+  },
+  "Carlsbad, CA 92009, (7500 Camino Minero)": {
+    "lat": 33.080657,
+    "lon": -117.219395,
+    "source": "adv_geo_nominatim_(direct_address)",
+    "notes": "Confidence: High. Original: 'Carlsbad, CA 92009, (7500 Camino Minero)...'",
+    "last_updated": "2025-06-18T05:13:34.056322+00:00"
   }
 }
