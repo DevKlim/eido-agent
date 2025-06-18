@@ -6,53 +6,30 @@ from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy import Column, String, DateTime, Text, Float, ForeignKey, JSON, Uuid
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 db_url_str = str(settings.database_url) if settings.database_url else ""
+# MODIFICATION: Removed the logic that strips 'sslmode' from the URL.
+# For modern cloud providers like NeonDB, the full connection string is required,
+# and asyncpg can handle 'sslmode=require' correctly.
 final_db_url = db_url_str
 
 # --- Database-Aware Type Definitions ---
+# This logic helps choose optimized types for PostgreSQL when available.
 if "sqlite" in db_url_str:
     logger.info("Configuring for SQLite database.")
-    # SQLite uses standard JSON and Uuid types via SQLAlchemy's generic types.
     JSON_TYPE = JSON
     UUID_TYPE = Uuid
 else:
     logger.info("Configuring for PostgreSQL database.")
-    # For PostgreSQL, we can use the more optimized, native types.
     from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
     JSON_TYPE = JSONB
     UUID_TYPE = PG_UUID
 
-    # URL Processing for PostgreSQL
-    # The 'sslmode' parameter in connection URLs from services like Render
-    # can cause a TypeError with asyncpg. We parse the URL, remove 'sslmode',
-    # and rebuild it. asyncpg handles SSL automatically based on server
-    # requirements or env vars like PGSSLMODE set by Render.
-    try:
-        parsed_url = urlparse(db_url_str)
-        query_params = parse_qs(parsed_url.query)
-
-        if 'sslmode' in query_params:
-            logger.info(
-                "Removing 'sslmode' from PostgreSQL database URL for asyncpg compatibility.")
-            del query_params['sslmode']
-
-            # Rebuild the URL without the 'sslmode' parameter
-            url_parts = list(parsed_url)
-            url_parts[4] = urlencode(query_params, doseq=True)
-            final_db_url = urlunparse(url_parts)
-    except Exception as e:
-        logger.error(
-            f"Failed to parse and rebuild DATABASE_URL. Using original value. Error: {e}")
-        # final_db_url remains db_url_str in case of error
-
 if not final_db_url:
-    # This will cause a more obvious error than trying to create an engine with an empty string
     raise ValueError(
         "FATAL: DATABASE_URL is not configured. Please set it in your .env file or environment variables."
     )
@@ -80,8 +57,8 @@ Base = declarative_base()
 
 class ReportCoreDataDB(Base):
     __tablename__ = "reports_core_data"
-    id = Column(UUID_TYPE, primary_key=True, default=uuid_pkg.uuid4)
-    incident_id = Column(UUID_TYPE, ForeignKey(
+    id = Column(UUID_TYPE(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    incident_id = Column(UUID_TYPE(as_uuid=True), ForeignKey(
         "incidents.id"), nullable=False, index=True)
 
     external_incident_id = Column(String, nullable=True)
@@ -99,7 +76,7 @@ class ReportCoreDataDB(Base):
 
 class IncidentDB(Base):
     __tablename__ = "incidents"
-    id = Column(UUID_TYPE, primary_key=True, default=uuid_pkg.uuid4)
+    id = Column(UUID_TYPE(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     name = Column(String, default="Untitled Incident")
     incident_type = Column(String, nullable=True)
     status = Column(String, default="Active")
@@ -127,6 +104,8 @@ async def init_db():
     async with engine.begin() as conn:
         logger.info(
             "Initializing database and creating tables if they don't exist...")
+        # Note: In a production setup with Alembic, `create_all` is usually not needed
+        # as Alembic handles table creation. However, it's harmless to keep.
         await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables checked/created.")
 
