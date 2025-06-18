@@ -1,43 +1,34 @@
+# This file is required for deploying on fly.io.
+
 # Replace "eido-agent" with your actual app name
 app = "eido-agent"
 primary_region = "lax"
 
+# NEW SECTION: Define the machine size to prevent Out Of Memory errors.
+# The 'shared-cpu-1x' with 512MB of memory should be sufficient for the ML models.
+[machines]
+  size = "shared-cpu-1x"
+  memory_mb = 1_024
+
 [build]
   dockerfile = "Dockerfile"
 
-# This section tells Fly.io what command to run to start your application.
-# It is more explicit and reliable than relying on Dockerfile's CMD alone.
-[processes]
-  web = "uvicorn api.main:app --host 0.0.0.0 --port 8000 --log-level info"
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0 # Use 1 for an always-on free tier machine
+  # This tells Fly to run the default CMD from the Dockerfile in a process named 'app'.
+  # Our entrypoint will receive "api" as the command.
+  processes = ["app"]
 
-# This section configures networking and health checks.
-[[services]]
-  # This section defines how to handle public traffic.
-  protocol = "tcp"
-  internal_port = 8000 # The port your app listens on inside the container.
-  processes = ["web"]  # Route traffic to our "web" process defined above.
-
-  # This section defines how fly-proxy forwards requests.
-  [services.concurrency]
-    type = "connections"
-    hard_limit = 25
-    soft_limit = 20
-
-  # This section defines the public-facing ports.
-  [[services.ports]]
-    port = 80
-    handlers = ["http"]
-    force_https = true
-
-  [[services.ports]]
-    port = 443
-    handlers = ["tls", "http"]
-
-  # This section defines how to check if your application is healthy.
-  [[services.http_checks]]
+  [[http_service.checks]]
+    type = "http"
     interval = "15s"
     timeout = "10s"
-    grace_period = "20s" # Increased grace period to give the app time to start.
+    # Increased grace period to give the app time to load ML models before first check.
+    grace_period = "45s"
     method = "GET"
-    path = "/" # The root path ("/") is a good, lightweight check.
+    path = "/"
     protocol = "http"

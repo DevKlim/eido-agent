@@ -115,12 +115,18 @@ class Settings(BaseSettings):
             settings_logger.error(
                 "CRITICAL: DATABASE_URL is not set. The application cannot connect to the database.")
         else:
-            if self.database_url.startswith("postgresql"):
-                if not self.database_url.startswith("postgresql+asyncpg://"):
-                    settings_logger.critical(
-                        "DATABASE_URL is set to PostgreSQL but does not use the required 'postgresql+asyncpg://' driver scheme. "
-                        f"Current value: {self.database_url}"
-                    )
+            # FIX: Automatically correct the postgresql scheme for async compatibility
+            if self.database_url.startswith("postgresql://"):
+                settings_logger.warning(
+                    "DATABASE_URL uses 'postgresql://' scheme. For async support, it will be automatically changed to 'postgresql+asyncpg://'."
+                )
+                self.database_url = self.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+                settings_logger.info(f"Corrected DATABASE_URL to: {self.database_url}")
+            elif self.database_url.startswith("postgresql") and not self.database_url.startswith("postgresql+asyncpg://"):
+                settings_logger.critical(
+                    "DATABASE_URL uses an unrecognized PostgreSQL scheme. It must start with 'postgresql+asyncpg://'. "
+                    f"Current value: {self.database_url}"
+                )
             elif self.database_url.startswith("sqlite"):
                 settings_logger.info(
                     "Using SQLite database for local development.")
