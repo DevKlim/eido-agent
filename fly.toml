@@ -1,40 +1,43 @@
-# This file is required for deploying on fly.io. Place it in your project's root directory.
-
-# IMPORTANT: Replace "eido-agent" with the actual name of your app on fly.io
+# Replace "eido-agent" with your actual app name
 app = "eido-agent"
-primary_region = "lax" # Or your preferred region like 'ewr', 'ams', etc.
+primary_region = "lax"
 
 [build]
   dockerfile = "Dockerfile"
 
-# This new [processes] section explicitly defines what command to run.
-# This is more robust for telling Fly.io how to start your service.
+# This section tells Fly.io what command to run to start your application.
+# It is more explicit and reliable than relying on Dockerfile's CMD alone.
 [processes]
-  app = "api" # This runs: /usr/local/bin/entrypoint.sh api
+  web = "uvicorn api.main:app --host 0.0.0.0 --port 8000 --log-level info"
 
-# This section tells Fly how to handle incoming HTTP requests.
-[http_service]
-  # This port MUST match the port your application listens on inside the container.
-  # Our entrypoint.sh defaults to 8000.
-  internal_port = 8000
-  force_https = true
-  auto_stop_machines = true
-  auto_start_machines = true
-  min_machines_running = 0 # Use 1 for an always-on free tier machine
+# This section configures networking and health checks.
+[[services]]
+  # This section defines how to handle public traffic.
+  protocol = "tcp"
+  internal_port = 8000 # The port your app listens on inside the container.
+  processes = ["web"]  # Route traffic to our "web" process defined above.
 
-  # This tells the service what process group to run.
-  # It matches the "app" process we defined above.
-  processes = ["app"]
+  # This section defines how fly-proxy forwards requests.
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
 
-# This section defines health checks to ensure your app is running correctly.
-# The proxy will only route requests to healthy instances.
-[[http_service.checks]]
-    type = "http"
+  # This section defines the public-facing ports.
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  # This section defines how to check if your application is healthy.
+  [[services.http_checks]]
     interval = "15s"
     timeout = "10s"
-    grace_period = "20s" # Increased grace period to allow app to start
+    grace_period = "20s" # Increased grace period to give the app time to start.
     method = "GET"
-    # This path should be a lightweight endpoint that returns a 2xx status code.
-    # The root path "/" which serves your static page is a good choice.
-    path = "/"
+    path = "/" # The root path ("/") is a good, lightweight check.
     protocol = "http"
