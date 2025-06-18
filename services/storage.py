@@ -60,6 +60,7 @@ class IncidentStore:
         original_eido_dict_serializable = None
         if p_report.original_eido_dict:
             try:
+                # This is a check, not the actual dump
                 json.dumps(p_report.original_eido_dict) 
                 original_eido_dict_serializable = p_report.original_eido_dict
             except TypeError:
@@ -105,12 +106,12 @@ class IncidentStore:
             
             result = await session.execute(
                 select(IncidentDB)
-                .options(selectinload(IncidentDB.reports)) # Eagerly load reports for potential update logic
                 .where(IncidentDB.id == incident_id_uuid)
             )
             db_incident = result.scalars().first()
 
             if db_incident: 
+                # Update existing incident's fields
                 db_incident.name = p_incident.name
                 db_incident.incident_type = p_incident.incident_type
                 db_incident.status = p_incident.status
@@ -124,24 +125,20 @@ class IncidentStore:
                 db_incident.trend_data = p_incident.trend_data
                 logger.debug(f"Updating Incident {p_incident.incident_id[:8]} in DB.")
             else: 
+                # Create a new incident entry
                 db_incident = await self._pydantic_to_incident_db(p_incident)
                 session.add(db_incident)
                 logger.debug(f"Saving new Incident {p_incident.incident_id[:8]} to DB.")
 
-            # Efficiently sync reports:
-            # 1. Get current report IDs from DB for this incident
-            # (This step can be skipped if we always delete and re-add, but is good for more fine-grained updates)
-            # current_db_report_ids = {report.id for report in db_incident.reports} if db_incident and db_incident.reports else set()
-            
-            # For simplicity and ensuring Pydantic model is source of truth: delete existing and re-add
-            # This is what was done before and is fine if performance is not an issue for report syncing.
+            # Efficiently sync reports by deleting old ones and adding the current state.
+            # This ensures the database matches the Pydantic model, which is the source of truth.
             await session.execute(delete(ReportCoreDataDB).where(ReportCoreDataDB.incident_id == incident_id_uuid)) # type: ignore
             
             for p_report in p_incident.reports_core_data:
                 db_report = await self._pydantic_to_report_core_db(p_report, incident_id_uuid)
                 session.add(db_report)
             
-            await session.commit()
+            # The commit is handled by the `get_db_session` context manager
             logger.info(f"Saved Incident {p_incident.incident_id[:8]} with {len(p_incident.reports_core_data)} reports to DB.")
 
     async def get_incident(self, incident_id_str: str) -> Optional[PydanticIncident]:
@@ -188,16 +185,16 @@ class IncidentStore:
             result = await session.execute(
                 select(IncidentDB)
                 .options(selectinload(IncidentDB.reports)) # Eagerly load reports
-                .where(IncidentDB.status.in_(active_statuses)) # type: ignore
+                .where(IncidentDB.status.ilike(PydanticIncident.status)) # Case-insensitive check on status
                 .order_by(IncidentDB.last_updated_at.desc())
             )
-            db_incidents = result.scalars().unique().all() # Use .unique()
+            db_incidents = result.scalars().unique().all()
             
             p_incidents = []
             for db_inc in db_incidents:
-                # Reports are already loaded in db_inc.reports
-                p_reports = [await self._report_core_db_to_pydantic(dbr) for dbr in db_inc.reports]
-                p_incidents.append(await self._incident_db_to_pydantic(db_inc, p_reports))
+                if db_inc.status.lower() in active_statuses:
+                    p_reports = [await self._report_core_db_to_pydantic(dbr) for dbr in db_inc.reports]
+                    p_incidents.append(await self._incident_db_to_pydantic(db_inc, p_reports))
             return p_incidents
 
     async def update_incident_status(self, incident_id_str: str, new_status: str) -> bool:
@@ -214,7 +211,7 @@ class IncidentStore:
             if db_incident:
                 db_incident.status = new_status
                 db_incident.last_updated_at = datetime.now(timezone.utc)
-                await session.commit()
+                # The commit is handled by the context manager
                 logger.info(f"Incident {incident_id_str[:8]} status updated to '{new_status}' in DB.")
                 return True
             logger.warning(f"Cannot update status for non-existent incident ID: {incident_id_str}")
@@ -222,9 +219,10 @@ class IncidentStore:
 
     async def clear_store(self):
         async with get_db_session() as session:
+            # Order of deletion matters due to foreign key constraints
             deleted_reports_count = (await session.execute(delete(ReportCoreDataDB))).rowcount # type: ignore
             deleted_incidents_count = (await session.execute(delete(IncidentDB))).rowcount # type: ignore
-            await session.commit()
+            # The commit is handled by the context manager
             logger.warning(f"Cleared DB: {deleted_incidents_count} incidents and {deleted_reports_count} reports removed.")
 
 _incident_store_instance = IncidentStore()

@@ -116,15 +116,7 @@ def parse_alert_to_eido_dict(alert_text: str) -> Optional[Dict[str, Any]]:
             return None
         logger.info(
             f"Successfully generated EIDO dictionary from alert using template '{chosen_template_name}'.")
-
-        # The following diagnostic prints are commented out as they are for development/debugging
-        # and should not be active in production code.
-        # message_id = eido_dict.get('eidoMessageIdentifier', 'N/A')
-        # logger.debug(
-        #     f"DIAGNOSTIC: EIDO Dict from Template (message_id: {message_id})")
-        # print(json.dumps(eido_dict, indent=2))
-        # print("="*80 + "\n")
-
+        
         return eido_dict
     except json.JSONDecodeError as e:
         logger.error(
@@ -136,75 +128,3 @@ def parse_alert_to_eido_dict(alert_text: str) -> Optional[Dict[str, Any]]:
         logger.error(
             f"Unexpected error processing LLM template fill response: {e}", exc_info=True)
         return None
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
-
-    # Mock the LLM calls for a standalone test
-    def mock_choose_eido_template(text: str, summaries: str) -> Optional[str]:
-        print(
-            f"[MOCK] LLM 'choose_eido_template' called with: '{text[:50]}...'")
-        if "fire" in text.lower():
-            return "ucsd_vegetation_fire_template.json"
-        if "collision" in text.lower():
-            return "traffic_collision.json"
-        return None
-
-    def mock_fill_eido_template(template: str, scenario: str) -> Optional[str]:
-        print(
-            f"[MOCK] LLM 'fill_eido_template' called for scenario: '{scenario[:50]}...'")
-        # Just return a valid JSON string for testing the flow
-        return json.dumps({
-            "$id": "urn:emergency:uid:incidentid:mock-filled:bcf.state.pa.us",
-            "lastUpdateTimeStamp": datetime.now(timezone.utc).isoformat(),
-            "incidentComponent": [{
-                "incidentTypeCommonRegistryText": "Mock Filled Incident",
-                "incidentSummaryText": f"This is a mocked response for the scenario: {scenario}"
-            }]
-        })
-
-    # Replace the actual LLM calls with mocks for the test
-    original_choose_eido_template = choose_eido_template
-    original_fill_eido_template = fill_eido_template
-    choose_eido_template = mock_choose_eido_template
-    fill_eido_template = mock_fill_eido_template
-
-    # Create dummy template files for the mock _load_templates to find
-    mock_template_dir = os.path.join(
-        os.path.dirname(__file__), '..', 'eido_templates')
-    os.makedirs(mock_template_dir, exist_ok=True)
-
-    # Dummy content for the mock templates
-    with open(os.path.join(mock_template_dir, "ucsd_vegetation_fire_template.json"), "w") as f:
-        f.write(json.dumps({"description": "Template for a vegetation fire incident.",
-                "incidentComponent": [{"incidentTypeCommonRegistryText": "Vegetation Fire"}]}))
-    with open(os.path.join(mock_template_dir, "traffic_collision.json"), "w") as f:
-        f.write(json.dumps({"description": "Template for a traffic collision incident.",
-                "incidentComponent": [{"incidentTypeCommonRegistryText": "Traffic Collision"}]}))
-
-    # Clear cache to force _load_templates to run and find the mock files
-    _template_cache.clear()
-    _template_summaries.clear()
-
-    sample_alert = "ALERT from UCPD: Report of a small brush fire near the canyon."
-    result_dict = parse_alert_to_eido_dict(sample_alert)
-
-    if result_dict:
-        print("\n--- Successfully parsed alert text into EIDO dict ---")
-        print(json.dumps(result_dict, indent=2))
-    else:
-        print("\n--- Failed to parse alert text ---")
-
-    # Clean up dummy template files and directory
-    os.remove(os.path.join(mock_template_dir,
-              "ucsd_vegetation_fire_template.json"))
-    os.remove(os.path.join(mock_template_dir, "traffic_collision.json"))
-    try:
-        os.rmdir(mock_template_dir)
-    except OSError:
-        pass  # Directory not empty, or other error
-
-    # Restore original functions
-    choose_eido_template = original_choose_eido_template
-    fill_eido_template = original_fill_eido_template

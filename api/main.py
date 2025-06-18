@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="EIDO Sentinel API",
     description="API for ingesting EIDO reports, managing emergency incidents, and serving a showcase landing page.",
-    version="0.9.1",
+    version="1.0.0",
     contact={"name": "EIDO Sentinel Support",
              "url": "https://github.com/DevKlim/eido-sentinel"},
     license_info={"name": "MIT License",
@@ -43,45 +43,38 @@ app = FastAPI(
 )
 
 # --- CORS Middleware Configuration ---
-# This is a more robust configuration for allowing your deployed Streamlit frontend
-# and local development environments to communicate with this backend.
 allowed_origins = []
 
 # 1. Add local development origins
 local_streamlit_url = f"http://localhost:{settings.streamlit_server_port}"
-# For the landing page JS
 local_api_url = f"http://localhost:{settings.api_port}"
-allowed_origins.extend([local_streamlit_url, local_api_url, "http://127.0.0.1:8501"])
+allowed_origins.extend([local_streamlit_url, f"http://127.0.0.1:{settings.streamlit_server_port}", local_api_url])
 
 # 2. Add deployed frontend URL from environment variables
-# For deployment, you will set STREAMLIT_APP_URL in your backend's hosting environment (e.g., Fly.io secrets).
-# Example: STREAMLIT_APP_URL="https://your-streamlit-app-name.streamlit.app"
-streamlit_app_url = os.environ.get("STREAMLIT_APP_URL")
-if streamlit_app_url:
+streamlit_app_url = os.environ.get("STREAMLIT_APP_URL", settings.streamlit_app_url if hasattr(settings, 'streamlit_app_url') else None)
+if streamlit_app_url and streamlit_app_url not in allowed_origins:
     allowed_origins.append(streamlit_app_url)
-    logger_main.info(
-        f"Allowing CORS for deployed Streamlit app: {streamlit_app_url}")
+    logger_main.info(f"Allowing CORS for deployed Streamlit app: {streamlit_app_url}")
 
 # 3. Add the deployed backend's own URL if it's different from localhost
-if "localhost" not in settings.api_base_url:
+if "localhost" not in settings.api_base_url and settings.api_base_url not in allowed_origins:
     allowed_origins.append(settings.api_base_url)
 
 # Use "*" for development if you face persistent issues, but be specific for production.
-# allowed_origins = ["*"] # <-- Uncomment for quick local testing if needed
+# allowed_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-logger_main.info(
-    f"CORS middleware configured. Allowed origins: {allowed_origins}")
+logger_main.info(f"CORS middleware configured. Allowed origins: {allowed_origins}")
 
 # --- Static Files Mounting ---
 PROJECT_ROOT_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), ".."))
+    os.path.join(os.path.dirname(__file__), "..", "..")) # Navigate up to project root
 STATIC_DIR = os.path.join(PROJECT_ROOT_DIR, "static")
 
 if not os.path.isdir(STATIC_DIR):
@@ -105,10 +98,7 @@ app.include_router(api_router)
 logger_main.info("API router included at prefix /api/v1.")
 
 if __name__ == "__main__":
-    # For containerized deployments like Fly.io, the host must be "0.0.0.0".
-    # We default to "0.0.0.0" which is safe for production and generally ok for local dev.
-    # The PORT is read from the environment, which is standard for hosting platforms.
-    uvicorn_host = os.getenv("HOST", "0.0.0.0")
+    uvicorn_host = os.getenv("HOST", settings.api_host)
     uvicorn_port = int(os.getenv("PORT", settings.api_port))
 
     logger_main.info(
@@ -119,6 +109,5 @@ if __name__ == "__main__":
         host=uvicorn_host,
         port=uvicorn_port,
         log_level=settings.log_level.lower(),
-        # Reload should be disabled in production. Checking for common prod env vars.
-        reload=not (os.getenv("FLY_APP_NAME") or os.getenv("RENDER"))
+        reload=not (os.getenv("FLY_APP_NAME") or os.getenv("RENDER") or os.getenv("DOCKER_ENV"))
     )

@@ -1,0 +1,57 @@
+{
+  "$id": "urn:uuid:1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  "messageKind": "Alert",
+  "notesComponent": [
+    {
+      "noteText": "A brush fire is burning near the 15000 block of El Monte Road in Lakeside. An EVACUATION ORDER is in place for affected areas. This is a developing situation. Follow @CALFIRESANDIEGO, @SDSheriff, @AlertSanDiegoCo for updates.",
+      "authorReference": {
+        "$ref": "person-6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c"
+      },
+      "noteDateTimeStamp": "2024-05-15T14:30:00-07:00",
+      "componentIdentifier": "note-5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b"
+    }
+  ],
+  "agencyComponent": [
+    {
+      "$id": "agency-4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a",
+      "agencyName": "UC San Diego Police Department",
+      "agencyIdentifier": "urn:nena:agency:ucsdpd"
+    }
+  ],
+  "personComponent": [
+    {
+      "$id": "person-6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c",
+      "personNameText": "UC San Diego Police Department",
+      "personIdentifier": "urn:nena:system:ucsdalerts"
+    }
+  ],
+  "incidentComponent": [
+    {
+      "locationReference": {
+        "$ref": "loc-3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f"
+      },
+      "componentIdentifier": "inc-2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+      "lastUpdateTimeStamp": "2024-05-15T14:30:00-07:00",
+      "updatedByAgencyReference": {
+        "$ref": "agency-4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a"
+      },
+      "incidentTrackingIdentifier": "MonteFireAlert",
+      "incidentTypeCommonRegistryText": "Vegetation Fire",
+      "incidentStatusCommonRegistryText": "Active"
+    }
+  ],
+  "locationComponent": [
+    {
+      "$id": "loc-3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+      "locationByValue": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<location xmlns:gml=\"http://www.opengis.net/gml\" xmlns:ca=\"urn:ietf:params:xml:ns:pidf:geopriv10:civicAddr\">\n  <gml:Point srsName=\"urn:ogc:def:crs:EPSG::4326\">\n    <gml:pos>32.8805 -116.8906</gml:pos>\n  </gml:Point>\n  <ca:civicAddress>\n    <ca:country>US</ca:country>\n    <ca:A1>CA</ca:A1>\n    <ca:A3>Lakeside</ca:A3>\n    <ca:LOC>15000 El Monte Road</ca:LOC>\n    <ca:PC>92040</ca:PC>\n  </ca:civicAddress>\n  <civicAddressText>15000 block of El Monte Road in Lakeside, CA 92040</civicAddressText>\n  <locationNotes>An EVACUATION ORDER is in place for the shaded areas in red shown in the maps. It means everyone in the impacted area must leave immediately. To see maps of the affected areas, visit: https://protect.genasys.com/zones/US-CA-XSD-SDC-1467 and http://emergencymap.sandiegocounty.gov/index.html.</locationNotes>\n</location>",
+      "componentIdentifier": "loc-3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+      "lastUpdateTimeStamp": "2024-05-15T14:30:00-07:00",
+      "updatedByAgencyReference": {
+        "$ref": "agency-4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a"
+      }
+    }
+  ],
+  "lastUpdateTimeStamp": "2024-05-15T14:30:00-07:00",
+  "eidoMessageIdentifier": "urn:uuid:1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  "sendingSystemIdentifier": "urn:nena:agency:ucsdpd"
+}

@@ -21,7 +21,7 @@ try:
         __file__), '..', 'static', 'images', 'logo_icon_light.png'))
     page_icon_img = Image.open(PAGE_ICON_PATH)
 except FileNotFoundError:
-    page_icon_img = ""
+    page_icon_img = "🤖"
 
 st.set_page_config(
     layout="wide",
@@ -29,9 +29,9 @@ st.set_page_config(
     page_icon=page_icon_img,
     initial_sidebar_state="expanded",
     menu_items={
-        'Get Help': "https://github.com/LXString/eido-sentinel",
-        'Report a bug': "https://github.com/LXString/eido-sentinel/issues",
-        'About': "# EIDO Sentinel v0.9.1\nAgent Driven Emergency Incident Processor. A dynamic link to the project showcase is in the sidebar."
+        'Get Help': "https://github.com/DevKlim/eido-sentinel",
+        'Report a bug': "https://github.com/DevKlim/eido-sentinel/issues",
+        'About': "# EIDO Sentinel v1.0.0\nAgent Driven Emergency Incident Processor. A link to the project showcase is in the sidebar."
     }
 )
 
@@ -72,26 +72,13 @@ if modules_imported_successfully:
     logger_ui.debug("UI Log Capture StreamHandler added to root logger.")
 
 # --- Environment and API Configuration ---
-API_BASE_URL = "http://localhost:8000"
-IS_DEPLOYED = False
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+if local_settings and "API_BASE_URL" not in os.environ:
+    API_BASE_URL = local_settings.api_base_url
 
-try:
-    if 'API_BASE_URL' in st.secrets:
-        API_BASE_URL = st.secrets['API_BASE_URL']
-        IS_DEPLOYED = True
-        logger_ui.info(f"Running in DEPLOYED mode. API URL from secrets: {API_BASE_URL}")
-    elif local_settings:
-        API_BASE_URL = os.environ.get("API_BASE_URL", local_settings.api_base_url)
-        logger_ui.info(f"Running in LOCAL mode. API URL from settings.py/env: {API_BASE_URL}")
-    else:
-        logger_ui.info(f"Running in LOCAL mode (settings not loaded). Default API URL: {API_BASE_URL}")
-except (FileNotFoundError, AttributeError):
-    if local_settings:
-        API_BASE_URL = os.environ.get("API_BASE_URL", local_settings.api_base_url)
-    logger_ui.info(f"Running in LOCAL mode (no secrets file or settings error). API URL: {API_BASE_URL}")
+logger_ui.info(f"UI configured to use API at: {API_BASE_URL}")
 
-
-LANDING_PAGE_URL = API_BASE_URL
+LANDING_PAGE_URL = API_BASE_URL.rsplit(':', 1)[0] if ':' in API_BASE_URL.rsplit('/',1)[-1] else API_BASE_URL
 
 # --- Session State Initialization ---
 def init_session_state():
@@ -104,6 +91,7 @@ def init_session_state():
         'api_is_reachable': None,
         'json_input_area_val': "", 'alert_text_input_area_val': "",
         'active_view': 'Incident Feed', 'selected_incident_id': None,
+        'force_data_refresh': True, # Force refresh on first load
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -113,40 +101,23 @@ def init_session_state():
 init_session_state()
 
 # --- API Helper Functions ---
-def handle_api_error_and_reload(message: str, delay: int = 5):
-    """Displays an error and triggers a page reload via JavaScript."""
-    st.error(message)
-    st.components.v1.html(
-        f"""
-        <script>
-            setTimeout(function() {{
-                window.parent.location.reload();
-            }}, {delay * 1000});
-        </script>
-        """,
-        height=0,
-    )
-    st.stop()
-
-
-def make_api_request(method: str, endpoint: str, payload: Optional[Dict] = None, params: Optional[Dict] = None) -> Optional[Any]:
+def make_api_request(method: str, endpoint: str, payload: Optional[Dict] = None, params: Optional[Dict] = None, is_critical: bool = False) -> Optional[Any]:
     url = f"{st.session_state.api_base_url}{endpoint}"
     try:
         response = requests.request(method.upper(), url, json=payload, params=params, timeout=30)
         st.session_state.api_is_reachable = True 
         response.raise_for_status()
-        return response.json() if response.content and response.status_code != 204 else True
+        if response.status_code == 204: # No Content
+            return True
+        return response.json() if response.content else True
     except requests.exceptions.HTTPError as e:
-        # For standard HTTP errors (like 4xx, 5xx), just show the error text.
         st.error(f"API Error ({e.response.status_code}): {e.response.text}")
         logger_ui.error(f"API HTTP Error for {url}: {e.response.status_code} - {e.response.text}", exc_info=False)
     except requests.exceptions.RequestException as e:
-        # For connection errors, trigger the auto-reload.
         logger_ui.critical(f"API Connection Error for {url}: {e}", exc_info=False)
         st.session_state.api_is_reachable = False
-        handle_api_error_and_reload(
-            f"Connection to the backend failed. The application will attempt to reload in 5 seconds."
-        )
+        if is_critical:
+            st.error(f"Critical API connection failed: {e}. The app may not function correctly.")
     return None
 
 # --- UI Helper & Data Functions ---
@@ -158,14 +129,12 @@ def get_captured_logs():
     if new_entries := [entry for entry in logs_captured.strip().split('\n') if entry.strip()]:
         st.session_state.log_messages = new_entries + st.session_state.log_messages[:199]
 
-def fetch_all_incidents_from_api():
+def fetch_and_cache_all_incidents():
     if not modules_imported_successfully:
         st.session_state.all_incidents_from_api = []
         return
     
-    # Do not check api_is_reachable here, always attempt the request.
-    # make_api_request will handle the error state.
-    data = make_api_request("GET", "/api/v1/incidents")
+    data = make_api_request("GET", "/api/v1/incidents", is_critical=True)
     
     if data and isinstance(data, list):
         incidents = []
@@ -173,17 +142,19 @@ def fetch_all_incidents_from_api():
             try:
                 incidents.append(PydanticIncident(**inc_data))
             except ValidationError as e:
-                st.error(f"Data parsing error for incident #{i+1}. The data from the API does not match the expected format. Please check for outdated models or API changes.")
+                st.error(f"Data parsing error for incident #{i+1}. The data from the API does not match the expected format.")
                 logger_ui.error(f"Pydantic validation error on incident data: {e.errors()}", exc_info=False)
                 st.code(json.dumps(inc_data, indent=2), language="json")
                 continue
         st.session_state.all_incidents_from_api = sorted(incidents, key=lambda x: x.last_updated_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
-    elif data is None: # Explicitly check for None, which indicates an API error was handled
+    elif data is None:
         st.session_state.all_incidents_from_api = []
+    
+    update_metrics_and_filtered_cache()
+    st.session_state.force_data_refresh = False
 
-def update_dashboard_metrics_and_cache():
-    fetch_all_incidents_from_api()
-    all_incidents = st.session_state.all_incidents_from_api
+def update_metrics_and_filtered_cache():
+    all_incidents = st.session_state.get('all_incidents_from_api', [])
     st.session_state.total_incidents = len(all_incidents)
     active_statuses = ["active", "updated", "monitoring", "dispatched", "acknowledged", "enroute", "onscene"]
     st.session_state.active_incidents = sum(1 for inc in all_incidents if inc.status and inc.status.lower() in active_statuses)
@@ -217,7 +188,7 @@ st.sidebar.divider()
 
 # --- Main App Title ---
 st.title("EIDO Sentinel Dashboard")
-st.caption(f"v0.9.1 | Connected to: {API_BASE_URL}")
+st.caption(f"v1.0.0 | Connected to: {st.session_state.api_base_url}")
 
 # --- STOP HERE IF SETUP FAILED ---
 if not modules_imported_successfully:
@@ -227,21 +198,19 @@ if not modules_imported_successfully:
     st.code(f"Error Details: {original_error}", language='bash')
     st.stop()
 
-# --- Initial Data Fetch and API Status Display ---
-# This is the first point of contact with the API. If it fails, the auto-reloader will trigger.
-update_dashboard_metrics_and_cache()
+# --- DATA FETCHING LOGIC (PERFORMANCE FIX) ---
+if st.session_state.get('force_data_refresh', True):
+    fetch_and_cache_all_incidents()
 
 st.sidebar.header("Agent Status")
 if st.session_state.api_is_reachable:
     st.sidebar.success("Backend API is reachable.")
 elif st.session_state.api_is_reachable is False:
-    # The auto-reloader will have already been triggered, so this state is temporary.
-    st.sidebar.error("Backend API is unreachable. Attempting to reconnect...")
+    st.sidebar.error("Backend API is unreachable.")
 
 st.sidebar.divider()
 st.sidebar.header("Data Ingestion")
 
-# Clear inputs if flag is set
 if st.session_state.get('clear_inputs_on_rerun', False):
     st.session_state.update(json_input_area_val="", alert_text_input_area_val="")
     st.session_state.clear_inputs_on_rerun = False
@@ -285,8 +254,7 @@ if st.sidebar.button("Process Inputs", type="primary", use_container_width=True,
     if not processing_error:
         st.sidebar.success("Processing complete!")
         st.session_state.clear_inputs_on_rerun = True
-        # Give the backend a moment to stabilize before the frontend refetches
-        time.sleep(2)
+        st.session_state.force_data_refresh = True
         st.rerun()
 
 st.sidebar.divider()
@@ -294,8 +262,7 @@ with st.sidebar.expander("Admin Actions"):
     if st.button("Clear All Incidents", use_container_width=True, disabled=not st.session_state.api_is_reachable):
         if make_api_request("DELETE", "/api/v1/admin/clear_store"):
             st.success("Incident store cleared.")
-            st.session_state.update(all_incidents_from_api=[], filtered_incidents_cache=[], selected_incident_id=None)
-            time.sleep(1)
+            st.session_state.force_data_refresh = True
             st.rerun()
 
 with st.sidebar.expander("Processing Log"):
@@ -324,7 +291,7 @@ if st.session_state.all_incidents_from_api:
         st.session_state.active_filters['types'] = st.session_state.filter_type_ms
         st.session_state.active_filters['statuses'] = st.session_state.filter_status_ms
         st.session_state.active_filters['zips'] = st.session_state.filter_zip_ms
-        update_dashboard_metrics_and_cache()
+        update_metrics_and_filtered_cache()
 
     filter_col1.multiselect("Filter by Type:", options=available_types, key="filter_type_ms", on_change=update_filters, default=st.session_state.get('active_filters', {}).get('types'))
     filter_col2.multiselect("Filter by Status:", options=available_statuses, key="filter_status_ms", on_change=update_filters, default=st.session_state.get('active_filters', {}).get('statuses'))
@@ -375,10 +342,13 @@ def render_incident_feed():
             c2.caption(f"Last Update: `{inc.last_updated_at.strftime('%Y-%m-%d %H:%M') if inc.last_updated_at else 'N/A'}`")
             if c3.button("View Details", key=f"btn_{inc.incident_id}", use_container_width=True):
                 st.session_state.selected_incident_id = inc.incident_id
-                st.session_state.active_view = "Incident Details"
                 st.rerun()
 
 def render_incident_details():
+    if st.button(f"⬅️ Back to {st.session_state.get('active_view', 'Incident Feed')}"):
+        st.session_state.selected_incident_id = None
+        st.rerun()
+    
     st.subheader("Incident Details")
     if not st.session_state.selected_incident_id:
         st.info("Select an incident from the 'Incident Feed' to see details.")
@@ -495,120 +465,104 @@ def render_geocoding_editor():
     st.subheader("Local Geocoding Store Editor")
     st.caption("Manage custom location-to-coordinate mappings. These entries are prioritized by the geocoding service.")
 
-    # Fetch current locations
     locations_data = make_api_request("GET", "/api/v1/tools/geocoding/local_store")
 
     if locations_data is None:
         st.error("Could not fetch locations from the backend. The service may be down.")
         return
 
-    # --- Section to Add a New Location ---
-    with st.expander("➕ Add New Location", expanded=False):
-        with st.form("new_location_form"):
-            new_loc_name = st.text_input("Location Name (e.g., 'Geisel Library Entrance')")
-            col1, col2 = st.columns(2)
-            new_lat = col1.number_input("Latitude", format="%.6f", value=0.0)
-            new_lon = col2.number_input("Longitude", format="%.6f", value=0.0)
-            new_source = st.text_input("Source", value="manual_ui_input")
-            new_notes = st.text_area("Notes")
-            
-            submitted = st.form_submit_button("Add Location")
-            if submitted:
-                if not new_loc_name or new_lat == 0.0 or new_lon == 0.0:
-                    st.warning("Please fill in Location Name, Latitude, and Longitude.")
-                else:
-                    payload = {
-                        "location_name": new_loc_name,
-                        "latitude": new_lat,
-                        "longitude": new_lon,
-                        "source": new_source,
-                        "notes": new_notes
-                    }
-                    if make_api_request("POST", "/api/v1/tools/geocoding/local_store", payload=payload):
-                        st.success(f"Location '{new_loc_name}' added successfully.")
-                        time.sleep(1)
-                        st.rerun()
+    editor_tabs = st.tabs(["Manage Entries", "View Raw JSON"])
 
-    st.divider()
-
-    # --- Display and Edit Existing Locations ---
-    st.markdown(f"**{len(locations_data)} Existing Locations**")
-    
-    if not locations_data:
-        st.info("No custom locations in the store. Add one using the form above.")
-        return
-
-    sorted_locations = sorted(locations_data.items())
-
-    for name, data in sorted_locations:
-        with st.container(border=True):
-            col_disp1, col_disp2 = st.columns([3, 1])
-            with col_disp1:
-                st.markdown(f"**{name}**")
-                st.caption(f"Source: `{data.get('source', 'N/A')}` | Updated: `{data.get('last_updated', 'N/A').split('T')[0]}`")
-                st.code(f"Lat: {data.get('lat', 0.0):.6f}, Lon: {data.get('lon', 0.0):.6f}", language='bash')
-            
-            with col_disp2:
-                if st.button("Delete", key=f"delete_{name}", use_container_width=True, type="secondary"):
-                    encoded_name = urllib.parse.quote(name)
-                    if make_api_request("DELETE", f"/api/v1/tools/geocoding/local_store/{encoded_name}"):
-                        st.success(f"Location '{name}' deleted.")
-                        time.sleep(1)
-                        st.rerun()
-
-            with st.expander("Edit"):
-                with st.form(key=f"form_edit_{name}"):
-                    edit_col1, edit_col2 = st.columns(2)
-                    edited_lat = edit_col1.number_input("Latitude", value=data.get('lat', 0.0), format="%.6f", key=f"lat_{name}")
-                    edited_lon = edit_col2.number_input("Longitude", value=data.get('lon', 0.0), format="%.6f", key=f"lon_{name}")
-                    edited_source = st.text_input("Source", value=data.get('source', ''), key=f"source_{name}")
-                    edited_notes = st.text_area("Notes", value=data.get('notes', ''), key=f"notes_{name}")
-                    
-                    if st.form_submit_button("Update Location", use_container_width=True):
-                        payload = {
-                            "location_name": name,
-                            "latitude": edited_lat,
-                            "longitude": edited_lon,
-                            "source": edited_source,
-                            "notes": edited_notes
-                        }
+    with editor_tabs[0]:
+        with st.expander("➕ Add New Location", expanded=False):
+            with st.form("new_location_form"):
+                new_loc_name = st.text_input("Location Name (e.g., 'Geisel Library Entrance')")
+                col1, col2 = st.columns(2)
+                new_lat = col1.number_input("Latitude", format="%.6f")
+                new_lon = col2.number_input("Longitude", format="%.6f")
+                new_source = st.text_input("Source", value="manual_ui_input")
+                new_notes = st.text_area("Notes")
+                
+                submitted = st.form_submit_button("Add Location")
+                if submitted:
+                    if not new_loc_name or new_lat == 0.0 or new_lon == 0.0:
+                        st.warning("Please fill in Location Name, Latitude, and Longitude.")
+                    else:
+                        payload = {"location_name": new_loc_name, "latitude": new_lat, "longitude": new_lon, "source": new_source, "notes": new_notes}
                         if make_api_request("POST", "/api/v1/tools/geocoding/local_store", payload=payload):
-                            st.success(f"Location '{name}' updated.")
-                            time.sleep(1)
+                            st.success(f"Location '{new_loc_name}' added successfully.")
                             st.rerun()
+        st.divider()
+        st.markdown(f"**{len(locations_data)} Existing Locations**")
+        if not locations_data:
+            st.info("No custom locations in the store. Add one using the form above.")
+        else:
+            sorted_locations = sorted(locations_data.items())
+            for name, data in sorted_locations:
+                with st.container(border=True):
+                    col_disp1, col_disp2 = st.columns([3, 1])
+                    with col_disp1:
+                        st.markdown(f"**{name}**")
+                        st.caption(f"Source: `{data.get('source', 'N/A')}` | Updated: `{data.get('last_updated', 'N/A').split('T')[0] if data.get('last_updated') else 'N/A'}`")
+                        st.code(f"Lat: {data.get('lat', 0.0):.6f}, Lon: {data.get('lon', 0.0):.6f}", language='bash')
+                    
+                    with col_disp2:
+                        if st.button("Delete", key=f"delete_{name}", use_container_width=True, type="secondary"):
+                            encoded_name = urllib.parse.quote(name)
+                            if make_api_request("DELETE", f"/api/v1/tools/geocoding/local_store/{encoded_name}"):
+                                st.success(f"Location '{name}' deleted.")
+                                st.rerun()
+
+                    with st.expander("Edit"):
+                        with st.form(key=f"form_edit_{name}"):
+                            edit_col1, edit_col2 = st.columns(2)
+                            edited_lat = edit_col1.number_input("Latitude", value=data.get('lat', 0.0), format="%.6f", key=f"lat_{name}")
+                            edited_lon = edit_col2.number_input("Longitude", value=data.get('lon', 0.0), format="%.6f", key=f"lon_{name}")
+                            edited_source = st.text_input("Source", value=data.get('source', ''), key=f"source_{name}")
+                            edited_notes = st.text_area("Notes", value=data.get('notes', ''), key=f"notes_{name}")
+                            
+                            if st.form_submit_button("Update Location", use_container_width=True):
+                                payload = {"location_name": name, "latitude": edited_lat, "longitude": edited_lon, "source": edited_source, "notes": edited_notes}
+                                if make_api_request("POST", "/api/v1/tools/geocoding/local_store", payload=payload):
+                                    st.success(f"Location '{name}' updated.")
+                                    st.rerun()
+    
+    with editor_tabs[1]:
+        st.markdown("#### Raw `geocoded_locations.json` Content")
+        st.caption("This is the direct content of the JSON file used by the local geocoder.")
+        if locations_data:
+            st.code(json.dumps(locations_data, indent=2), language='json')
+        else:
+            st.info("The geocoding store is empty.")
+
 
 # --- MAIN NAVIGATION AND VIEW RENDERING ---
-view_options = ["Incident Feed", "Dashboard", "Map View", "Geocoding Editor", "Incident Details"]
+last_active_view = st.session_state.get('active_view', 'Incident Feed')
+view_options = ["Incident Feed", "Dashboard", "Map View", "Geocoding Editor"]
+if last_active_view not in view_options: last_active_view = 'Incident Feed'
+view_index = view_options.index(last_active_view)
 
-current_view_in_session = st.session_state.get('active_view', 'Incident Feed')
-if current_view_in_session not in view_options:
-    current_view_in_session = 'Incident Feed' 
-
-if not st.session_state.get('selected_incident_id') and current_view_in_session == 'Incident Details':
-    st.session_state.active_view = 'Incident Feed'
-    current_view_in_session = 'Incident Feed'
-
-view_index = view_options.index(current_view_in_session)
-
-st.session_state.active_view = st.radio(
-    "Navigation", options=view_options, key="navigation_radio", horizontal=True, label_visibility="collapsed",
-    index=view_index
+selected_view = st.radio(
+    "Navigation", options=view_options, key="navigation_radio", 
+    horizontal=True, label_visibility="collapsed", index=view_index
 )
 
-if st.session_state.active_view != "Incident Details":
+if selected_view != st.session_state.active_view:
     st.session_state.selected_incident_id = None
+    st.session_state.active_view = selected_view
+    st.rerun()
 
-# Render the selected view
-if st.session_state.active_view == "Dashboard":
-    render_dashboard()
-elif st.session_state.active_view == "Incident Feed":
-    render_incident_feed()
-elif st.session_state.active_view == "Incident Details":
+if st.session_state.get('selected_incident_id'):
     render_incident_details()
-elif st.session_state.active_view == "Map View":
-    render_map_view()
-elif st.session_state.active_view == "Geocoding Editor":
-    render_geocoding_editor()
+else:
+    view_render_map = {
+        "Incident Feed": render_incident_feed,
+        "Dashboard": render_dashboard,
+        "Map View": render_map_view,
+        "Geocoding Editor": render_geocoding_editor,
+    }
+    render_func = view_render_map.get(st.session_state.active_view, render_incident_feed)
+    render_func()
 
 st.divider()
-st.caption("EIDO Sentinel v0.9.1 | End of Dashboard")
+st.caption("EIDO Sentinel v1.0.0 | End of Dashboard")

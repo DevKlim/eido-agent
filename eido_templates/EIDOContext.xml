@@ -1,0 +1,168 @@
+<EIDO_Context>
+    <Summary>
+        The Emergency Incident Data Object (EIDO) is a standardized, industry-neutral JSON format for exchanging the **current state** of an emergency incident. It facilitates interoperability between different systems (e.g., CAD, logging, call handling) across public safety agencies.
+
+        A key feature of EIDO is its deep integration with the **National Information Exchange Model (NIEM)**. While EIDO defines the overall incident structure, it relies on NIEM to provide rich, standardized definitions for complex data entities like persons, vehicles, and organizations. This ensures the data is highly detailed and interoperable with a wide range of justice and public safety systems.
+    </Summary>
+
+    <CoreConcepts>
+        <Concept name="Data Component">
+            An EIDO is composed of several data components (e.g., Agency, Person, Incident). Each component represents a specific aspect of the emergency incident.
+        </Concept>
+        <Concept name="Prologue">
+            Most data components share a common set of "prologue" fields:
+            - `$id`: A globally unique identifier for that specific data component instance (e.g., a specific person's record).
+            - `lastUpdateTimeStamp`: Timestamp of the last modification.
+            - `updatedByAgencyReference`: A reference to the agency that last updated the component.
+            - `updatedByAgentReference`: (Optional) A reference to the agent who last updated the component.
+        </Concept>
+        <Concept name="Referencing">
+            Components link to each other using references. A property like `agentReference` will contain a `{$ref: "agent-id-123"}` object, pointing to the `$id` of an `AgentType` component listed elsewhere in the EIDO. This avoids data duplication. All referenced components (e.g., all persons, locations, notes) are listed in dedicated top-level arrays in the main EIDO object.
+        </Concept>
+        <Concept name="Registries">
+            Many fields are constrained to values from IANA registries to ensure common understanding (e.g., Incident Type, Disposition Codes, Person Roles). This enforces a controlled vocabulary.
+        </Concept>
+    </CoreConcepts>
+
+    <NIEM_Integration>
+        <Purpose>
+            EIDO does not redefine complex data types that are already well-established. Instead, it embeds objects defined by NIEM. This allows EIDO to carry extremely rich data for entities like people and vehicles, ensuring it is compatible with the broader national justice and public safety information sharing ecosystem.
+        </Purpose>
+        <Mechanism>
+            1.  **NIEM Component Fields:** You will see fields ending in `...Component`, such as `ncPersonComponent` or `jCommercialVehicleComponent`. These fields contain complex objects whose structure is not defined by EIDO itself, but by the corresponding NIEM schemas (e.g., `nc.yaml`, `j.yaml`).
+            2.  **JSON-LD Contexts:** EIDO uses a `@context` field that points to JSON-LD (Linked Data) files. This is the technical mechanism that maps the simple JSON property names in the EIDO file to their formal, globally-understood NIEM definitions. It's what allows a receiving system to understand that `nc:PersonBirthDate` in the NIEM model is represented by a specific field in the JSON object.
+        </Mechanism>
+        <Implication_for_Agent>
+            When you encounter a field like `ncPersonComponent`, you are not just getting a simple name and phone number. You are receiving a comprehensive, standardized data structure that can include everything from physical descriptions (scars, tattoos), multiple addresses, identification documents, and relationships, all defined by the NIEM standard. This provides a much deeper level of detail for your report than EIDO's core fields alone.
+        </Implication_for_Agent>
+    </NIEM_Integration>
+
+    <DataComponents>
+
+        <Component name="EmergencyIncidentDataObjectType">
+            <Description>The root object of the EIDO. It is the main container for all incident-related information. The `$id` of this component is the globally unique Incident Tracking Identifier.</Description>
+            <Fields>
+                <Field name="eidoVersion" type="string" use="required">
+                    <Description>The version of the EIDO standard, which is "1.0".</Description>
+                </Field>
+                <Field name="issuingElementIdentification" type="string" use="required">
+                    <Description>Identifier of the functional element (system) that created this EIDO instance.</Description>
+                </Field>
+                <Field name="incidentComponent" type="object" use="optional">
+                    <Description>The core details of the incident itself.</Description>
+                    <References>IncidentInformationType</References>
+                </Field>
+                <Field name="agencyComponent" type="array" use="required">
+                    <Description>A list of all agencies involved or referenced.</Description>
+                    <References>AgencyType</References>
+                </Field>
+                <Field name="personComponent" type="array" use="optional">
+                    <Description>A list of all persons (callers, victims, suspects) involved or referenced.</Description>
+                    <References>PersonInformationType</References>
+                </Field>
+                <Field name="vehicleComponent" type="array" use="optional">
+                    <Description>A list of all vehicles involved or referenced.</Description>
+                    <References>VehicleInformationType</References>
+                </Field>
+                <Field name="itemComponent" type="array" use="optional">
+                    <Description>A list of all items of interest (weapons, equipment, etc.) referenced.</Description>
+                    <References>ItemInformationType</References>
+                </Field>
+                <!-- Other primary components like agent, location, call, etc. -->
+            </Fields>
+        </Component>
+
+        <Component name="PersonInformationType">
+            <Description>Information about a person associated with the incident. An instance should be created for every person, including callers, victims, suspects, and patients.</Description>
+            <Inherits>PrologueType</Inherits>
+            <Fields>
+                <Field name="personIncidentRoleRegistryText" type="array" use="required">
+                    <Description>The person's role in the incident, from the "EIDO-PersonRole" registry (e.g., 'Caller', 'Victim', 'Suspect').</Description>
+                </Field>
+                <Field name="ncPersonComponent" type="object" use="optional">
+                    <Description>Richly detailed person information conforming to the NIEM standard. This can include physical descriptions, multiple names/aliases, identification documents, biometrics, etc.</Description>
+                    <Source>Defined by `NIEMComponents/nc.yaml#/components/schemas/ncPersonType`</Source>
+                </Field>
+                <Field name="locationReference" type="array" use="optional">
+                    <Description>Reference to locations associated with this person.</Description>
+                </Field>
+            </Fields>
+        </Component>
+
+        <Component name="VehicleInformationType">
+            <Description>Information about a vehicle associated with an incident.</Description>
+            <Inherits>PrologueType</Inherits>
+            <Fields>
+                <Field name="vehicleRelationshipType" type="array" use="required">
+                    <Description>The vehicle's role in the incident from the "EIDO-VehicleRelationshipType" registry (e.g., 'SuspectVehicle', 'AccidentVehicle').</Description>
+                </Field>
+                <Field name="ncVehicleComponent" type="object" use="optional">
+                    <Description>Detailed vehicle information conforming to the NIEM standard. Includes make, model, year, color, VIN, and license plate.</Description>
+                    <Source>Defined by `NIEMComponents/nc.yaml#/components/schemas/ncVehicleType`</Source>
+                </Field>
+                <Field name="jCommercialVehicleComponent" type="object" use="optional">
+                    <Description>Additional detailed information specific to commercial vehicles, as defined by the NIEM Justice domain.</Description>
+                    <Source>Defined by `NIEMComponents/j.yaml#/components/schemas/jCommercialVehicleType`</Source>
+                </Field>
+            </Fields>
+        </Component>
+        
+        <Component name="OrganizationInformationType">
+            <Description>Information about organizations associated with an Incident (e.g., a company, a hospital).</Description>
+            <Inherits>PrologueType</Inherits>
+            <Fields>
+                <Field name="organizationIncidentRoleRegistryText" type="array" use="required">
+                    <Description>The organization's role in the incident from the 'Organization Incident Role' registry.</Description>
+                </Field>
+                <Field name="ncOrganizationComponent" type="object" use="optional">
+                    <Description>Detailed organization information conforming to the NIEM standard, including names, locations, contact info, and identifiers.</Description>
+                    <Source>Defined by `NIEMComponents/nc.yaml#/components/schemas/ncOrganizationType`</Source>
+                </Field>
+            </Fields>
+        </Component>
+        
+        <Component name="ItemInformationType">
+            <Description>Information about an item of interest, such as a firearm, medical equipment, or other property relevant to the incident.</Description>
+            <Inherits>PrologueType</Inherits>
+            <Fields>
+                <Field name="ncItemType" type="object" use="optional">
+                    <Description>A detailed description of an article or thing, conforming to the NIEM standard. This is a generic base type that can be extended to represent specific items like firearms (`j:FirearmType`) or explosives.</Description>
+                    <Source>Defined by `NIEMComponents/nc.yaml#/components/schemas/ncItemType`</Source>
+                </Field>
+                 <Field name="locationReference" type="array" use="optional">
+                    <Description>Reference to locations where the item is or was.</Description>
+                </Field>
+            </Fields>
+        </Component>
+
+        <!-- Other key EIDO-specific components -->
+
+        <Component name="IncidentInformationType">
+            <Description>General information about an emergency incident, including its type, status, and priority.</Description>
+            <Fields>
+                <Field name="incidentTypeCommonRegistryText" type="string" use="required">
+                    <Description>A standardized incident type from the "EIDO-IncidentType-Common" registry (e.g., 'MVAINJY', 'BURGLARY').</Description>
+                </Field>
+                <Field name="incidentStatusCommonRegistryText" type="array" use="optional">
+                    <Description>The current status of the incident from the "EIDO-IncidentStatus-Common" registry (e.g., 'Active', 'ResourcesOnscene').</Description>
+                </Field>
+            </Fields>
+        </Component>
+
+        <Component name="EmergencyResourceType">
+            <Description>A responding resource, such as a patrol car, fire engine, or ambulance. The `$id` is the unique unit ID.</Description>
+            <Fields>
+                <Field name="emergencyResourceTypeCommonRegistryText" type="string" use="required">
+                    <Description>The type of resource from the "EIDO-EmergencyResourceType-Common" registry (e.g., 'PatrolUnit', 'FireTruckLadder').</Description>
+                </Field>
+                <Field name="primaryUnitStatusRegistryText" type="string" use="required">
+                    <Description>The primary availability status from the "EIDO-PrimaryUnitStatus-Common" registry ('Available', 'ConditionallyAvailable', 'NotAvailable').</Description>
+                </Field>
+                <Field name="secondaryUnitStatusRegistryText" type="array" use="required">
+                    <Description>Detailed activity status from the "EIDO-SecondaryUnitStatus-Common" registry (e.g., 'Dispatched', 'EnRoute', 'OnScene').</Description>
+                </Field>
+            </Fields>
+        </Component>
+
+    </DataComponents>
+</EIDO_Context>

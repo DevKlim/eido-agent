@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Union, Optional as TypingOptional
 from pydantic import BaseModel, Field
 import urllib.parse  # For URL decoding path parameters
 
-from data_models.schemas import Incident as PydanticIncident, ReportCoreData
+from data_models.schemas import Incident as PydanticIncident
 from agent.agent_core import eido_agent_instance
 from services.storage import IncidentStore
 from config.settings import settings
@@ -26,7 +26,7 @@ if not app_logger.hasHandlers() and not logging.getLogger().hasHandlers():
     app_logger.addHandler(handler)
 
 # Added "Tools" tag
-router = APIRouter(prefix="/api/v1", tags=["Incidents", "Tools"])
+router = APIRouter(prefix="/api/v1", tags=["Incidents", "Tools", "Geocoding"])
 
 # Models for request/response payloads
 
@@ -68,8 +68,8 @@ class LocalGeocodePayload(BaseModel):
 async def ingest_eido_report(eido_data: Dict = Body(..., example={
     "eidoMessageIdentifier": "msg_example_123", "$id": "msg_example_123",
     "sendingSystemIdentifier": "CADSystemX", "lastUpdateTimeStamp": "2024-10-26T10:00:00Z",
-    "incidentComponent": [{"componentIdentifier": "inc_123", "incidentTrackingIdentifier": "FIRE2024-001", "lastUpdateTimeStamp": "2024-10-26T10:00:00Z", "incidentTypeCommonRegistryText": "Structure Fire", "locationReference": "$ref:loc_123"}],
-    "locationComponent": [{"$id": "loc_123", "componentIdentifier": "loc_123", "locationByValue": "<?xml version='1.0' encoding='UTF-8'?><location><civicAddressText>123 University Ave, Springfield, IL 62704</civicAddressText><gml:Point xmlns:gml='http://www.opengis.net/gml'><gml:pos>39.8010 -89.6437</gml:pos></gml:Point></location>"}],
+    "incidentComponent": [{"componentIdentifier": "inc_123", "incidentTrackingIdentifier": "FIRE2024-001", "lastUpdateTimeStamp": "2024-10-26T10:00:00Z", "incidentTypeCommonRegistryText": "Structure Fire", "locationReference": {"$ref": "loc_123"}}],
+    "locationComponent": [{"$id": "loc_123", "componentIdentifier": "loc_123", "locationAddressText": "123 University Ave, Springfield, IL 62704"}],
     "notesComponent": [{"componentIdentifier": "note_123", "noteDateTimeStamp": "2024-10-26T10:00:05Z", "noteText": "Caller reports smoke..."}]
 })):
     msg_id_hint = eido_data.get(
@@ -112,14 +112,14 @@ async def ingest_alert_text_endpoint(payload: AlertTextPayload, response: Respon
     try:
         results_union: Union[Dict, List[Dict]] = await eido_agent_instance.process_alert_text(alert_text)
 
-        results_list: List[Dict] = [results_union] if isinstance(results_union, dict) else (
+        results_list: List[Dict] = [results_union] if isinstance(results_union, dict) and results_union else (
             results_union if isinstance(results_union, list) else [])
 
         if not results_list:
             app_logger.error(
                 "API /ingest_alert: Agent returned no results for the alert text.")
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                                detail="Agent processing yielded no results.")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                detail="Agent processing failed. The text could not be understood or parsed into any known event format. Please check the text or server logs.")
 
         all_successful = True
         some_successful = False
@@ -144,26 +144,17 @@ async def ingest_alert_text_endpoint(payload: AlertTextPayload, response: Respon
             "details": results_list
         }
 
-        # Set the response code based on the outcome
         if all_successful:
             response.status_code = status.HTTP_201_CREATED
         elif some_successful:
             response.status_code = status.HTTP_207_MULTI_STATUS
         else:
-            # All events failed. Provide a more specific error message.
             first_error_message = "All events failed to process. Check server logs for details."
             if results_list and isinstance(results_list[0], dict):
-                # Get the specific error from the agent's response
                 first_error_message = results_list[0].get('status', first_error_message)
-
-            if "llm" in first_error_message.lower() or "parse" in first_error_message.lower():
-                detail_message = f"AI processing failed. The model may not have understood the input. Please try again or rephrase the text. (Agent message: {first_error_message})"
-            else:
-                detail_message = f"Input could not be processed. Reason: {first_error_message}"
-
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=detail_message,
+                detail=f"Input could not be processed. Reason: {first_error_message}",
             )
 
         return response_data
@@ -201,7 +192,7 @@ async def get_incident_details_endpoint(incident_id: str):
                         detail=f"Incident with ID '{incident_id}' not found.")
 
 
-@router.put("/incidents/{incident_id}/status", summary="Update incident status", tags=["Incidents", "Admin"], responses={404: {"description": "Incident not found"}, 400: {"description": "Invalid status"}})
+@router.put("/incidents/{incident_id}/status", summary="Update incident status", tags=["Incidents"], responses={404: {"description": "Incident not found"}, 400: {"description": "Invalid status"}})
 async def update_incident_status_endpoint(incident_id: str, payload: StatusUpdatePayload):
     new_status = payload.status
     app_logger.info(
@@ -232,7 +223,7 @@ async def clear_incident_store_endpoint():
         "API request received to clear the entire incident store.")
     try:
         await db_incident_store.clear_store()
-        return {"message": f"Incident store cleared successfully."}
+        return {"message": "Incident store cleared successfully."}
     except Exception as e:
         app_logger.error(
             f"Failed to clear incident store via API: {e}", exc_info=True)
@@ -243,7 +234,7 @@ async def clear_incident_store_endpoint():
 @router.post("/generate_eido_from_template",
              summary="Generate EIDO JSON from template and scenario",
              response_description="Generated EIDO JSON string or error",
-             tags=["Tools"])  # Changed tag
+             tags=["Tools"])
 async def generate_eido_from_template_endpoint(payload: EidoTemplateFillPayload):
     app_logger.info(
         f"API /generate_eido_from_template called for template: {payload.template_name}")
@@ -264,8 +255,9 @@ async def generate_eido_from_template_endpoint(payload: EidoTemplateFillPayload)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="Error reading template file.")
 
-    generated_json_str = fill_eido_template(
+    generated_json_str = await fill_eido_template(
         template_content, payload.scenario_description)
+        
     if generated_json_str:
         try:
             parsed_json = json.loads(generated_json_str)
@@ -309,11 +301,9 @@ async def list_local_geocode_entries():
     return local_geocoder.get_all_known_locations()
 
 
-@router.delete("/tools/geocoding/local_store/{location_name}", summary="Remove a location from the local geocoder store", tags=["Tools", "Geocoding"])
+@router.delete("/tools/geocoding/local_store/{location_name}", summary="Remove a location from the local geocoder store", tags=["Tools", "Geocoding"], status_code=status.HTTP_204_NO_CONTENT)
 async def delete_local_geocode_entry(location_name: str):
-    # Path parameters are URL-encoded by clients like browsers or `requests` if they contain special characters.
-    # FastAPI/Starlette usually handle this decoding automatically. If issues arise, manual decoding might be needed.
-    # For robustness, let's explicitly decode.
+    # Path parameters can be URL-encoded by clients. This decoding makes the endpoint robust.
     try:
         decoded_location_name = urllib.parse.unquote(location_name)
     except Exception as e:
@@ -325,7 +315,8 @@ async def delete_local_geocode_entry(location_name: str):
         f"API request to delete local geocode entry: {decoded_location_name}")
     success = local_geocoder.remove_known_location(decoded_location_name)
     if success:
-        return {"message": f"Location '{decoded_location_name}' removed from local store."}
+        # Return a 204 No Content response, standard for successful DELETE operations
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Location '{decoded_location_name}' not found in local store or removal failed.")

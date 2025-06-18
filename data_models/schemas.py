@@ -103,7 +103,7 @@ class Incident(BaseModel):
         if self.last_updated_at is None or report_ts > self.last_updated_at:
             self.last_updated_at = report_ts
 
-        if core_data.incident_type and (not self.incident_type or self.incident_type == "Unknown" or self.incident_type == "Unknown - Parsed Alert"):
+        if core_data.incident_type and (not self.incident_type or self.incident_type.lower() == "unknown" or "parsed" in self.incident_type.lower()):
             self.incident_type = core_data.incident_type
 
         if core_data.coordinates and isinstance(core_data.coordinates, tuple) and len(core_data.coordinates) == 2:

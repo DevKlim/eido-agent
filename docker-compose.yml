@@ -13,6 +13,8 @@ services:
       - API_PORT=8000
       # Pass DATABASE_URL from the .env file to the container
       - DATABASE_URL=${DATABASE_URL}
+      # Set an environment variable to indicate running in Docker
+      - DOCKER_ENV=true
     volumes:
       # Persist the SQLite database and geocoding store on the host machine
       - ./data:/app/data
@@ -43,6 +45,8 @@ services:
       # 'api' is the service name defined above, accessible on the Docker network.
       - API_BASE_URL=http://api:8000
       - STREAMLIT_SERVER_PORT=8501
+      # Set an environment variable to indicate running in Docker
+      - DOCKER_ENV=true
     ports:
       - "8501:8501"
     networks:

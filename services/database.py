@@ -89,21 +89,26 @@ class IncidentDB(Base):
 
 async def init_db():
     """
-    Drops all existing tables and recreates them based on the current models.
-    This is a destructive operation suitable for development or stateless deployments.
+    Creates tables if they do not exist. In a development environment,
+    you might uncomment the drop_all line to reset the DB on each start.
+    For production, drop_all should always be commented out to ensure data persistence.
     """
     if not engine:
         logger.critical(
             "Database engine is not initialized. Cannot run init_db().")
         return
     async with engine.begin() as conn:
-        logger.warning("Dropping all existing database tables...")
-        await conn.run_sync(Base.metadata.drop_all)
-        logger.info("All tables dropped successfully.")
+        # The following line is DESTRUCTIVE and should be commented out for production
+        # to ensure data persistence across restarts.
+        # logger.warning("Dropping all existing database tables...")
+        # await conn.run_sync(Base.metadata.drop_all)
+        # logger.info("All tables dropped successfully.")
         
-        logger.info("Creating all tables from current models...")
+        logger.info("Ensuring all tables exist in the database...")
+        # create_all with checkfirst=True (default) is safe and non-destructive.
+        # It will only create tables that do not already exist.
         await conn.run_sync(Base.metadata.create_all)
-        logger.info("All tables created successfully.")
+        logger.info("Database table check/creation complete.")
 
 
 @asynccontextmanager

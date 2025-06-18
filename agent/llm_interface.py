@@ -268,21 +268,31 @@ def generate_incident_name(incident_type: str, location: str, summary: str) -> O
 
 
 def fill_eido_template(template_str: str, scenario_desc: str) -> Optional[str]:
+    """
+    Populates an EIDO JSON template based on a scenario description, using RAG for context.
+    """
     if not template_str or not scenario_desc:
         return None
+        
     rag_query = f"EIDO schema definitions relevant to: {scenario_desc[:150]}"
     retrieved_chunks = eido_retriever.retrieve_context(rag_query, top_k=3)
     retrieved_context_str = "\n\n**Relevant EIDO Schema Context:**\n---\n" + \
         "\n---\n".join(retrieved_chunks) + "\n---" if retrieved_chunks else ""
+        
     prompt = PROMPTS['FILL_EIDO_TEMPLATE'].format(
-        retrieved_context_str=retrieved_context_str, scenario_desc=scenario_desc, template_str=template_str)
+        retrieved_context_str=retrieved_context_str, 
+        scenario_desc=scenario_desc, 
+        template_str=template_str
+    )
 
     response_text = _call_llm(prompt, is_json_output=True)
     return _clean_json_response(response_text)
 
 
 def choose_eido_template(alert_text: str, template_summaries_str: str) -> Optional[str]:
-    """Given an alert text and a list of template summaries, chooses the best template filename."""
+    """
+    Given an alert text and a list of template summaries, chooses the best template filename.
+    """
     if not alert_text or not template_summaries_str:
         return None
 
@@ -293,18 +303,15 @@ def choose_eido_template(alert_text: str, template_summaries_str: str) -> Option
     logger.debug(
         f"Calling LLM to choose an EIDO template for alert: '{alert_text[:50]}...'")
 
-    # The output is a simple string, not JSON
     response_text = _call_llm(prompt, is_json_output=False)
 
     if response_text:
-        # Clean up the response to get just the filename or NONE
         cleaned_response = response_text.strip().replace(
             '`', '').replace('"', '').replace("'", "")
         if cleaned_response.upper() == 'NONE':
             logger.info(
                 "LLM determined no suitable EIDO template for the alert.")
             return None
-        # Basic check to see if it looks like a filename
         if ".json" in cleaned_response:
             logger.info(f"LLM chose EIDO template: {cleaned_response}")
             return cleaned_response
@@ -316,6 +323,10 @@ def choose_eido_template(alert_text: str, template_summaries_str: str) -> Option
 
 
 def extract_eido_from_alert_text(alert_text: str) -> Optional[str]:
+    """
+    DEPRECATED in favor of choose-then-fill pipeline. Kept for potential fallback or alternative flows.
+    Parses a single alert text message directly into a structured JSON object using an LLM.
+    """
     rag_query = f"EIDO schema fields for parsing: {alert_text[:150]}"
     retrieved_chunks = eido_retriever.retrieve_context(rag_query, top_k=3)
     retrieved_context_str = "\n\n**Relevant EIDO Schema Context:**\n---\n" + \

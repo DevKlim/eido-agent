@@ -12,7 +12,7 @@ from services import local_geocoder
 from agent.matching import find_match_for_report
 from agent.llm_interface import (
     summarize_incident, recommend_actions, split_raw_text_into_events,
-    extract_eido_from_alert_text, generate_incident_name
+    generate_incident_name
 )
 from services.advanced_geocoding_service import get_advanced_geocoding_service, CONFIDENCE_HIGH, CONFIDENCE_MEDIUM, CONFIDENCE_NONE
 from utils.helpers import parse_civic_address_from_pidf, format_address_from_components
@@ -205,7 +205,6 @@ class EidoAgent:
                 zip_code=zip_code, source=source_agency_name, original_document_id=message_id,
                 original_eido_dict=eido_dict
             )
-            # FIX: Assign extra fields directly to the instance, not to model_extra
             # This works because ConfigDict has extra='allow' in schemas.py
             if location_narrative_for_geocoding:
                 core_data.location_narrative_for_geocoding = location_narrative_for_geocoding  # type: ignore
@@ -224,7 +223,6 @@ class EidoAgent:
         if not core_data.coordinates:
             logger.info(
                 f"Msg {message_id}: Coordinates not found. Attempting advanced geocoding.")
-            # FIX: Safely get the extra attribute
             narrative = getattr(
                 core_data, 'location_narrative_for_geocoding', None)
             text_for_geocoding = narrative or core_data.description
@@ -300,9 +298,9 @@ class EidoAgent:
         return await self._process_core_data(core_data)
 
     async def process_alert_text(self, alert_text: str) -> Union[Dict, List[Dict]]:
-        """Processes raw alert text by extracting structured data and creating ReportCoreData directly."""
+        """Processes raw alert text by creating a full EIDO dict first, then processing it."""
         logger.info(
-            "--- Processing Raw Alert Text Block (New, Robust Pipeline) ---")
+            "--- Processing Raw Alert Text Block (New Template Pipeline) ---")
         if not alert_text or not isinstance(alert_text, str):
             return [{"status": "Input Error: Alert text cannot be empty."}]
 
@@ -314,22 +312,21 @@ class EidoAgent:
             if not single_event_text.strip():
                 continue
 
-            # This now calls the alert_parser, which creates a full EIDO-like dictionary.
-            # This is a more robust pattern, centralizing the parsing logic.
+            # This now calls the refactored alert_parser, which creates a full EIDO-like dictionary.
             eido_dict = parse_alert_to_eido_dict(single_event_text)
 
             if not eido_dict:
                 logger.error(
-                    f"Event {i+1}: Failed to parse alert text into an EIDO-like dictionary.")
+                    f"Event {i+1}: Failed to parse alert text into an EIDO-like dictionary using the template pipeline.")
                 results.append(
-                    {"status": "Failed processing: Could not parse text with LLM.", "source_event_index": i + 1})
+                    {"status": "Failed processing: Could not generate EIDO from text.", "source_event_index": i + 1})
                 continue
 
             message_id = eido_dict.get('eidoMessageIdentifier', eido_dict.get(
                 '$id', f"llm_parsed_{str(uuid.uuid4())[:8]}"))
             try:
                 # The alert_parser has already created a compatible dictionary.
-                # Now we process it just like a regular EIDO JSON.
+                # Now we process it just like a regular EIDO JSON by extracting core data.
                 core_data = self._extract_core_data_from_dict(eido_dict)
                 if not core_data:
                     logger.error(

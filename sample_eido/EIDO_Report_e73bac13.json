@@ -1,0 +1,57 @@
+{
+  "$id": "urn:uuid:1a2b3c4d-5e6f-7890-abcd-ef0123456789",
+  "messageKind": "Alert",
+  "notesComponent": [
+    {
+      "noteText": "Fire is 5 acres, slow to moderate spread primarily burning in Mexico.",
+      "authorReference": {
+        "$ref": "person-aabbccdd-eeff-0011-2233-445566778899"
+      },
+      "noteDateTimeStamp": "2024-05-15T10:30:00-07:00",
+      "componentIdentifier": "note-98765432-10fe-dcba-9876-543210fedcba"
+    }
+  ],
+  "agencyComponent": [
+    {
+      "$id": "agency-11223344-5566-7788-99aa-bbccddeeff00",
+      "agencyName": "CALFIRESANDIEGO",
+      "agencyIdentifier": "urn:nena:agency:calfire.sandiego"
+    }
+  ],
+  "personComponent": [
+    {
+      "$id": "person-aabbccdd-eeff-0011-2233-445566778899",
+      "personNameText": "CALFIRESANDIEGO",
+      "personIdentifier": "CALFIRESANDIEGO_AlertSystem"
+    }
+  ],
+  "incidentComponent": [
+    {
+      "locationReference": {
+        "$ref": "loc-8a7b6c5d-4e3f-2109-fedc-ba9876543210"
+      },
+      "componentIdentifier": "inc-0a1b2c3d-4e5f-6789-0abc-def012345678",
+      "lastUpdateTimeStamp": "2024-05-15T10:30:00-07:00",
+      "updatedByAgencyReference": {
+        "$ref": "agency-11223344-5566-7788-99aa-bbccddeeff00"
+      },
+      "incidentTrackingIdentifier": "Border6Fire",
+      "incidentTypeCommonRegistryText": "Vegetation Fire",
+      "incidentStatusCommonRegistryText": "Contained"
+    }
+  ],
+  "locationComponent": [
+    {
+      "$id": "loc-8a7b6c5d-4e3f-2109-fedc-ba9876543210",
+      "locationByValue": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<location xmlns:gml=\"http://www.opengis.net/gml\" xmlns:ca=\"urn:ietf:params:xml:ns:pidf:geopriv10:civicAddr\">\n  <gml:Point srsName=\"urn:ogc:def:crs:EPSG::4326\">\n    <gml:pos>32.590 -116.495</gml:pos>\n  </gml:Point>\n  <ca:civicAddress>\n    <ca:country>US</ca:country>\n    <ca:A1>CA</ca:A1>\n    <ca:A3>Campo</ca:A3>\n    <ca:LOC>U.S./Mexico border just west of Forrest Gate Rd</ca:LOC>\n    <ca:PC>91906</ca:PC>\n  </ca:civicAddress>\n  <civicAddressText>U.S./Mexico border just west of Forrest Gate Rd, Campo, CA 91906</civicAddressText>\n  <locationNotes>No immediate road impact noted on US side; fire primarily burning in Mexico.</locationNotes>\n</location>",
+      "componentIdentifier": "loc-8a7b6c5d-4e3f-2109-fedc-ba9876543210",
+      "lastUpdateTimeStamp": "2024-05-15T10:30:00-07:00",
+      "updatedByAgencyReference": {
+        "$ref": "agency-11223344-5566-7788-99aa-bbccddeeff00"
+      }
+    }
+  ],
+  "lastUpdateTimeStamp": "2024-05-15T10:30:00-07:00",
+  "eidoMessageIdentifier": "urn:uuid:1a2b3c4d-5e6f-7890-abcd-ef0123456789",
+  "sendingSystemIdentifier": "urn:nena:agency:calfire.sandiego"
+}

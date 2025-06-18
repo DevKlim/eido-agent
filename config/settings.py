@@ -24,7 +24,7 @@ class FallbackSettings(BaseModel):
                        'WARNING', 'ERROR', 'CRITICAL'] = "INFO"
     llm_provider: Literal['google', 'openrouter', 'local', 'none'] = "none"
     google_api_key: Optional[str] = None
-    google_model_name: str = "gemini-2.5-flash-preview-05-02"
+    google_model_name: str = "gemini-1.5-flash-latest"
     openrouter_api_key: Optional[str] = None
     openrouter_model_name: Optional[str] = "openai/gpt-4o-mini"
     openrouter_api_base_url: str = "https://openrouter.ai/api/v1"
@@ -32,7 +32,7 @@ class FallbackSettings(BaseModel):
     local_llm_model_name: Optional[str] = "llama3:latest"
     local_llm_api_key: Optional[str] = "ollama"
     embedding_model_name: str = "all-MiniLM-L6-v2"
-    geocoding_user_agent: str = "EidoSentinelApp/0.9 (klimentlamh@gmail.com)"
+    geocoding_user_agent: str = "EidoSentinelApp/1.0 (contact@example.com)"
     similarity_threshold: float = 0.70
     time_window_minutes: int = 60
     distance_threshold_km: float = 1.0
@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     google_api_key: Optional[str] = Field(
         None, validation_alias='GOOGLE_API_KEY')
     google_model_name: str = Field(
-        "gemini-2.5-flash-05-20", validation_alias='GOOGLE_MODEL_NAME')
+        "gemini-1.5-flash-latest", validation_alias='GOOGLE_MODEL_NAME')
     openrouter_api_key: Optional[str] = Field(
         None, validation_alias='OPENROUTER_API_KEY')
     openrouter_model_name: Optional[str] = Field(
@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     embedding_model_name: str = Field(
         "all-MiniLM-L6-v2", validation_alias='EMBEDDING_MODEL_NAME')
     geocoding_user_agent: str = Field(
-        "EidoSentinelApp/0.9.1 (contact: your_email@example.com)", validation_alias='GEOCODING_USER_AGENT')
+        "EidoSentinelApp/1.0 (contact: your_email@example.com)", validation_alias='GEOCODING_USER_AGENT')
     similarity_threshold: float = Field(
         0.70, ge=0.0, le=1.0, validation_alias='SIMILARITY_THRESHOLD')
     time_window_minutes: int = Field(
@@ -117,9 +117,8 @@ class Settings(BaseSettings):
             settings_logger.error(
                 "CRITICAL: DATABASE_URL is not set. The application cannot connect to the database.")
         else:
-            # --- Fly.io PostgreSQL + asyncpg compatibility fix ---
-            # This block comes BEFORE the scheme replacement.
-            # It removes the `sslmode` query parameter which is not compatible with `asyncpg`.
+            # --- NeonDB/Fly.io PostgreSQL + asyncpg compatibility fix ---
+            # This block removes the `sslmode` query parameter which is not compatible with `asyncpg`.
             if "postgresql" in self.database_url:
                 try:
                     parsed_url = urlparse(self.database_url)
