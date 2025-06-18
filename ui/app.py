@@ -24,7 +24,7 @@ except FileNotFoundError:
 
 st.set_page_config(
     layout="wide",
-    page_title="EIDO Sentinel | AI Incident Processor",
+    page_title="EIDO Sentinel | Agentic Incident Processor",
     page_icon=page_icon_img,
     initial_sidebar_state="expanded",
     menu_items={
@@ -399,9 +399,9 @@ def render_incident_details():
         c2.metric("Incident Type", incident.incident_type or "N/A")
         c3.metric("# of Reports", len(incident.reports_core_data))
         st.divider()
-        st.markdown("##### **AI-Generated Summary**")
+        st.markdown("##### **Summary**")
         st.info(incident.summary or "_No summary generated._")
-        st.markdown("##### **AI-Recommended Next Actions**")
+        st.markdown("##### **Next Actions**")
         st.markdown("\n".join(f"- {action}" for action in incident.recommended_actions) or "_No actions recommended._")
         st.divider()
         with st.expander("**Location Information**", expanded=True):

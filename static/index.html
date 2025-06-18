@@ -1,182 +1,293 @@
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EIDO Sentinel</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" href="/static/images/favicon.png">
-</head>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="/static/images/favicon.png" />
+  </head>
 
-<body>
+  <body>
     <nav class="navbar">
-        <div class="container nav-container">
-            <a href="#hero" class="nav-logo animate-on-scroll">
-                <img src="/static/images/logo_icon_light.png" alt="EIDO Sentinel Logo" class="logo-img"> EIDO Sentinel
-            </a>
-            <ul class="nav-menu">
-                <li><a href="#platform" class="animate-on-scroll nav-link">Platform</a></li>
-                <li><a href="#solutions" class="animate-on-scroll nav-link">Solutions</a></li>
-                <li><a href="#collaboration" class="animate-on-scroll nav-link">Collaborate</a></li>
-                <li><a href="#capabilities" class="animate-on-scroll nav-link">Capabilities</a></li>
-                <li><a href="https://eido-sentinel.streamlit.app" target="_blank"
-                        class="btn btn-nav animate-on-scroll">Launch Demo</a></li>
-            </ul>
-            <button class="hamburger" aria-label="Toggle menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-        </div>
+      <div class="container nav-container">
+        <a href="#hero" class="nav-logo animate-on-scroll">
+          <img
+            src="/static/images/logo_icon_light.png"
+            alt="EIDO Sentinel Logo"
+            class="logo-img"
+          />
+          EIDO Sentinel
+        </a>
+        <ul class="nav-menu">
+          <li>
+            <a href="#platform" class="animate-on-scroll nav-link">Platform</a>
+          </li>
+          <li>
+            <a href="#solutions" class="animate-on-scroll nav-link"
+              >Solutions</a
+            >
+          </li>
+          <li>
+            <a href="#collaboration" class="animate-on-scroll nav-link"
+              >Collaborate</a
+            >
+          </li>
+          <li>
+            <a href="#capabilities" class="animate-on-scroll nav-link"
+              >Capabilities</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://eido-sentinel.streamlit.app"
+              target="_blank"
+              class="btn btn-nav animate-on-scroll"
+              >Launch Demo</a
+            >
+          </li>
+        </ul>
+        <button class="hamburger" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
     </nav>
 
     <div id="sentinel-node-canvas-container"></div>
 
-    <header id="hero" class="hero-section content-section" data-section-id="hero">
-        <video autoplay muted loop playsinline id="hero-video-background">
-            <source src="/static/videos/hero_background.mp4" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-        <div class="hero-overlay"></div>
-        <div class="container hero-content-container">
-            <div class="hero-text-content">
-                <h1 class="animate-hero-title">Agentic Automation for Public Safety</h1>
-                <p class="animate-hero-subtitle lead">EIDO Sentinel fuses diverse data streams with advanced AI to
-                    deliver
-                    instant EIDO conversion and analytical tools, empowering safety professionals to make faster,
-                    data-driven decisions when it matters
-                    most.</p>
-                <div class="hero-buttons">
-                    <a href="https://your-streamlit-app-name.streamlit.app" target="_blank"
-                        class="btn btn-primary animate-hero-button">Explore the Platform</a>
-                    <a href="#solutions" class="btn btn-secondary animate-hero-button">Discover Solutions</a>
-                </div>
-            </div>
+    <header
+      id="hero"
+      class="hero-section content-section"
+      data-section-id="hero"
+    >
+      <video autoplay muted loop playsinline id="hero-video-background">
+        <source src="/static/videos/hero_background.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+      <div class="hero-overlay"></div>
+      <div class="container hero-content-container">
+        <div class="hero-text-content">
+          <h1 class="animate-hero-title">
+            Agentic Automation for Public Safety
+          </h1>
+          <p class="animate-hero-subtitle lead">
+            EIDO Sentinel fuses diverse data streams with advanced AI to deliver
+            instant EIDO conversion and analytical tools, empowering safety
+            professionals to make faster, data-driven decisions when it matters
+            most.
+          </p>
+          <div class="hero-buttons">
+            <a
+              href="https://your-streamlit-app-name.streamlit.app"
+              target="_blank"
+              class="btn btn-primary animate-hero-button"
+              >Explore the Platform</a
+            >
+            <a href="#solutions" class="btn btn-secondary animate-hero-button"
+              >Discover Solutions</a
+            >
+          </div>
         </div>
+      </div>
     </header>
 
     <main>
-        <section id="platform" class="content-section two-column-layout" data-section-id="platform">
-            <div class="container section-container">
-                <div class="text-content-column">
-                    <h2 class="animate-on-scroll">Unified Intelligence</h2>
-                    <p class="lead animate-on-scroll">
-                        EIDO Sentinel: an AI-native platform transforming complex public safety data into actionable,
-                        NENA-compliant intelligence. Engineered for proactive response and strategic insight.
-                    </p>
-                    <div class="visual-placeholder animate-on-scroll">
-                        <img src="/static/images/conceptual_diagram_placeholder.png"
-                            alt="EIDO Sentinel fusing data from various sources into a central intelligence hub.">
-                        <p><em>Dual-agentic core for intelligent processing.</em></p>
-                    </div>
-                </div>
+      <section
+        id="platform"
+        class="content-section two-column-layout"
+        data-section-id="platform"
+      >
+        <div class="container section-container">
+          <div class="text-content-column">
+            <h2 class="animate-on-scroll">Unified Intelligence</h2>
+            <p class="lead animate-on-scroll">
+              EIDO Sentinel: an AI-native platform transforming complex public
+              safety data into actionable, NENA-compliant intelligence.
+              Engineered for proactive response and strategic insight.
+            </p>
+            <div class="visual-placeholder animate-on-scroll">
+              <img
+                src="/static/images/conceptual_diagram_placeholder.png"
+                alt="EIDO Sentinel fusing data from various sources into a central intelligence hub."
+              />
+              <p><em>Dual-agentic core for intelligent processing.</em></p>
             </div>
-        </section>
+          </div>
+        </div>
+      </section>
 
-        <section id="solutions" class="content-section alt-bg two-column-layout" data-section-id="solutions">
-            <div class="container section-container">
-                <div class="text-content-column">
-                    <h2 class="animate-on-scroll">AI-Driven Solutions</h2>
-                    <p class="lead animate-on-scroll">Targeted AI applications addressing key operational needs in
-                        emergency response and incident management.</p>
-                    <div class="features-grid">
-                        <div class="feature-card animate-on-scroll" data-feature-id="historical">
-                            <div class="feature-icon"></div>
-                            <h3>Historical Insight Engine</h3>
-                            <p>Unlock patterns from historical data for predictive insights and enhanced awareness.</p>
-                        </div>
-                        <div class="feature-card animate-on-scroll" style="--animation-order: 1;"
-                            data-feature-id="realtime">
-                            <div class="feature-icon"></div>
-                            <h3>Real-Time Event Correlation</h3>
-                            <p>Ingest live feeds for immediate event correlation and heightened situational awareness.
-                            </p>
-                        </div>
-                        <div class="feature-card animate-on-scroll" style="--animation-order: 2;"
-                            data-feature-id="interoperability">
-                            <div class="feature-icon"></div>
-                            <h3>EIDO Interoperability Suite</h3>
-                            <p>Seamlessly convert disparate data formats into NENA-compliant EIDO.</p>
-                        </div>
-                        {/* More cards... */}
-                    </div>
-                </div>
+      <section
+        id="solutions"
+        class="content-section alt-bg two-column-layout"
+        data-section-id="solutions"
+      >
+        <div class="container section-container">
+          <div class="text-content-column">
+            <h2 class="animate-on-scroll">AI-Driven Solutions</h2>
+            <p class="lead animate-on-scroll">
+              Targeted AI applications addressing key operational needs in
+              emergency response and incident management.
+            </p>
+            <div class="features-grid">
+              <div
+                class="feature-card animate-on-scroll"
+                data-feature-id="historical"
+              >
+                <div class="feature-icon"></div>
+                <h3>Historical Insight Engine</h3>
+                <p>
+                  Unlock patterns from historical data for predictive insights
+                  and enhanced awareness.
+                </p>
+              </div>
+              <div
+                class="feature-card animate-on-scroll"
+                style="--animation-order: 1"
+                data-feature-id="realtime"
+              >
+                <div class="feature-icon"></div>
+                <h3>Real-Time Event Correlation</h3>
+                <p>
+                  Ingest live feeds for immediate event correlation and
+                  heightened situational awareness.
+                </p>
+              </div>
+              <div
+                class="feature-card animate-on-scroll"
+                style="--animation-order: 2"
+                data-feature-id="interoperability"
+              >
+                <div class="feature-icon"></div>
+                <h3>EIDO Interoperability Suite</h3>
+                <p>
+                  Seamlessly convert disparate data formats into NENA-compliant
+                  EIDO.
+                </p>
+              </div>
+              {/* More cards... */}
             </div>
-        </section>
+          </div>
+        </div>
+      </section>
 
-        <section id="collaboration" class="content-section collaboration-section two-column-layout"
-            data-section-id="collaboration">
-            <div class="container section-container">
-                <div class="text-content-column">
-                    <h2 class="animate-on-scroll">Partner with Us</h2>
-                    <p class="lead animate-on-scroll">Advance public safety AI together. We seek partners to shape the
-                        next generation of emergency response technology.</p>
-                    <div class="implications-grid">
-                        <div class="implication-card animate-on-scroll full-width-card">
-                            <div class="implication-icon"></div>
-                            <h3>Engage with Our Development</h3>
-                            <div class="card-content">
-                                <p><strong>Operational Alignment:</strong> Integrate with your workflows & NG9-1-1
-                                    strategies.</p>
-                                <p><strong>Challenge Identification:</strong> Solve key pain points in data processing
-                                    and alerting.</p>
-                                <p><strong>Automation Potential:</strong> Identify tasks ripe for AI-driven automation.
-                                </p>
-                                <p style="text-align: center; margin-top: 25px;">
-                                    <a href="mailto:contact@eidosentinel.example.com?subject=EIDO%20Sentinel%20Collaboration%20Inquiry"
-                                        class="btn btn-primary">Discuss a Partnership</a>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+      <section
+        id="collaboration"
+        class="content-section collaboration-section two-column-layout"
+        data-section-id="collaboration"
+      >
+        <div class="container section-container">
+          <div class="text-content-column">
+            <h2 class="animate-on-scroll">Partner with Us</h2>
+            <p class="lead animate-on-scroll">
+              Advance public safety AI together. We seek partners to shape the
+              next generation of emergency response technology.
+            </p>
+            <div class="implications-grid">
+              <div class="implication-card animate-on-scroll full-width-card">
+                <div class="implication-icon"></div>
+                <h3>Engage with Our Development</h3>
+                <div class="card-content">
+                  <p>
+                    <strong>Operational Alignment:</strong> Integrate with your
+                    workflows & NG9-1-1 strategies.
+                  </p>
+                  <p>
+                    <strong>Challenge Identification:</strong> Solve key pain
+                    points in data processing and alerting.
+                  </p>
+                  <p>
+                    <strong>Automation Potential:</strong> Identify tasks ripe
+                    for AI-driven automation.
+                  </p>
+                  <p style="text-align: center; margin-top: 25px">
+                    <a
+                      href="mailto:contact@eidosentinel.example.com?subject=EIDO%20Sentinel%20Collaboration%20Inquiry"
+                      class="btn btn-primary"
+                      >Discuss a Partnership</a
+                    >
+                  </p>
                 </div>
+              </div>
             </div>
-        </section>
+          </div>
+        </div>
+      </section>
 
-        <section id="capabilities" class="content-section alt-bg two-column-layout" data-section-id="capabilities">
-            <div class="container section-container">
-                <div class="text-content-column">
-                    <h2 class="animate-on-scroll">Core Platform Capabilities</h2>
-                    <p class="lead animate-on-scroll">A foundation of powerful features for intelligent data processing
-                        and operational support.</p>
-                    <div class="features-grid">
-                        <div class="feature-card animate-on-scroll" data-feature-id="ingestion">
-                            <div class="feature-icon"></div>
-                            <h3>Multi-Source Data Ingestion</h3>
-                            <p>Processes EIDO JSON, text alerts, and OCR image text into a unified pipeline.</p>
-                        </div>
-                        <div class="feature-card animate-on-scroll" style="--animation-order: 1;"
-                            data-feature-id="parsing">
-                            <div class="feature-icon"></div>
-                            <h3>AI-Powered Semantic Parsing</h3>
-                            <p>LLMs extract key entities, enhanced by RAG for domain accuracy.</p>
-                        </div>
-                        {/* More cards... */}
-                    </div>
-                </div>
+      <section
+        id="capabilities"
+        class="content-section alt-bg two-column-layout"
+        data-section-id="capabilities"
+      >
+        <div class="container section-container">
+          <div class="text-content-column">
+            <h2 class="animate-on-scroll">Core Platform Capabilities</h2>
+            <p class="lead animate-on-scroll">
+              A foundation of powerful features for intelligent data processing
+              and operational support.
+            </p>
+            <div class="features-grid">
+              <div
+                class="feature-card animate-on-scroll"
+                data-feature-id="ingestion"
+              >
+                <div class="feature-icon"></div>
+                <h3>Multi-Source Data Ingestion</h3>
+                <p>
+                  Processes EIDO JSON, text alerts, and OCR image text into a
+                  unified pipeline.
+                </p>
+              </div>
+              <div
+                class="feature-card animate-on-scroll"
+                style="--animation-order: 1"
+                data-feature-id="parsing"
+              >
+                <div class="feature-icon"></div>
+                <h3>AI-Powered Semantic Parsing</h3>
+                <p>
+                  LLMs extract key entities, enhanced by RAG for domain
+                  accuracy.
+                </p>
+              </div>
+              {/* More cards... */}
             </div>
-        </section>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer class="footer-section">
-        <div class="container">
-            <p>&copy; 2024 EIDO Sentinel Project. Licensed under the MIT License.</p>
-            <p>EIDO Sentinel is a research and development initiative. Not for operational deployment without rigorous
-                validation.</p>
-            <div class="external-links">
-                <a href="https://www.linkedin.com/in/klh005" target="_blank">LinkedIn</a> |
-                <a href="https://github.com/DevKlim/eido-agent" target="_blank">GitHub</a> |
-                <a href="https://www.sdsc.edu" target="_blank">UCSD SDSC</a>
-            </div>
+      <div class="container">
+        <p>
+          &copy; 2024 EIDO Sentinel Project. Licensed under the MIT License.
+        </p>
+        <p>
+          EIDO Sentinel is a research and development initiative. Not for
+          operational deployment without rigorous validation.
+        </p>
+        <div class="external-links">
+          <a href="https://www.linkedin.com/in/klh005" target="_blank"
+            >LinkedIn</a
+          >
+          |
+          <a href="https://github.com/DevKlim/eido-agent" target="_blank"
+            >GitHub</a
+          >
+          |
+          <a href="https://www.sdsc.edu" target="_blank">UCSD SDSC</a>
         </div>
+      </div>
     </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="/static/js/3d-scene.js"></script>
     <script src="/static/js/main.js"></script>
-</body>
-
+  </body>
 </html>
