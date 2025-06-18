@@ -13,7 +13,14 @@ if [ "$COMMAND" = "api" ]; then
     # Bind to 0.0.0.0 to be accessible from outside the container.
     # Use the PORT environment variable if set by the platform, otherwise default to 8000.
     log_level_lower=$(echo "${LOG_LEVEL:-info}" | tr '[:upper:]' '[:lower:]')
-    exec uvicorn api.main:app --host 0.0.0.0 --port "${PORT:-8000}" --log-level "$log_level_lower"
+    
+    # Define the command and print it for debugging
+    UVICORN_CMD="uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level $log_level_lower"
+    echo "--- WILL EXECUTE COMMAND ---"
+    echo "$UVICORN_CMD"
+    echo "----------------------------"
+
+    exec $UVICORN_CMD
 
 elif [ "$COMMAND" = "ui" ]; then
     echo "Starting Streamlit UI on port 8501..."

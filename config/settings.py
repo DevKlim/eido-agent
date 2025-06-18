@@ -14,7 +14,7 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 class FallbackSettings(BaseModel):
     app_name: str = "EIDO Sentinel (Fallback)"
     api_base_url: str = "http://localhost:8000"
-    api_host: str = "127.0.0.1"
+    api_host: str = "0.0.0.0"
     api_port: int = 8000
     streamlit_server_port: int = 8501
     database_url: Optional[str] = None
@@ -54,7 +54,8 @@ class Settings(BaseSettings):
     app_name: str = Field("EIDO Sentinel", validation_alias='APP_NAME')
     api_base_url: str = Field("http://localhost:8000",
                               validation_alias='API_BASE_URL')
-    api_host: str = Field("127.0.0.1", validation_alias='API_HOST')
+    # CRITICAL CHANGE: Default host is now 0.0.0.0 for container-readiness.
+    api_host: str = Field("0.0.0.0", validation_alias='API_HOST')
     api_port: int = Field(8000, validation_alias='API_PORT')
     streamlit_server_port: int = Field(
         8501, validation_alias='STREAMLIT_SERVER_PORT')
