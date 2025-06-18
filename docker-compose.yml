@@ -44,8 +44,7 @@ services:
       - API_BASE_URL=http://api:8000
       - STREAMLIT_SERVER_PORT=8501
     ports:
-      # Map host port 8501 to container port 8000, as entrypoint.sh now runs Streamlit on 8000.
-      - "8501:8000"
+      - "8501:8501"
     networks:
       - eido_sentinel_net
 

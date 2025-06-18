@@ -51,11 +51,11 @@ allowed_origins = []
 local_streamlit_url = f"http://localhost:{settings.streamlit_server_port}"
 # For the landing page JS
 local_api_url = f"http://localhost:{settings.api_port}"
-allowed_origins.extend([local_streamlit_url, local_api_url])
+allowed_origins.extend([local_streamlit_url, local_api_url, "http://127.0.0.1:8501"])
 
 # 2. Add deployed frontend URL from environment variables
-# For deployment, you will set STREAMLIT_APP_URL in your backend's hosting environment (e.g., Render secrets).
-# Example: STREAMLIT_APP_URL="https://your-app-name.streamlit.app"
+# For deployment, you will set STREAMLIT_APP_URL in your backend's hosting environment (e.g., Fly.io secrets).
+# Example: STREAMLIT_APP_URL="https://your-streamlit-app-name.streamlit.app"
 streamlit_app_url = os.environ.get("STREAMLIT_APP_URL")
 if streamlit_app_url:
     allowed_origins.append(streamlit_app_url)
@@ -105,7 +105,10 @@ app.include_router(api_router)
 logger_main.info("API router included at prefix /api/v1.")
 
 if __name__ == "__main__":
-    uvicorn_host = os.getenv("HOST", settings.api_host)
+    # For containerized deployments like Fly.io, the host must be "0.0.0.0".
+    # We default to "0.0.0.0" which is safe for production and generally ok for local dev.
+    # The PORT is read from the environment, which is standard for hosting platforms.
+    uvicorn_host = os.getenv("HOST", "0.0.0.0")
     uvicorn_port = int(os.getenv("PORT", settings.api_port))
 
     logger_main.info(
@@ -116,5 +119,6 @@ if __name__ == "__main__":
         host=uvicorn_host,
         port=uvicorn_port,
         log_level=settings.log_level.lower(),
-        reload=not os.getenv("RENDER", False)
+        # Reload should be disabled in production. Checking for common prod env vars.
+        reload=not (os.getenv("FLY_APP_NAME") or os.getenv("RENDER"))
     )
