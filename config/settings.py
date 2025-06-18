@@ -1,6 +1,8 @@
 import logging
 import os
 from typing import List, Optional, Literal, Any, ClassVar
+# Add urllib.parse imports for URL manipulation
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 from pydantic import field_validator, model_validator, Field, BaseModel, ConfigDict as PydanticConfigDict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -115,6 +117,28 @@ class Settings(BaseSettings):
             settings_logger.error(
                 "CRITICAL: DATABASE_URL is not set. The application cannot connect to the database.")
         else:
+            # --- Fly.io PostgreSQL + asyncpg compatibility fix ---
+            # This block comes BEFORE the scheme replacement.
+            # It removes the `sslmode` query parameter which is not compatible with `asyncpg`.
+            if "postgresql" in self.database_url:
+                try:
+                    parsed_url = urlparse(self.database_url)
+                    query_params = dict(parse_qsl(parsed_url.query))
+
+                    if 'sslmode' in query_params:
+                        settings_logger.warning(
+                            f"Found 'sslmode={query_params['sslmode']}' in DATABASE_URL. Removing it for asyncpg compatibility."
+                        )
+                        del query_params['sslmode']
+
+                        # Reconstruct the URL without the sslmode parameter
+                        new_query_string = urlencode(query_params)
+                        self.database_url = urlunparse(parsed_url._replace(query=new_query_string))
+                        settings_logger.info(f"Modified DATABASE_URL for compatibility: {self.database_url}")
+
+                except Exception as e:
+                    settings_logger.error(f"Failed to parse and modify DATABASE_URL: {e}. Proceeding with original URL.")
+
             # FIX: Automatically correct the postgresql scheme for async compatibility
             if self.database_url.startswith("postgresql://"):
                 settings_logger.warning(
