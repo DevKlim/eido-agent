@@ -1,19 +1,29 @@
+# This file is required for deploying on fly.io. Place it in your project's root directory.
+
+# IMPORTANT: Replace "eido-agent" with the actual name of your app on fly.io
 app = "eido-agent"
-primary_region = "lax"
+primary_region = "lax" # Or your preferred region like 'ewr', 'ams', etc.
 
 [build]
   dockerfile = "Dockerfile"
 
+# This new [processes] section explicitly defines what command to run.
+# This is more robust for telling Fly.io how to start your service.
+[processes]
+  app = "api" # This runs: /usr/local/bin/entrypoint.sh api
+
 # This section tells Fly how to handle incoming HTTP requests.
 [http_service]
+  # This port MUST match the port your application listens on inside the container.
+  # Our entrypoint.sh defaults to 8000.
   internal_port = 8000
   force_https = true
   auto_stop_machines = true
   auto_start_machines = true
   min_machines_running = 0 # Use 1 for an always-on free tier machine
 
-  # This tells the service what command to run.
-  # "app" is the default process name for Dockerfile deployments.
+  # This tells the service what process group to run.
+  # It matches the "app" process we defined above.
   processes = ["app"]
 
 # This section defines health checks to ensure your app is running correctly.
@@ -22,7 +32,7 @@ primary_region = "lax"
     type = "http"
     interval = "15s"
     timeout = "10s"
-    grace_period = "5s"
+    grace_period = "20s" # Increased grace period to allow app to start
     method = "GET"
     # This path should be a lightweight endpoint that returns a 2xx status code.
     # The root path "/" which serves your static page is a good choice.
