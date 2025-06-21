@@ -1,4 +1,3 @@
-# file: README.md
 # EIDO Sentinel
 
 EIDO Sentinel is an AI-powered platform designed to enhance emergency response by intelligently processing, correlating, and analyzing diverse emergency data streams.
