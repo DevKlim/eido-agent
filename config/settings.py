@@ -14,7 +14,7 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 
 
 class FallbackSettings(BaseModel):
-    app_name: str = "EIDO Sentinel (Fallback)"
+    app_name: str = "EIDO Sentinel"
     api_base_url: str = "http://localhost:8000"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
@@ -24,7 +24,7 @@ class FallbackSettings(BaseModel):
                        'WARNING', 'ERROR', 'CRITICAL'] = "INFO"
     llm_provider: Literal['google', 'openrouter', 'local', 'none'] = "none"
     google_api_key: Optional[str] = None
-    google_model_name: str = "gemini-1.5-flash-latest"
+    google_model_name: str = "gemini-2.5-flash-lite-preview-06-17"
     openrouter_api_key: Optional[str] = None
     openrouter_model_name: Optional[str] = "openai/gpt-4o-mini"
     openrouter_api_base_url: str = "https://openrouter.ai/api/v1"

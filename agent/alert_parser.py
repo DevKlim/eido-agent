@@ -5,12 +5,13 @@ from datetime import datetime, timezone
 from typing import Dict, Optional, Any
 
 try:
-    from agent.llm_interface import fill_eido_template, choose_eido_template
+    from agent.llm_interface import fill_eido_template, choose_eido_template, PROMPTS
 except ImportError as e:
     print(f"CRITICAL ERROR in alert_parser.py: {e}")
     raise SystemExit(f"Alert Parser import failed: {e}") from e
 
 logger = logging.getLogger(__name__)
+
 
 # --- Template Loading Helpers ---
 EIDO_TEMPLATE_DIR = os.path.abspath(os.path.join(
@@ -68,44 +69,53 @@ def _get_template_summaries_str() -> str:
 
 def parse_alert_to_eido_dict(alert_text: str) -> Optional[Dict[str, Any]]:
     """
-    Takes raw alert text, uses an LLM to select the best EIDO template,
-    and then uses another LLM call to fill that template with the alert's data.
+    Takes raw alert text, uses an LLM to select the best EIDO template, and then uses
+    another LLM call to fill that template. If no template is found or chosen, it
+    resorts to filling a generic, hardcoded template as a fallback.
     """
     if not alert_text or not isinstance(alert_text, str):
         logger.error("Invalid input: alert_text must be a non-empty string.")
         return None
 
-    # Ensure templates are loaded
     _load_templates()
-    if not _template_cache:
-        logger.error(
-            "No EIDO templates are available. Cannot process alert text.")
-        return None
 
+    template_content = None
+    chosen_template_name_for_log = "N/A"
+
+    # 1. Try to choose a template from the filesystem
+    if _template_cache:
+        template_summaries_str = _get_template_summaries_str()
+        chosen_template_name = choose_eido_template(
+            alert_text, template_summaries_str)
+        if chosen_template_name and chosen_template_name in _template_cache:
+            template_content = _template_cache[chosen_template_name]
+            chosen_template_name_for_log = chosen_template_name
+    
+    # 2. If no template was chosen or available, resort to the generic fallback
+    if template_content is None:
+        if not _template_cache:
+            logger.warning(
+                "No EIDO templates found in directory. Resorting to generic in-memory template from prompt library.")
+        else:
+            logger.warning(
+                f"LLM did not choose a valid template. Resorting to generic in-memory template from prompt library."
+            )
+        
+        template_content = PROMPTS.get("GENERIC_EIDO_TEMPLATE")
+        if not template_content:
+            logger.error("FATAL: Generic EIDO template is missing from prompt_library.json. Cannot process alert.")
+            return None # Critical failure
+        
+        chosen_template_name_for_log = "generic_fallback"
+    
+    # 3. Fill the chosen or fallback template
     logger.info(
-        "Attempting to parse single event alert text using new 'choose-then-fill' LLM workflow...")
-
-    # 1. Choose the best template
-    template_summaries_str = _get_template_summaries_str()
-    chosen_template_name = choose_eido_template(
-        alert_text, template_summaries_str)
-
-    if not chosen_template_name or chosen_template_name not in _template_cache:
-        logger.warning(
-            f"LLM did not choose a valid template for the alert. Aborting processing for this event. Chosen: '{chosen_template_name}'")
-        return None
-
-    template_content = _template_cache[chosen_template_name]
-
-    # 2. Fill the chosen template
-    logger.info(
-        f"Attempting to fill template '{chosen_template_name}' with alert text.")
-    # The alert text itself serves as the scenario description
+        f"Attempting to fill template '{chosen_template_name_for_log}' with alert text.")
     filled_eido_json_str = fill_eido_template(template_content, alert_text)
 
     if not filled_eido_json_str:
         logger.error(
-            f"LLM failed to fill the chosen EIDO template '{chosen_template_name}'.")
+            f"LLM failed to fill the chosen template '{chosen_template_name_for_log}'.")
         return None
 
     try:
@@ -115,7 +125,7 @@ def parse_alert_to_eido_dict(alert_text: str) -> Optional[Dict[str, Any]]:
                 f"LLM returned JSON, but not a dictionary (type: {type(eido_dict)}). Data: {eido_dict}")
             return None
         logger.info(
-            f"Successfully generated EIDO dictionary from alert using template '{chosen_template_name}'.")
+            f"Successfully generated EIDO dictionary from alert using template '{chosen_template_name_for_log}'.")
         
         return eido_dict
     except json.JSONDecodeError as e:
