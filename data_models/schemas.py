@@ -67,8 +67,8 @@ class Incident(BaseModel):
     incident_type: Optional[str] = Field(None)
     status: str = Field(
         "Active", description="Current status, e.g., Active, Updated, Resolved, Closed.")
-    created_at: Optional[datetime] = Field(None)
-    last_updated_at: Optional[datetime] = Field(None)
+    created_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_updated_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     summary: str = Field("Summary not yet generated.")
     recommended_actions: List[str] = Field(default_factory=list)
 

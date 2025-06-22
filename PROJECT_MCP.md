@@ -4,7 +4,7 @@
 
 **EIDO Sentinel** is an AI-powered platform designed to enhance emergency response by intelligently processing, correlating, and analyzing diverse emergency data streams. It leverages NENA EIDO standards, LLMs, and agentic AI principles to transform raw data into actionable, structured insights.
 
-**Version:** 0.9.2 (as of this document)
+**Version:** 1.0.0 (as of this document)
 
 ## Table of Contents
 
@@ -34,7 +34,7 @@
 
 The `agent/` module contains the core intelligence of EIDO Sentinel. It implements the primary data processing pipeline.
 
-### **New EIDO Generation Pipeline (from Raw Text)**
+### **EIDO Generation Pipeline (from Raw Text)**
 
 1.  **`agent_core.py` -> `process_alert_text`**: The entry point. It receives raw text and uses `llm_interface.split_raw_text_into_events` to break it into individual event chunks.
 2.  **`alert_parser.py` -> `parse_alert_to_eido_dict`**: This is the heart of the new pipeline. For each event chunk:
@@ -49,7 +49,7 @@ The `agent/` module contains the core intelligence of EIDO Sentinel. It implemen
 - **`agent_core.py`**: The `EidoAgent` class orchestrates the entire workflow, from data ingestion (both JSON and raw text) to incident correlation (`matching.py`), LLM-driven analysis (`llm_interface.py`), and storage (`services/storage.py`).
 - **`alert_parser.py`**: Implements the "choose-then-fill" pipeline for converting raw alert text into a structured EIDO dictionary.
 - **`llm_interface.py`**: A unified interface for all interactions with LLMs. It handles API calls to different providers ('google', 'openrouter', 'local') and is fully independent of the UI.
-- **`prompt_library.json`**: A library of all prompt templates used by `llm_interface.py`. This separation allows for easy prompt engineering without code changes. The new `CHOOSE_EIDO_TEMPLATE` and `FILL_EIDO_TEMPLATE` prompts are central to the new pipeline.
+- **`prompt_library.json`**: A library of all prompt templates used by `llm_interface.py`. This separation allows for easy prompt engineering without code changes. The `CHOOSE_EIDO_TEMPLATE` and `FILL_EIDO_TEMPLATE` prompts are central to the new pipeline.
 - **`matching.py`**: Implements the logic for correlating new reports with existing active incidents based on time, location, content, and external IDs to prevent duplicates.
 
 ---
@@ -59,7 +59,7 @@ The `agent/` module contains the core intelligence of EIDO Sentinel. It implemen
 The `api/` module defines the FastAPI backend application.
 
 - **`main.py`**: The entry point for the FastAPI server. It initializes the app, configures CORS middleware for UI communication, and includes the API router.
-- **`endpoints.py`**: Defines all RESTful API endpoints, serving as the interface between the frontend UI and the backend agent logic. Key endpoints include `/ingest` (for JSON), `/ingest_alert` (for text), and various routes for incident and geocoding management.
+- **`endpoints.py`**: Defines all RESTful API endpoints, serving as the interface between the frontend UI and the backend agent logic. Key endpoints include `/ingest` (for JSON), `/ingest_alert` (for text), and various routes for incident management, geocoding, and the new **EIDO Template tools**.
 
 ---
 
@@ -75,9 +75,10 @@ The `api/` module defines the FastAPI backend application.
   - `eido_sentinel_local.db`: The SQLite database file for local development.
   - `geocoded_locations.json`: A store for custom, manually-verified location-to-coordinate mappings, managed via the UI.
   - `ucsd_alerts.json`, `ucsd_alerts_simulated.txt`: Sample input data.
-- **`eido_templates/`**: Contains various EIDO JSON files that serve as structured templates for the new generation pipeline.
+- **`eido_templates/`**: Contains various EIDO JSON files that serve as structured templates for the new generation pipeline. This directory is now managed by the **Template Editor** GUI.
+  - **`EIDOContext.xml`**: A new, human-readable summary of the EIDO standard's concepts and components, used to provide high-level context to the RAG system.
 - **`sample_eido/`**: Contains complete, sample EIDO JSON files for testing and demonstration.
-- **`schema/openapi.yaml`**: The formal NENA EIDO OpenAPI specification. This file is crucial as it's used by `utils/rag_indexer.py` to build the knowledge base for the RAG system.
+- **`schema/openapi.yaml`**: The formal NENA EIDO OpenAPI specification. This file is crucial as it's used by `utils/rag_indexer.py` to build the knowledge base for the RAG system and by the **Template Editor** to display all available options.
 
 ---
 
@@ -104,7 +105,7 @@ This module provides various backend services that support the agent's functions
 
 Contains the Streamlit web application for interactive demonstration.
 
-- **`app.py`**: The main Streamlit application file. It creates the UI, handles user inputs (file uploads, text input), calls the FastAPI backend via API requests, and visualizes the results.
+- **`app.py`**: The main Streamlit application file. It creates the UI, handles user inputs, calls the FastAPI backend, and visualizes the results. It now includes the **"Template Editor"** page for building new EIDO templates.
 - **`custom_styles.css`**: Provides a custom, themed appearance for the Streamlit app.
 
 ---
@@ -113,7 +114,7 @@ Contains the Streamlit web application for interactive demonstration.
 
 Contains helper scripts and functions.
 
-- **`rag_indexer.py`**: A crucial script that reads `schema/openapi.yaml`, chunks it into meaningful pieces, generates embeddings for each chunk, and saves the resulting index to `services/eido_schema_index.json`. **This script must be run to enable the RAG functionality.**
-- **`schema_parser.py`**: A helper used by the indexer to parse the OpenAPI schema into a format suitable for the LLM.
+- **`rag_indexer.py`**: A crucial script that reads both `schema/openapi.yaml` (for technical details) and `eido_templates/EIDOContext.xml` (for conceptual overview), chunks the content, generates embeddings, and saves the resulting index to `services/eido_schema_index.json`. **This script must be run to enable the RAG functionality.**
+- **`schema_parser.py`**: A helper used by the indexer and the new API endpoint to load and parse the OpenAPI schema.
 - **`helpers.py`**: Contains miscellaneous utility functions, such as for parsing XML snippets found within EIDO fields.
 - **`ocr_processor.py`**: A utility to extract text from images using Tesseract OCR, enabling ingestion from screenshots or scanned documents.

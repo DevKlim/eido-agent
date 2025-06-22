@@ -1,0 +1,72 @@
+{
+  "$id": "urn:uuid:[EIDO_MESSAGE_UUID]",
+  "lastUpdateTimeStamp": "[TIMESTAMP_ISO_OFFSET]",
+  "updatedByAgencyReference": {
+    "$ref": "[SOURCE_AGENCY_ID]"
+  },
+  "eidoVersion": "1.0",
+  "issuingElementIdentification": "eido-sentinel:agent:v1",
+  "incidentComponent": {
+    "$id": "urn:uuid:[INCIDENT_UUID]",
+    "lastUpdateTimeStamp": "[TIMESTAMP_ISO_OFFSET]",
+    "updatedByAgencyReference": {
+      "$ref": "[SOURCE_AGENCY_ID]"
+    },
+    "incidentTrackingIdentifier": "[EXTERNAL_CAD_ID_OR_REPORT_NUM]",
+    "incidentTypeCommonRegistryText": "FSTRU",
+    "incidentStatusCommonRegistryText": ["ResourcesOnscene"],
+    "incidentSummaryText": "[INCIDENT_SUMMARY_TEXT]",
+    "locationReference": {
+      "$ref": "urn:uuid:[LOCATION_UUID]"
+    }
+  },
+  "locationComponent": [
+    {
+      "$id": "urn:uuid:[LOCATION_UUID]",
+      "lastUpdateTimeStamp": "[TIMESTAMP_ISO_OFFSET]",
+      "updatedByAgencyReference": {
+        "$ref": "[SOURCE_AGENCY_ID]"
+      },
+      "locationTypeDescriptionRegistryText": "CurrentIncident",
+      "locationAddressText": "[LOCATION_FULL_ADDRESS]",
+      "locationNotes": "[LOCATION_DESCRIPTION_AND_LANDMARKS]"
+    }
+  ],
+  "notesComponent": [
+    {
+      "$id": "urn:uuid:[NOTE_UUID]",
+      "lastUpdateTimeStamp": "[TIMESTAMP_ISO_OFFSET]",
+      "updatedByAgencyReference": {
+        "$ref": "[SOURCE_AGENCY_ID]"
+      },
+      "notesActionComments": "[FULL_NARRATIVE_DESCRIPTION]",
+      "agentReference": {
+        "$ref": "[SOURCE_AGENT_ID]"
+      }
+    }
+  ],
+  "agencyComponent": [
+    {
+      "$id": "[SOURCE_AGENCY_ID]",
+      "lastUpdateTimeStamp": "[TIMESTAMP_ISO_OFFSET]",
+      "updatedByAgencyReference": {
+        "$ref": "[SOURCE_AGENCY_ID]"
+      },
+      "agencyRoleDescriptionRegistryText": ["Dispatching", "CallReceiving"],
+      "agencyType": ["fire"]
+    }
+  ],
+  "agentComponent": [
+    {
+      "$id": "[SOURCE_AGENT_ID]",
+      "lastUpdateTimeStamp": "[TIMESTAMP_ISO_OFFSET]",
+      "updatedByAgencyReference": {
+        "$ref": "[SOURCE_AGENCY_ID]"
+      },
+      "agentRoleRegistryText": ["Call Taker"],
+      "agencyReference": {
+        "$ref": "[SOURCE_AGENCY_ID]"
+      }
+    }
+  ]
+}

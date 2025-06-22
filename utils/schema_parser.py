@@ -23,7 +23,6 @@ def load_openapi_schema(file_path: str = DEFAULT_SCHEMA_PATH) -> Optional[Dict[s
         # Try to provide more context if path seems wrong
         logger.error(f"Current working directory: {os.getcwd()}")
         logger.error(f"Project root deduced as: {PROJECT_ROOT}")
-        logger.error("Ensure the EIDO-JSON repository was cloned correctly inside the project directory.")
         return None
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -72,16 +71,35 @@ def format_component_details_for_llm(schema: Dict[str, Any], component_name: str
     comp_type = component_schema.get('type')
     if comp_type:
          details_lines.append(f"Type: {comp_type}")
+    
+    properties = {}
+    required_fields = []
+    # --- allOf ---
+    if 'allOf' in component_schema:
+        for part in component_schema['allOf']:
+            if '$ref' in part:
+                 ref_name = part['$ref'].split('/')[-1]
+                 details_lines.append(f"Inherits from: {ref_name}")
+            if 'properties' in part:
+                 properties.update(part['properties'])
+            if 'required' in part:
+                 required_fields.extend(part['required'])
 
-    # --- Required Fields (only if type is 'object') ---
-    if comp_type == 'object' and component_schema.get('required'):
-        required_fields = sorted(component_schema['required']) # Sort for consistency
-        details_lines.append(f"Required Fields: [{', '.join(required_fields)}]")
+    # --- Direct properties/required ---
+    if 'properties' in component_schema:
+         properties.update(component_schema['properties'])
+    if 'required' in component_schema:
+        required_fields.extend(component_schema['required'])
 
-    # --- Properties (only if type is 'object') ---
-    if comp_type == 'object' and 'properties' in component_schema:
+
+    # --- Required Fields ---
+    if required_fields:
+        required_unique = sorted(list(set(required_fields))) # Sort for consistency
+        details_lines.append(f"Required Fields: [{', '.join(required_unique)}]")
+
+    # --- Properties ---
+    if properties:
         details_lines.append("Properties:")
-        properties = component_schema['properties']
         # Sort properties for consistent output
         for prop_name in sorted(properties.keys()):
             prop_schema = properties[prop_name]
@@ -142,7 +160,6 @@ if __name__ == "__main__":
             "NotesType",
             "AgencyType",
             "ReferenceType",
-            "IncidentStatusType", # Example with enum (likely)
             "NonExistentComponent" # Test case for missing component
         ]
 
@@ -155,11 +172,5 @@ if __name__ == "__main__":
             else:
                 print(f"-> Could not retrieve or format details for '{comp_name}'.")
 
-        # Optionally list all components
-        # print("\n--- Listing All Found Components ---")
-        # all_component_names = sorted(list(eido_schema.get('components', {}).get('schemas', {}).keys()))
-        # print(f"Total: {len(all_component_names)}")
-        # for name in all_component_names:
-        #     print(f"- {name}")
     else:
         print("\nFailed to load EIDO schema. Cannot perform tests.")

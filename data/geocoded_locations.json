@@ -1,0 +1,9 @@
+{
+  "Area affected by flood warning.": {
+    "lat": 32.8401623,
+    "lon": -117.2740777,
+    "source": "adv_geo_nominatim_poi_for_entity_'la_jolla'",
+    "notes": "Confidence: Medium. Original: 'Area affected by flood warning....'",
+    "last_updated": "2025-06-22T20:05:31.284253+00:00"
+  }
+}

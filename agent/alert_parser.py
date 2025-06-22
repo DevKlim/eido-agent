@@ -67,7 +67,7 @@ def _get_template_summaries_str() -> str:
     return "\n".join([f"- {filename}: {_template_summaries[filename]}" for filename in sorted(_template_summaries.keys())])
 
 
-def parse_alert_to_eido_dict(alert_text: str) -> Optional[Dict[str, Any]]:
+async def parse_alert_to_eido_dict(alert_text: str) -> Optional[Dict[str, Any]]:
     """
     Takes raw alert text, uses an LLM to select the best EIDO template, and then uses
     another LLM call to fill that template. If no template is found or chosen, it
@@ -85,7 +85,7 @@ def parse_alert_to_eido_dict(alert_text: str) -> Optional[Dict[str, Any]]:
     # 1. Try to choose a template from the filesystem
     if _template_cache:
         template_summaries_str = _get_template_summaries_str()
-        chosen_template_name = choose_eido_template(
+        chosen_template_name = await choose_eido_template(
             alert_text, template_summaries_str)
         if chosen_template_name and chosen_template_name in _template_cache:
             template_content = _template_cache[chosen_template_name]
@@ -111,7 +111,7 @@ def parse_alert_to_eido_dict(alert_text: str) -> Optional[Dict[str, Any]]:
     # 3. Fill the chosen or fallback template
     logger.info(
         f"Attempting to fill template '{chosen_template_name_for_log}' with alert text.")
-    filled_eido_json_str = fill_eido_template(template_content, alert_text)
+    filled_eido_json_str = await fill_eido_template(template_content, alert_text)
 
     if not filled_eido_json_str:
         logger.error(

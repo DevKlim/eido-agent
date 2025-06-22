@@ -110,10 +110,15 @@ class EidoAgent:
 
         primary_comp, source_comp_type = None, "Unknown"
         for comp_type_key in ['incidentComponent', 'callComponent']:
-            comp_list = eido_dict.get(comp_type_key)
-            if isinstance(comp_list, list) and comp_list:
+            comp_list_or_obj = eido_dict.get(comp_type_key)
+            if isinstance(comp_list_or_obj, dict): # Handle object instead of list
+                 primary_comp = comp_list_or_obj
+                 source_comp_type = comp_type_key.replace(
+                        'Component', 'Component').capitalize()
+                 break
+            if isinstance(comp_list_or_obj, list) and comp_list_or_obj:
                 primary_comp = next(
-                    (comp for comp in comp_list if isinstance(comp, dict)), None)
+                    (comp for comp in comp_list_or_obj if isinstance(comp, dict)), None)
                 if primary_comp:
                     source_comp_type = comp_type_key.replace(
                         'Component', 'Component').capitalize()
@@ -147,17 +152,22 @@ class EidoAgent:
         # --- IMPROVED: Gracefully handle missing descriptions ---
         descriptions = []
         for comp_key in ['notesComponent', 'commentsComponent']:
-            for item in eido_dict.get(comp_key, []):
-                if isinstance(item, dict):
-                    text = item.get('noteText') or item.get('commentText')
-                    if text:
-                        # Ensure text is a string
-                        descriptions.append(str(text))
+            notes_list = eido_dict.get(comp_key, [])
+            # Handle case where it might be a single object instead of a list
+            if isinstance(notes_list, dict):
+                notes_list = [notes_list]
 
+            for item in notes_list:
+                if isinstance(item, dict):
+                    # Check multiple possible keys for note text
+                    text = item.get('notesActionComments') or item.get('noteText') or item.get('commentText')
+                    if text:
+                        descriptions.append(str(text)) # Ensure text is a string
+        
         # Add incident summary text if available
         summary_text = primary_comp.get('incidentSummaryText')
-        if summary_text:
-            descriptions.append(str(summary_text))
+        if summary_text and isinstance(summary_text, str):
+            descriptions.append(summary_text)
 
         # Use None if no description is found
         full_description = "\n".join(descriptions) if descriptions else None
@@ -183,7 +193,7 @@ class EidoAgent:
                     loc_val if isinstance(loc_val, str) else None)
 
             location_narrative_for_geocoding = primary_loc_comp.get(
-                'locationNotes') or location_address
+                'locationNotes') or primary_loc_comp.get('locationDescriptionText') or location_address
             if location_narrative_for_geocoding:
                 coord_match = re.search(
                     r'(-?\d{1,2}\.\d{3,})\s*[, ]\s*(-?\d{1,3}\.\d{3,})', location_narrative_for_geocoding)
@@ -262,15 +272,15 @@ class EidoAgent:
         try:
             history = incident_to_process.get_full_description_history(
                 exclude_latest=True) if not is_new else ""
-            incident_to_process.summary = summarize_incident(
+            incident_to_process.summary = await summarize_incident(
                 history, core_data) or incident_to_process.summary
-            incident_to_process.recommended_actions = recommend_actions(
+            incident_to_process.recommended_actions = await recommend_actions(
                 incident_to_process.summary, core_data) or incident_to_process.recommended_actions
             
             # Generate a name if it's new or doesn't have one
             if not incident_to_process.name or incident_to_process.name == "Untitled Incident":
                 location_context = core_data.location_address or (incident_to_process.addresses[0] if incident_to_process.addresses else "Unknown Location")
-                incident_to_process.name = generate_incident_name(
+                incident_to_process.name = await generate_incident_name(
                     incident_to_process.incident_type or "Incident",
                     location_context,
                     incident_to_process.summary
@@ -304,7 +314,7 @@ class EidoAgent:
         if not alert_text or not isinstance(alert_text, str):
             return [{"status": "Input Error: Alert text cannot be empty."}]
 
-        event_texts = split_raw_text_into_events(alert_text) or [alert_text]
+        event_texts = await split_raw_text_into_events(alert_text) or [alert_text]
         logger.info(f"Attempting to process {len(event_texts)} event text(s).")
         results = []
 
@@ -313,7 +323,7 @@ class EidoAgent:
                 continue
 
             # This now calls the refactored alert_parser, which creates a full EIDO-like dictionary.
-            eido_dict = parse_alert_to_eido_dict(single_event_text)
+            eido_dict = await parse_alert_to_eido_dict(single_event_text)
 
             if not eido_dict:
                 logger.error(

@@ -9,7 +9,7 @@ import logging
 from io import StringIO
 import altair as alt
 import pydeck as pdk
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Set
 import requests
 from PIL import Image
 from pydantic import ValidationError
@@ -92,6 +92,9 @@ def init_session_state():
         'json_input_area_val': "", 'alert_text_input_area_val': "",
         'active_view': 'Incident Feed', 'selected_incident_id': None,
         'force_data_refresh': True,
+        'eido_schema_cache': None,
+        'template_builder_selections': set(),
+        'generated_template_cache': None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -376,7 +379,6 @@ def render_incident_details():
         st.markdown("\n".join(f"- {action}" for action in incident.recommended_actions) or "_No actions recommended._")
         st.divider()
         with st.expander("**Location Information**", expanded=True):
-            # FIX: Replace st.map with pydeck for consistent styling
             if incident.locations:
                 location_df = pd.DataFrame(incident.locations, columns=["latitude", "longitude"])
                 
@@ -479,7 +481,6 @@ def render_map_view():
         pickable=True,
     )
 
-    # FIX: Use an OpenStreetMap-based style for consistency
     st.pydeck_chart(pdk.Deck(
         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
         initial_view_state=view_state,
@@ -489,6 +490,12 @@ def render_map_view():
 
 def render_geocoding_editor():
     st.subheader("Local Geocoding Store Editor")
+    st.info("""
+    **How to use this tool:**
+    1.  To add a new location, fill the 'Add New Location' form and submit. This is useful for landmarks or places not in public map databases.
+    2.  To find and edit an existing location, scroll through the list below or use your browser's find function (Ctrl+F or Cmd+F).
+    3.  Changes are saved to `data/geocoded_locations.json` and are immediately available to the agent's geocoding service.
+    """)
     st.caption("Manage custom location-to-coordinate mappings. These entries are prioritized by the geocoding service.")
 
     locations_data = make_api_request("GET", "/api/v1/tools/geocoding/local_store")
@@ -561,10 +568,151 @@ def render_geocoding_editor():
         else:
             st.info("The geocoding store is empty.")
 
+def render_eido_template_editor():
+    """Renders the UI for creating new EIDO templates with live preview."""
+    st.subheader("EIDO Template Editor")
+    st.info("""
+    **How to use this tool:**
+    1.  Give your template a unique filename ending in `.json`.
+    2.  Use the search box to find and select the EIDO components you need for your incident type (e.g., 'vehicleComponent' for a traffic collision).
+    3.  As you select components, the JSON preview on the right updates automatically.
+    4.  Once you are satisfied with the structure, click 'Save Template to Server'.
+    5.  The new template will then be available for the agent's raw text parsing pipeline.
+    """)
+
+    # Fetch schema on first load
+    if st.session_state.eido_schema_cache is None:
+        with st.spinner("Loading EIDO schema from backend..."):
+            schema_data = make_api_request("GET", "/api/v1/tools/eido/schema")
+            if schema_data:
+                st.session_state.eido_schema_cache = schema_data
+            else:
+                st.error("Failed to load EIDO schema. The editor cannot be displayed.")
+                return
+
+    schema = st.session_state.eido_schema_cache
+    root_component_name = "EmergencyIncidentDataObjectType"
+    root_def = schema.get(root_component_name)
+
+    if not root_def:
+        st.error(f"Could not find root component '{root_component_name}' in schema.")
+        return
+
+    # Helper to recursively create a placeholder dictionary for a component
+    @st.cache_data(show_spinner=False)
+    def create_placeholder_object(_comp_name: str, _all_schemas: Dict) -> Dict:
+        comp_def = _all_schemas.get(_comp_name, {})
+        placeholder = {}
+        properties_to_process = {}
+
+        if 'allOf' in comp_def:
+            for part in comp_def['allOf']:
+                if '$ref' in part:
+                    ref_name = part['$ref'].split('/')[-1]
+                    parent_placeholder = create_placeholder_object(ref_name, _all_schemas)
+                    placeholder.update(parent_placeholder)
+                elif 'properties' in part:
+                    properties_to_process.update(part.get('properties', {}))
+        
+        properties_to_process.update(comp_def.get('properties', {}))
+        
+        for prop_name, prop_schema in properties_to_process.items():
+            if '$ref' in prop_schema:
+                 ref_name = prop_schema["$ref"].split("/")[-1]
+                 placeholder[prop_name] = create_placeholder_object(ref_name, _all_schemas)
+            elif prop_schema.get("type") == "array" and "$ref" in prop_schema.get("items", {}):
+                 ref_name = prop_schema.get("items", {})["$ref"].split("/")[-1]
+                 placeholder[prop_name] = [create_placeholder_object(ref_name, _all_schemas)]
+            else:
+                placeholder[prop_name] = f"[{prop_name.upper()}]"
+        return placeholder
+
+    # UI layout
+    editor_col, preview_col = st.columns(2)
+
+    with editor_col:
+        st.markdown("##### 1. Configure Template")
+        filename = st.text_input("Template Filename", "my_new_template.json", help="Must end with .json")
+
+        st.markdown("##### 2. Select Components")
+        st.caption(f"The root **{root_component_name}** is always included.")
+
+        root_properties = {}
+        if 'allOf' in root_def:
+            for part in root_def.get('allOf', []):
+                if '$ref' in part:
+                    ref_name = part['$ref'].split('/')[-1]
+                    parent_def = schema.get(ref_name, {})
+                    if 'properties' in parent_def:
+                        root_properties.update(parent_def['properties'])
+                if 'properties' in part:
+                    root_properties.update(part['properties'])
+        root_properties.update(root_def.get('properties', {}))
+        
+        available_components = {}
+        for prop_name, prop_schema in root_properties.items():
+            is_array = prop_schema.get("type") == "array"
+            ref_path = prop_schema.get("items", {}).get("$ref") if is_array else prop_schema.get("$ref")
+            if ref_path:
+                ref_name = ref_path.split("/")[-1]
+                available_components[prop_name] = {'ref': ref_name, 'is_array': is_array}
+        
+        search_term = st.text_input("Search Components", help="Filter the list by component name (e.g., 'vehicle')")
+        filtered_component_names = [
+            name for name in sorted(available_components.keys()) 
+            if search_term.lower() in name.lower()
+        ]
+
+        st.multiselect(
+            "Select optional top-level components:",
+            options=filtered_component_names,
+            key="template_builder_selections",
+            format_func=lambda x: f"{x} ({available_components[x]['ref']})",
+            help="Choose the main data blocks for your template."
+        )
+
+    # Live template generation logic
+    base_template = {}
+    required_fields = root_def.get('required', [])
+    for key, value in root_properties.items():
+        if key in required_fields or key not in available_components:
+            if key not in base_template:
+                 base_template[key] = create_placeholder_object(key, schema) if '$ref' in value else f"[{key.upper()}]"
+
+    for prop_name in st.session_state.template_builder_selections:
+        if prop_name in root_properties:
+            prop_schema = root_properties[prop_name]
+            is_array = prop_schema.get("type") == "array"
+            ref_path = prop_schema.get("items", {}).get("$ref") if is_array else prop_schema.get("$ref")
+            if ref_path:
+                ref_name = ref_path.split("/")[-1]
+                placeholder = create_placeholder_object(ref_name, schema)
+                base_template[prop_name] = [placeholder] if is_array else placeholder
+
+    st.session_state.generated_template_cache = base_template
+
+    with preview_col:
+        st.markdown("##### 3. Live Preview and Save")
+        if st.session_state.generated_template_cache:
+            try:
+                template_json_str = json.dumps(st.session_state.generated_template_cache, indent=2)
+                st.code(template_json_str, language="json", height=500)
+            
+                if st.button("Save Template to Server", type="primary"):
+                    payload = {"filename": filename, "content": st.session_state.generated_template_cache}
+                    response = make_api_request("POST", "/api/v1/tools/eido/templates", payload=payload)
+                    if response:
+                        st.success(f"Template '{filename}' saved successfully on the server!")
+            except TypeError as e:
+                st.error(f"Error generating JSON preview: {e}")
+                st.code(str(st.session_state.generated_template_cache))
+        else:
+            st.info("Select components on the left to see a live preview here.")
+
 
 # --- MAIN NAVIGATION AND VIEW RENDERING ---
 last_active_view = st.session_state.get('active_view', 'Incident Feed')
-view_options = ["Incident Feed", "Dashboard", "Map View", "Geocoding Editor"]
+view_options = ["Incident Feed", "Dashboard", "Map View", "Geocoding Editor", "Template Editor"]
 if last_active_view not in view_options: last_active_view = 'Incident Feed'
 view_index = view_options.index(last_active_view)
 
@@ -586,6 +734,7 @@ else:
         "Dashboard": render_dashboard,
         "Map View": render_map_view,
         "Geocoding Editor": render_geocoding_editor,
+        "Template Editor": render_eido_template_editor,
     }
     render_func = view_render_map.get(st.session_state.active_view, render_incident_feed)
     render_func()

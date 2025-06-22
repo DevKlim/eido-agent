@@ -211,13 +211,13 @@ body {
 }
 
 /* Main content Tabs styling */
-.main [data-testid="stTabs"] .stTabs-tab {
+.main [data-testid="stTabs"] button {
   color: var(--main-muted-text-color);
   font-family: var(--main-font) !important;
   /* Ensure new font */
 }
 
-.main [data-testid="stTabs"] .stTabs-tab[aria-selected="true"] {
+.main [data-testid="stTabs"] button[aria-selected="true"] {
   color: var(--main-primary-color);
   border-bottom-color: var(--main-primary-color);
   font-weight: 600;
@@ -281,6 +281,23 @@ body {
   box-shadow: 0 0 0 0.2rem rgba(0, 188, 212, 0.3) !important;
 }
 
+/* Secondary Button style for things like 'Delete' */
+.main .stButton > button.secondary {
+  background-color: #f1f5f9 !important; /* light gray */
+  color: #475569 !important; /* darker gray text */
+  border: 1px solid #cbd5e1 !important;
+}
+
+.main .stButton > button.secondary:hover {
+  background-color: #e2e8f0 !important;
+  border-color: #94a3b8 !important;
+  color: #1e293b !important;
+}
+
+.main .stButton > button.secondary:focus {
+  box-shadow: 0 0 0 0.2rem rgba(148, 163, 184, 0.4) !important;
+}
+
 /* Dataframe styling */
 [data-testid="stDataFrame"] {
   border: 1px solid var(--main-border-color);
@@ -306,9 +323,9 @@ body {
 /* Main Content Input widgets */
 .main [data-testid="stTextInput"] input,
 .main [data-testid="stTextArea"] textarea,
-.main [data-testid="stSelectbox"] select,
+.main [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
 .main
-  [data-testid="stMultiselect"]
+  [data-testid="stMultiSelect"]
   .stMultiSelect
   div[data-baseweb="select"]
   > div {
@@ -322,9 +339,9 @@ body {
 
 .main [data-testid="stTextInput"] input:focus,
 .main [data-testid="stTextArea"] textarea:focus,
-.main [data-testid="stSelectbox"] select:focus,
+.main [data-testid="stSelectbox"] div[data-baseweb="select"] > div:focus-within,
 .main
-  [data-testid="stMultiselect"]
+  [data-testid="stMultiSelect"]
   .stMultiSelect
   div[data-baseweb="select"]
   > div:focus-within {

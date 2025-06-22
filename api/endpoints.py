@@ -13,6 +13,8 @@ from agent.llm_interface import fill_eido_template
 from services import local_geocoder  # Import local_geocoder
 import os
 import json
+# Import schema loading utility
+from utils.schema_parser import load_openapi_schema
 
 logger = logging.getLogger(__name__)
 app_logger = logging.getLogger("EidoSentinelAPI")
@@ -25,8 +27,8 @@ if not app_logger.hasHandlers() and not logging.getLogger().hasHandlers():
     handler.setFormatter(formatter)
     app_logger.addHandler(handler)
 
-# Added "Tools" tag
-router = APIRouter(prefix="/api/v1", tags=["Incidents", "Tools", "Geocoding"])
+# Added "EIDO Tools" tag
+router = APIRouter(prefix="/api/v1", tags=["Incidents", "Tools", "Geocoding", "EIDO Tools"])
 
 # Models for request/response payloads
 
@@ -60,17 +62,24 @@ class LocalGeocodePayload(BaseModel):
     notes: TypingOptional[str] = Field(
         "", example="Main entrance", description="Additional notes for this location.")
 
+# New model for saving templates
+class EidoTemplateSavePayload(BaseModel):
+    filename: str = Field(..., description="The filename for the new template, must end with .json")
+    content: Dict[str, Any] = Field(..., description="The JSON content of the template as a dictionary.")
+
 
 @router.post("/ingest",
              summary="Ingest a single EIDO report (JSON)",
              response_description="Processing result",
              status_code=status.HTTP_201_CREATED)
 async def ingest_eido_report(eido_data: Dict = Body(..., example={
-    "eidoMessageIdentifier": "msg_example_123", "$id": "msg_example_123",
-    "sendingSystemIdentifier": "CADSystemX", "lastUpdateTimeStamp": "2024-10-26T10:00:00Z",
-    "incidentComponent": [{"componentIdentifier": "inc_123", "incidentTrackingIdentifier": "FIRE2024-001", "lastUpdateTimeStamp": "2024-10-26T10:00:00Z", "incidentTypeCommonRegistryText": "Structure Fire", "locationReference": {"$ref": "loc_123"}}],
-    "locationComponent": [{"$id": "loc_123", "componentIdentifier": "loc_123", "locationAddressText": "123 University Ave, Springfield, IL 62704"}],
-    "notesComponent": [{"componentIdentifier": "note_123", "noteDateTimeStamp": "2024-10-26T10:00:05Z", "noteText": "Caller reports smoke..."}]
+    "$id": "urn:emergency:uid:incidentid:a56e556d871:bcf.state.pa.us",
+    "lastUpdateTimeStamp": "2021-04-30T14:43:49.439-04:00", "eidoVersion": "1.0",
+    "issuingElementIdentification": "idx.state.pa.us",
+    "incidentComponent": {"$id": "inc-123", "lastUpdateTimeStamp": "2021-04-30T14:42:00.0-04:00", "incidentTypeCommonRegistryText": "MVAINJY", "locationReference": {"$ref": "loc-123"}},
+    "locationComponent": [{"$id": "loc-123", "lastUpdateTimeStamp": "2021-04-30T14:40:00.0-04:00", "locationTypeDescriptionRegistryText": "CurrentIncident", "locationAddressText": "I-80 EAST, MILE MARKER 105.5"}],
+    "notesComponent": [{"$id": "note-123", "notesActionComments": "Vehicle rollover with entrapment."}],
+    "agencyComponent": [{"$id": "state.pa.us", "lastUpdateTimeStamp": "2021-04-30T14:40:00.0-04:00", "agencyRoleDescriptionRegistryText": ["CallReceiving"], "agencyType": ["psap"]}]
 })):
     msg_id_hint = eido_data.get(
         'eidoMessageIdentifier', eido_data.get('$id', 'N/A'))
@@ -234,12 +243,12 @@ async def clear_incident_store_endpoint():
 @router.post("/generate_eido_from_template",
              summary="Generate EIDO JSON from template and scenario",
              response_description="Generated EIDO JSON string or error",
-             tags=["Tools"])
+             tags=["EIDO Tools"])
 async def generate_eido_from_template_endpoint(payload: EidoTemplateFillPayload):
     app_logger.info(
         f"API /generate_eido_from_template called for template: {payload.template_name}")
     project_root_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", ".."))
+        os.path.join(os.path.dirname(__file__), ".."))
     template_dir_path = os.path.join(project_root_dir, "eido_templates")
     template_path = os.path.join(template_dir_path, payload.template_name)
 
@@ -273,8 +282,6 @@ async def generate_eido_from_template_endpoint(payload: EidoTemplateFillPayload)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="LLM failed to generate EIDO from template.")
 
-# --- New Endpoints for Local Geocoder Store Management ---
-
 
 @router.post("/tools/geocoding/local_store", summary="Add or update a location in the local geocoder store", tags=["Tools", "Geocoding"])
 async def update_local_geocode_entry(payload: LocalGeocodePayload):
@@ -303,7 +310,6 @@ async def list_local_geocode_entries():
 
 @router.delete("/tools/geocoding/local_store/{location_name}", summary="Remove a location from the local geocoder store", tags=["Tools", "Geocoding"], status_code=status.HTTP_204_NO_CONTENT)
 async def delete_local_geocode_entry(location_name: str):
-    # Path parameters can be URL-encoded by clients. This decoding makes the endpoint robust.
     try:
         decoded_location_name = urllib.parse.unquote(location_name)
     except Exception as e:
@@ -315,8 +321,51 @@ async def delete_local_geocode_entry(location_name: str):
         f"API request to delete local geocode entry: {decoded_location_name}")
     success = local_geocoder.remove_known_location(decoded_location_name)
     if success:
-        # Return a 204 No Content response, standard for successful DELETE operations
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Location '{decoded_location_name}' not found in local store or removal failed.")
+
+# --- New Endpoints for EIDO Template Editor ---
+
+@router.get("/tools/eido/schema", summary="Get full EIDO component schema", tags=["EIDO Tools"])
+async def get_eido_schema():
+    app_logger.info("API request for EIDO component schema.")
+    schema = load_openapi_schema()
+    if not schema:
+        raise HTTPException(status_code=500, detail="EIDO schema file not found or invalid on server.")
+    
+    components = schema.get('components', {}).get('schemas', {})
+    if not components:
+        raise HTTPException(status_code=404, detail="No components found in schema.")
+        
+    return components
+
+@router.post("/tools/eido/templates", summary="Save a new EIDO template", tags=["EIDO Tools"], status_code=status.HTTP_201_CREATED)
+async def save_eido_template(payload: EidoTemplateSavePayload):
+    app_logger.info(f"API request to save new EIDO template: {payload.filename}")
+    
+    # Security validation
+    if not payload.filename.endswith('.json'):
+        raise HTTPException(status_code=400, detail="Filename must end with .json")
+    
+    clean_filename = os.path.basename(payload.filename)
+    if clean_filename != payload.filename:
+        raise HTTPException(status_code=400, detail="Invalid filename. It cannot contain path characters.")
+
+    project_root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    template_dir = os.path.join(project_root_dir, "eido_templates")
+    os.makedirs(template_dir, exist_ok=True)
+    
+    file_path = os.path.join(template_dir, clean_filename)
+
+    if os.path.exists(file_path):
+        raise HTTPException(status_code=409, detail=f"Template file '{clean_filename}' already exists.")
+
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(payload.content, f, indent=4)
+        return {"message": f"Template '{clean_filename}' saved successfully."}
+    except Exception as e:
+        app_logger.error(f"Failed to save template file '{clean_filename}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to write template file to server.")

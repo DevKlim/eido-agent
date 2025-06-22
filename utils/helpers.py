@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 import logging
-from typing import Optional, Dict, List # Added List
+from typing import Optional, Dict, List
 
 logger = logging.getLogger(__name__)
 

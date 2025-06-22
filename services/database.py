@@ -27,7 +27,7 @@ else:
     JSON_TYPE = JSONB
     # For PostgreSQL, use the native UUID type and specify as_uuid=True
     # to ensure Python's uuid.UUID objects are used.
-    UUID_TYPE = PG_UUID
+    UUID_TYPE = PG_UUID(as_uuid=True)
 
 if not final_db_url:
     raise ValueError(
@@ -53,8 +53,8 @@ Base = declarative_base()
 
 class ReportCoreDataDB(Base):
     __tablename__ = "reports_core_data"
-    id = Column(UUID_TYPE(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
-    incident_id = Column(UUID_TYPE(as_uuid=True), ForeignKey(
+    id = Column(UUID_TYPE, primary_key=True, default=uuid_pkg.uuid4)
+    incident_id = Column(UUID_TYPE, ForeignKey(
         "incidents.id"), nullable=False, index=True)
     external_incident_id = Column(String, nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=False)
@@ -71,7 +71,7 @@ class ReportCoreDataDB(Base):
 
 class IncidentDB(Base):
     __tablename__ = "incidents"
-    id = Column(UUID_TYPE(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    id = Column(UUID_TYPE, primary_key=True, default=uuid_pkg.uuid4)
     name = Column(String, default="Untitled Incident")
     incident_type = Column(String, nullable=True)
     status = Column(String, default="Active")

@@ -36,7 +36,7 @@ class AdvancedGeocodingService:
             return {"coordinates": coords_direct, "confidence": CONFIDENCE_HIGH, "method": "Local Store (Exact Match)", "extracted_clues": {}, "reasoning_log": reasoning_log}
         
         # 2. Extract Geolocatable Clues using LLM
-        clues = extract_geolocatable_clues(narrative_text)
+        clues = await extract_geolocatable_clues(narrative_text) # Added await here
         if not clues:
             reasoning_log.append("LLM Clue Extraction failed or returned no clues.")
             # As a final fallback, try to geocode the raw text directly if clue extraction fails

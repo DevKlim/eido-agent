@@ -6,7 +6,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload # Import selectinload
 import json 
-from sqlalchemy import delete
+from sqlalchemy import delete, func
 
 from data_models.schemas import Incident as PydanticIncident, ReportCoreData as PydanticReportCoreData
 from services.database import get_db_session, IncidentDB, ReportCoreDataDB, AsyncSessionLocal
@@ -185,16 +185,16 @@ class IncidentStore:
             result = await session.execute(
                 select(IncidentDB)
                 .options(selectinload(IncidentDB.reports)) # Eagerly load reports
-                .where(IncidentDB.status.ilike(PydanticIncident.status)) # Case-insensitive check on status
+                .where(func.lower(IncidentDB.status).in_(active_statuses)) # Correctly filter in the database
                 .order_by(IncidentDB.last_updated_at.desc())
             )
             db_incidents = result.scalars().unique().all()
             
             p_incidents = []
             for db_inc in db_incidents:
-                if db_inc.status.lower() in active_statuses:
-                    p_reports = [await self._report_core_db_to_pydantic(dbr) for dbr in db_inc.reports]
-                    p_incidents.append(await self._incident_db_to_pydantic(db_inc, p_reports))
+                # The redundant python-side filter is no longer needed
+                p_reports = [await self._report_core_db_to_pydantic(dbr) for dbr in db_inc.reports]
+                p_incidents.append(await self._incident_db_to_pydantic(db_inc, p_reports))
             return p_incidents
 
     async def update_incident_status(self, incident_id_str: str, new_status: str) -> bool:

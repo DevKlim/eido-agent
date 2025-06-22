@@ -49,7 +49,7 @@ def create_xml_context_chunks(xml_path: str) -> List[Tuple[str, str]]:
         # Extract from CoreConcepts
         for concept in root.findall('.//Concept'):
             name = concept.get('name')
-            desc_element = concept.find('Description')
+            desc_element = concept.find('Description') # Directly finding description within concept
             if name and desc_element is not None and desc_element.text:
                 desc_text = ' '.join(desc_element.text.strip().split())
                 chunks.append((f'Concept: {name}', f"EIDO Concept '{name}': {desc_text}"))

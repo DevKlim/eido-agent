@@ -108,7 +108,7 @@ def _get_current_llm_config() -> Dict[str, Any]:
     return initial_settings.model_dump()
 
 
-def _call_llm(prompt: str, is_json_output: bool = False) -> Optional[str]:
+async def _call_llm(prompt: str, is_json_output: bool = False) -> Optional[str]:
     logger.debug(f"--- Attempting LLM call --- JSON Mode: {is_json_output}")
     config = _get_current_llm_config()
     provider = config.get('llm_provider')
@@ -137,7 +137,7 @@ def _call_llm(prompt: str, is_json_output: bool = False) -> Optional[str]:
         if provider == 'google':
             generation_config = genai.types.GenerationConfig(
                 response_mime_type="application/json") if is_json_output else None
-            response = llm_client.generate_content(
+            response = await llm_client.generate_content_async(
                 prompt, generation_config=generation_config)
 
             if response and hasattr(response, 'text') and response.text:
@@ -215,7 +215,7 @@ def _clean_json_response(response_text: str) -> Optional[str]:
         return None
 
 
-def summarize_incident(history: str, core_data: ReportCoreData) -> Optional[str]:
+async def summarize_incident(history: str, core_data: ReportCoreData) -> Optional[str]:
     prompt = PROMPTS['SUMMARIZE_INCIDENT'].format(
         history=history if history else "No previous history available.",
         timestamp=core_data.timestamp.isoformat(
@@ -229,10 +229,10 @@ def summarize_incident(history: str, core_data: ReportCoreData) -> Optional[str]
     )
     logger.debug(
         f"Calling LLM for incident summary (Report ID: {core_data.report_id[:8]})")
-    return _call_llm(prompt)
+    return await _call_llm(prompt)
 
 
-def recommend_actions(summary: str, core_data: ReportCoreData) -> Optional[List[str]]:
+async def recommend_actions(summary: str, core_data: ReportCoreData) -> Optional[List[str]]:
     prompt = PROMPTS['RECOMMEND_ACTIONS'].format(
         summary=summary,
         timestamp=core_data.timestamp.isoformat(
@@ -246,7 +246,7 @@ def recommend_actions(summary: str, core_data: ReportCoreData) -> Optional[List[
     )
     logger.debug(
         f"Calling LLM for recommended actions (Report ID: {core_data.report_id[:8]})")
-    response_text = _call_llm(prompt)
+    response_text = await _call_llm(prompt)
     if response_text:
         actions = [line.strip('- ').strip() for line in response_text.splitlines()
                    if line.strip() and line.strip().startswith('-')]
@@ -254,7 +254,7 @@ def recommend_actions(summary: str, core_data: ReportCoreData) -> Optional[List[
     return None
 
 
-def generate_incident_name(incident_type: str, location: str, summary: str) -> Optional[str]:
+async def generate_incident_name(incident_type: str, location: str, summary: str) -> Optional[str]:
     """Generates a short, descriptive name for an incident."""
     prompt = PROMPTS['GENERATE_INCIDENT_NAME'].format(
         incident_type=incident_type,
@@ -262,12 +262,12 @@ def generate_incident_name(incident_type: str, location: str, summary: str) -> O
         summary=summary
     )
     logger.debug("Calling LLM to generate an incident name.")
-    response = _call_llm(prompt)
+    response = await _call_llm(prompt)
     # Clean up response to remove potential markdown or quotes
     return response.strip().strip('"`') if response else None
 
 
-def fill_eido_template(template_str: str, scenario_desc: str) -> Optional[str]:
+async def fill_eido_template(template_str: str, scenario_desc: str) -> Optional[str]:
     """
     Populates an EIDO JSON template based on a scenario description, using RAG for context.
     """
@@ -285,11 +285,11 @@ def fill_eido_template(template_str: str, scenario_desc: str) -> Optional[str]:
         template_str=template_str
     )
 
-    response_text = _call_llm(prompt, is_json_output=True)
+    response_text = await _call_llm(prompt, is_json_output=True)
     return _clean_json_response(response_text)
 
 
-def choose_eido_template(alert_text: str, template_summaries_str: str) -> Optional[str]:
+async def choose_eido_template(alert_text: str, template_summaries_str: str) -> Optional[str]:
     """
     Given an alert text and a list of template summaries, chooses the best template filename.
     """
@@ -303,7 +303,7 @@ def choose_eido_template(alert_text: str, template_summaries_str: str) -> Option
     logger.debug(
         f"Calling LLM to choose an EIDO template for alert: '{alert_text[:50]}...'")
 
-    response_text = _call_llm(prompt, is_json_output=False)
+    response_text = await _call_llm(prompt, is_json_output=False)
 
     if response_text:
         cleaned_response = response_text.strip().replace(
@@ -322,7 +322,7 @@ def choose_eido_template(alert_text: str, template_summaries_str: str) -> Option
     return None
 
 
-def extract_eido_from_alert_text(alert_text: str) -> Optional[str]:
+async def extract_eido_from_alert_text(alert_text: str) -> Optional[str]:
     """
     DEPRECATED in favor of choose-then-fill pipeline. Kept for potential fallback or alternative flows.
     Parses a single alert text message directly into a structured JSON object using an LLM.
@@ -338,15 +338,15 @@ def extract_eido_from_alert_text(alert_text: str) -> Optional[str]:
         example_date=datetime.datetime.now().strftime('%Y-%m-%d'), alert_text=alert_text
     )
 
-    response_text = _call_llm(prompt, is_json_output=True)
+    response_text = await _call_llm(prompt, is_json_output=True)
     return _clean_json_response(response_text)
 
 
-def split_raw_text_into_events(raw_text: str) -> Optional[List[str]]:
+async def split_raw_text_into_events(raw_text: str) -> Optional[List[str]]:
     if not raw_text:
         return None
     prompt = PROMPTS['SPLIT_RAW_TEXT_INTO_EVENTS'].format(raw_text=raw_text)
-    response_text = _call_llm(prompt, is_json_output=True)
+    response_text = await _call_llm(prompt, is_json_output=True)
     cleaned_response = _clean_json_response(response_text)
     if cleaned_response:
         try:
@@ -360,7 +360,7 @@ def split_raw_text_into_events(raw_text: str) -> Optional[List[str]]:
     return None
 
 
-def geocode_address_with_llm(address_text: str) -> Optional[Tuple[float, float]]:
+async def geocode_address_with_llm(address_text: str) -> Optional[Tuple[float, float]]:
     if not address_text or not isinstance(address_text, str):
         return None
     config = _get_current_llm_config()
@@ -369,7 +369,7 @@ def geocode_address_with_llm(address_text: str) -> Optional[Tuple[float, float]]
 
     prompt = PROMPTS['GEOCODE_ADDRESS_WITH_LLM'].format(
         address_text=address_text)
-    response_text = _call_llm(prompt, is_json_output=True)
+    response_text = await _call_llm(prompt, is_json_output=True)
     cleaned_response = _clean_json_response(response_text)
     if cleaned_response:
         try:
@@ -384,7 +384,7 @@ def geocode_address_with_llm(address_text: str) -> Optional[Tuple[float, float]]
     return None
 
 
-def extract_geolocatable_clues(narrative_text: str) -> Optional[Dict[str, Any]]:
+async def extract_geolocatable_clues(narrative_text: str) -> Optional[Dict[str, Any]]:
     if not narrative_text or not isinstance(narrative_text, str):
         return None
     config = _get_current_llm_config()
@@ -394,7 +394,7 @@ def extract_geolocatable_clues(narrative_text: str) -> Optional[Dict[str, Any]]:
     geographic_context_prompt = "The incident likely occurred on or very near the UC San Diego (UCSD) campus in La Jolla, California, or the broader San Diego area."
     prompt = PROMPTS['EXTRACT_GEOLOCATABLE_CLUES'].format(
         geographic_context_prompt=geographic_context_prompt, narrative_text=narrative_text)
-    response_text = _call_llm(prompt, is_json_output=True)
+    response_text = await _call_llm(prompt, is_json_output=True)
     cleaned_response = _clean_json_response(response_text)
     if cleaned_response:
         try:

@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["api"]
+    command: [ "api" ] # This command is passed to entrypoint.sh
     env_file:
       - .env
     environment:
@@ -23,18 +23,18 @@ services:
     networks:
       - eido_sentinel_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 15s
 
   # The Streamlit frontend service
   ui:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["ui"]
+    command: [ "ui" ] # This command is passed to entrypoint.sh
     depends_on:
       api:
         condition: service_healthy # Wait for the API to be healthy before starting
