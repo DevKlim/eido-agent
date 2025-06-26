@@ -1,7 +1,8 @@
+# fly.toml
 # Fly.io app configuration for EIDO Sentinel
 # See https://fly.io/docs/reference/configuration/ for more information
 
-app = "eido-sentinel" # Replace with your actual app name on Fly.io
+app = "eido-agent" # This should match your Fly.io app name
 primary_region = "sjc" # Choose a region close to you
 kill_signal = "SIGINT"
 kill_timeout = "5s"
@@ -9,27 +10,30 @@ kill_timeout = "5s"
 [build]
   dockerfile = "Dockerfile"
 
-# This command runs once per deployment to handle tasks like database migrations.
-# For now, we're using SQLAlchemy's create_all on startup, but for production
-# a real migration tool like Alembic is recommended. You can remove this section
-# if you are not using Alembic.
-[deploy]
-  release_command = "alembic upgrade head"
+# The [deploy] section is for running tasks like database migrations before a release.
+# It requires a migration tool like Alembic. We'll comment it out to prevent errors.
+# [deploy]
+#   release_command = "alembic upgrade head"
 
 # Environment variables applied to ALL processes.
+# Update these with your app's final URL.
 [env]
-  # Set the app's public URL. Fly provides this automatically.
-  API_BASE_URL = "https://eido-sentinel.fly.dev" # Replace with your app's URL
-  # Tell the UI where its own public URL is. This is needed for CORS.
-  STREAMLIT_APP_URL = "http://eido-sentinel.fly.dev:8080" # Replace with your app's URL and the UI port
+  API_BASE_URL = "https://eido-agent.fly.dev"
+  STREAMLIT_APP_URL = "http://eido-agent.fly.dev:8080"
   LOG_LEVEL = "INFO"
 
-# The `api` service handles the backend and the main landing page.
-# It is exposed on standard HTTP/HTTPS ports.
+# THIS SECTION WAS MISSING.
+# It defines the commands for your process groups.
+# The value (e.g., "api") is passed as an argument to the Docker entrypoint.
+[processes]
+  api = "api"
+  ui  = "ui"
+
+# The `api` service definition.
 [[services]]
   protocol = "tcp"
-  internal_port = 8000 # The port our FastAPI app listens on inside the container
-  processes = ["api"]  # Corresponds to the `api` process in entrypoint.sh
+  internal_port = 8000
+  processes = ["api"]  # This now correctly refers to the 'api' process defined above.
 
   [services.concurrency]
     type = "connections"
@@ -50,15 +54,14 @@ kill_timeout = "5s"
     timeout = "2s"
     grace_period = "5s"
     method = "GET"
-    path = "/" # The landing page should return 200 OK
+    path = "/"
     protocol = "http"
 
-# The `ui` service handles the Streamlit frontend.
-# It runs on a different public port.
+# The `ui` service definition.
 [[services]]
   protocol = "tcp"
-  internal_port = 8501 # The port our Streamlit app listens on inside the container
-  processes = ["ui"]   # Corresponds to the `ui` process in entrypoint.sh
+  internal_port = 8501
+  processes = ["ui"]   # This now correctly refers to the 'ui' process defined above.
 
   [services.concurrency]
     type = "connections"
@@ -74,5 +77,5 @@ kill_timeout = "5s"
     timeout = "5s"
     grace_period = "10s"
     method = "GET"
-    path = "/healthz" # Streamlit's built-in health endpoint
+    path = "/healthz"
     protocol = "http"
