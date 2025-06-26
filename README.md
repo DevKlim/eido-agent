@@ -146,7 +146,7 @@ sudo docker-compose up --build -d
     # View logs for just the API
     sudo docker-compose logs -f api
 
-    # View logs for just the UI
+    # View logs for just the UId
     sudo docker-compose logs -f ui
     ```
     (Press `Ctrl+C` to stop viewing logs).

@@ -118,38 +118,37 @@ class Settings(BaseSettings):
                 "CRITICAL: DATABASE_URL is not set. The application cannot connect to the database.")
         else:
             # --- NeonDB/Fly.io PostgreSQL + asyncpg compatibility fix ---
-            # This block removes the `sslmode` query parameter which is not compatible with `asyncpg`.
-            if "postgresql" in self.database_url:
+            is_postgres = "postgresql" in self.database_url or "postgres:" in self.database_url
+            if is_postgres:
                 try:
+                    # Remove the `sslmode` query parameter which is not compatible with `asyncpg`.
                     parsed_url = urlparse(self.database_url)
                     query_params = dict(parse_qsl(parsed_url.query))
-
                     if 'sslmode' in query_params:
                         settings_logger.warning(
                             f"Found 'sslmode={query_params['sslmode']}' in DATABASE_URL. Removing it for asyncpg compatibility."
                         )
                         del query_params['sslmode']
-
-                        # Reconstruct the URL without the sslmode parameter
                         new_query_string = urlencode(query_params)
                         self.database_url = urlunparse(parsed_url._replace(query=new_query_string))
                         settings_logger.info(f"Modified DATABASE_URL for compatibility: {self.database_url}")
-
                 except Exception as e:
-                    settings_logger.error(f"Failed to parse and modify DATABASE_URL: {e}. Proceeding with original URL.")
+                    settings_logger.error(f"Failed to parse and modify DATABASE_URL query string: {e}. Proceeding with original URL.")
 
-            # FIX: Automatically correct the postgresql scheme for async compatibility
-            if self.database_url.startswith("postgresql://"):
-                settings_logger.warning(
-                    "DATABASE_URL uses 'postgresql://' scheme. For async support, it will be automatically changed to 'postgresql+asyncpg://'."
-                )
-                self.database_url = self.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-                settings_logger.info(f"Corrected DATABASE_URL to: {self.database_url}")
-            elif self.database_url.startswith("postgresql") and not self.database_url.startswith("postgresql+asyncpg://"):
-                settings_logger.critical(
-                    "DATABASE_URL uses an unrecognized PostgreSQL scheme. It must start with 'postgresql+asyncpg://'. "
-                    f"Current value: {self.database_url}"
-                )
+                # FIX: Automatically correct the postgresql scheme for async compatibility.
+                # Fly.io provides "postgres://" and others use "postgresql://". We need "postgresql+asyncpg://".
+                if self.database_url.startswith("postgresql://") or self.database_url.startswith("postgres://"):
+                    scheme_to_replace = "postgresql://" if self.database_url.startswith("postgresql://") else "postgres://"
+                    settings_logger.warning(
+                        f"DATABASE_URL uses '{scheme_to_replace}' scheme. For async support, it will be automatically changed to 'postgresql+asyncpg://'."
+                    )
+                    self.database_url = self.database_url.replace(scheme_to_replace, "postgresql+asyncpg://", 1)
+                    settings_logger.info(f"Corrected DATABASE_URL to: {self.database_url}")
+                elif not self.database_url.startswith("postgresql+asyncpg://"):
+                     settings_logger.critical(
+                        f"DATABASE_URL uses an unrecognized PostgreSQL scheme. It must start with 'postgresql+asyncpg://'. Current value: {self.database_url}"
+                    )
+
             elif self.database_url.startswith("sqlite"):
                 settings_logger.info(
                     "Using SQLite database for local development.")

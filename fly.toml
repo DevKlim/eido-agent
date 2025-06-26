@@ -1,21 +1,26 @@
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# Fly.io app configuration for EIDO Sentinel
+# See https://fly.io/docs/reference/configuration/ for more information
 
-app = "eido-sentinel"
-primary_region = "sjc"
+app = "eido-sentinel" # Replace with your actual app name
+primary_region = "sjc" # Choose the region closest to your users
 kill_signal = "SIGINT"
 kill_timeout = "5s"
 
 [build]
   dockerfile = "Dockerfile"
 
+# The `[deploy]` section runs a command *before* a new version of the app is released.
+# This is the standard place for database migrations.
+# If you don't use a migration tool like Alembic, you can safely remove this section.
 [deploy]
   release_command = "alembic upgrade head"
 
+# The `api` service handles the backend and the main landing page.
+# It is exposed on standard HTTP/HTTPS ports.
 [[services]]
   protocol = "tcp"
-  internal_port = 8000
-  processes = ["api"]
+  internal_port = 8000 # The port our FastAPI app listens on inside the container
+  processes = ["api"]  # Corresponds to the `api` command in your entrypoint.sh
 
   [services.concurrency]
     type = "connections"
@@ -25,36 +30,49 @@ kill_timeout = "5s"
   [[services.ports]]
     port = 80
     handlers = ["http"]
+    force_https = true # Redirect HTTP to HTTPS
 
   [[services.ports]]
     port = 443
-    handlers = ["tls", "http"]
+    handlers = ["tls", "http"] # Handle TLS termination and HTTP requests
 
+  # Health check for the API. The path "/" serves the landing page and should return 200 OK.
   [[services.http_checks]]
     interval = "15s"
     timeout = "2s"
     grace_period = "5s"
     method = "GET"
     path = "/"
+    protocol = "http"
 
+# The `ui` service handles the Streamlit frontend.
+# It runs on a different public port.
 [[services]]
   protocol = "tcp"
-  internal_port = 8501
-  processes = ["ui"]
+  internal_port = 8501 # The port our Streamlit app listens on inside the container
+  processes = ["ui"]   # Corresponds to the `ui` command in your entrypoint.sh
 
   [services.concurrency]
     type = "connections"
-    hard_limit = 25
-    soft_limit = 20
+    hard_limit = 15
+    soft_limit = 10
 
+  # Public-facing port for the Streamlit UI.
+  # Fly will route traffic from the public port 8080 to the internal 8501.
   [[services.ports]]
-    port = 8080 # This will be the public port for Streamlit
+    port = 8080 # Change if you prefer a different public port for the UI
     handlers = ["http"]
     force_https = true
 
+  [[services.ports]]
+    port = 8502 # Use a different port for TLS handling for the second service
+    handlers = ["tls", "http"]
+
+  # Health check for Streamlit's built-in health endpoint.
   [[services.http_checks]]
     interval = "30s"
     timeout = "5s"
     grace_period = "10s"
     method = "GET"
-    path = "/healthz" # Streamlit's health check endpoint
+    path = "/healthz"
+    protocol = "http"
