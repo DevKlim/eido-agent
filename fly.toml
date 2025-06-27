@@ -21,6 +21,11 @@ kill_timeout = "5s"
   API_BASE_URL = "https://eido-agent.fly.dev"
   STREAMLIT_APP_URL = "http://eido-agent.fly.dev:8080"
   LOG_LEVEL = "INFO"
+  # Supabase Database Configuration (replace with your actual credentials)
+  SUPABASE_URL = "YOUR_SUPABASE_URL"
+  SUPABASE_KEY = "YOUR_SUPABASE_KEY"
+  SUPABASE_DB_URL = "postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres"
+
 
 # THIS SECTION WAS MISSING.
 # It defines the commands for your process groups.
@@ -49,14 +54,6 @@ kill_timeout = "5s"
     port = 443
     handlers = ["tls", "http"]
 
-  [[services.http_checks]]
-    interval = "15s"
-    timeout = "2s"
-    grace_period = "5s"
-    method = "GET"
-    path = "/"
-    protocol = "http"
-
 # The `ui` service definition.
 [[services]]
   protocol = "tcp"
@@ -71,11 +68,3 @@ kill_timeout = "5s"
   [[services.ports]]
     port = 8080 # The single public port for the UI
     handlers = ["http", "tls"] # Fly will handle HTTP and TLS termination on this port
-
-  [[services.http_checks]]
-    interval = "30s"
-    timeout = "5s"
-    grace_period = "10s"
-    method = "GET"
-    path = "/healthz"
-    protocol = "http"
