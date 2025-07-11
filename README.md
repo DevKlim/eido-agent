@@ -1,6 +1,291 @@
 # EIDO Sentinel
 
+<p align="center">
+  <img src="static/images/logo_icon_light.png" alt="EIDO Sentinel Logo Light" width="150"/>
+</p>
+
 EIDO Sentinel is an AI-powered platform designed to enhance emergency response by intelligently processing, correlating, and analyzing diverse emergency data streams.
+
+---
+
+## ✨ Features
+
+- **Convert Raw Reports:** Transform raw text from various sources (social media, alerts, dispatches) into a contextualized, standardized incident feed using Large Language Models.
+- **Upload EIDO JSONs:** Directly upload existing EIDO-formatted JSON files to populate the incident feed.
+- **Live Incident Feed:** View a real-time feed of all processed incidents, with the ability to inspect detailed information for each event.
+- **Dashboard & Map View:** Visualize incident data through an interactive dashboard and a map-based interface. Filter incidents by type, location, or status.
+- **Export to EIDO:** Easily copy or export processed incidents back into the standardized EIDO JSON format for interoperability.
+
+---
+
+## 🚀 Live Demo & Showcase
+
+### Ingest Raw Text and Generate Standardized Incidents
+![GIF of raw text ingestion](static/images/image1.gif)
+
+### Upload and View EIDO JSON Files
+![GIF of EIDO JSON upload](static/images/image2.gif)
+
+### Interactive Incident Dashboard and Filtering
+![GIF of dashboard view](static/images/image3.gif)
+
+### Geospatial Mapping of All Incidents
+![GIF of map view](static/images/image4.gif)
+
+### Detailed Incident Inspection and Export
+![GIF of incident details](static/images/image5.gif)
+
+---
+
+## 💡 How It Works: From Raw Text to EIDO JSON
+
+EIDO Sentinel can take unstructured text from multiple sources and convert it into a structured EIDO (Emergency Incident Data Object).
+
+### 1. Raw Text Digest
+
+Here are examples of the kind of unstructured data the system can process:
+
+<details>
+<summary><strong>Example 1: Police Alert (Twitter)</strong></summary>
+
+```text
+(twitter) @CarlsbadPolice 6:40 PM: ABLE helicopter is making announcements in the Bressi Ranch area near El Fuerte St & Gateway Rd. We're searching for a Hispanic male, 5'6", heavyset, wearing a white shirt & dark pants, armed with a knife. If seen, call 911 immediately.
+```
+</details>
+
+<details>
+<summary><strong>Example 2: Fire Evacuation Notice (Sheriff Dept.)</strong></summary>
+
+```text
+San Diego Sheriff @SDSheriff #ClaroFire A brush fire is burning near Corte Claro and Paseo Encino in the City of Carlsbad, near the Carlsbad/San Marcos border. An EVACUATION ORDER is in place for the shaded areas in red shown in the maps below. It means everyone in the impacted area must leave immediately. An EVACUATION WARNING is in place for the shaded areas in yellow shown in the maps below. Be prepared to evacuate. If you feel you are in danger, GO! To see maps of the affected areas, visit: https://protect.genasys.com/location?z=14&latlon=33.091377990534724%2C-117.21915553408178 and https://emergencymap.sandiegocounty.gov/index.html. A Temporary Evacuation Point has been opened at: ▪️Stagecoach Park 3420 Camino De Los Coches, Carlsbad This is a developing situation and the information we provide is current at the time of posting.
+```
+</details>
+
+<details>
+<summary><strong>Example 3: Campus Alert</strong></summary>
+
+```json
+{
+  "alert_title": "01/17/2025 Police Emergency - Possible Armed Suspect",
+  "alert_type": "Other",
+  "crime_type": "Unspecified",
+  "date": "01/17/2025",
+  "description": "
+
+Police Emergency - Possible Armed Suspect
+email : Webview : Police Emergency - Possible Armed Suspect
+
+
+UC SAN DIEGO POLICE DEPARTMENT
+
+
+January 17, 2025
+
+
+
+
+
+
+ALL ACADEMICS, STAFF, AND STUDENTS AT UC SAN DIEGO
+
+
+Police Emergency - Possible Armed Suspect
+
+Triton Alert Notification: 
+Emergency at RIMAC/Liontree Area. Avoid north campus if possible. Otherwise, lock doors and stay inside. UCSD responders on scene. More information to follow as it becomes available. Do not call Police Dispatch unless you have information about this incident.
+
+
+University of California San Diego, 9500 Gilman Drive, La Jolla, CA, 92093
+
+",
+  "details_url": "https://adminrecords.ucsd.edu/Notices/2025/2025-1-17-4.html",
+  "is_update": false,
+  "location_text": "Unknown",
+  "precise_location": "La Jolla",
+  "suspect_info": "Suspect
+email : Webview : Police Emergency - Possible Armed Suspect
+
+
+UC SAN DIEGO POLICE DEPARTMENT
+
+
+January 17, 2025
+
+
+
+
+
+
+ALL ACADEMICS, STAFF, AND STUDENTS AT UC SAN DIEGO
+
+
+Police Emergency - Possible Armed Suspect
+
+Triton Alert Notification: 
+Emergency at RIMAC/Liontree Area."
+}
+```
+</details>
+
+### 2. Generated EIDO JSON Output
+
+The system also ingests and processes standard EIDO JSONs. Here are a couple of examples:
+
+<details>
+<summary><strong>EIDO JSON Example #1: Border Fire</strong></summary>
+
+```json
+{
+    "$id": "urn:uuid:1a2b3c4d-5e6f-7890-abcd-ef0123456789",
+    "messageKind": "Alert",
+    "notesComponent": [
+        {
+            "noteText": "Fire is 5 acres, slow to moderate spread primarily burning in Mexico.",
+            "authorReference": {
+                "$ref": "person-aabbccdd-eeff-0011-2233-445566778899"
+            },
+            "noteDateTimeStamp": "2024-05-15T10:30:00-07:00",
+            "componentIdentifier": "note-98765432-10fe-dcba-9876-543210fedcba"
+        }
+    ],
+    "agencyComponent": [
+        {
+            "$id": "agency-11223344-5566-7788-99aa-bbccddeeff00",
+            "agencyName": "CALFIRESANDIEGO",
+            "agencyIdentifier": "urn:nena:agency:calfire.sandiego"
+        }
+    ],
+    "personComponent": [
+        {
+            "$id": "person-aabbccdd-eeff-0011-2233-445566778899",
+            "personNameText": "CALFIRESANDIEGO",
+            "personIdentifier": "CALFIRESANDIEGO_AlertSystem"
+        }
+    ],
+    "incidentComponent": [
+        {
+            "locationReference": {
+                "$ref": "loc-8a7b6c5d-4e3f-2109-fedc-ba9876543210"
+            },
+            "componentIdentifier": "inc-0a1b2c3d-4e5f-6789-0abc-def012345678",
+            "lastUpdateTimeStamp": "2024-05-15T10:30:00-07:00",
+            "updatedByAgencyReference": {
+                "$ref": "agency-11223344-5566-7788-99aa-bbccddeeff00"
+            },
+            "incidentTrackingIdentifier": "Border6Fire",
+            "incidentTypeCommonRegistryText": "Vegetation Fire",
+            "incidentStatusCommonRegistryText": "Contained"
+        }
+    ],
+    "locationComponent": [
+        {
+            "$id": "loc-8a7b6c5d-4e3f-2109-fedc-ba9876543210",
+            "locationByValue": "<?xml version="1.0" encoding="UTF-8"?>
+<location xmlns:gml="http://www.opengis.net/gml" xmlns:ca="urn:ietf:params:xml:ns:pidf:geopriv10:civicAddr">
+  <gml:Point srsName="urn:ogc:def:crs:EPSG::4326">
+    <gml:pos>32.590 -116.495</gml:pos>
+  </gml:Point>
+  <ca:civicAddress>
+    <ca:country>US</ca:country>
+    <ca:A1>CA</ca:A1>
+    <ca:A3>Campo</ca:A3>
+    <ca:LOC>U.S./Mexico border just west of Forrest Gate Rd</ca:LOC>
+    <ca:PC>91906</ca:PC>
+  </ca:civicAddress>
+  <civicAddressText>U.S./Mexico border just west of Forrest Gate Rd, Campo, CA 91906</civicAddressText>
+  <locationNotes>No immediate road impact noted on US side; fire primarily burning in Mexico.</locationNotes>
+</location>",
+            "componentIdentifier": "loc-8a7b6c5d-4e3f-2109-fedc-ba9876543210",
+            "lastUpdateTimeStamp": "2024-05-15T10:30:00-07:00",
+            "updatedByAgencyReference": {
+                "$ref": "agency-11223344-5566-7788-99aa-bbccddeeff00"
+            }
+        }
+    ],
+    "lastUpdateTimeStamp": "2024-05-15T10:30:00-07:00",
+    "eidoMessageIdentifier": "urn:uuid:1a2b3c4d-5e6f-7890-abcd-ef0123456789",
+    "sendingSystemIdentifier": "urn:nena:agency:calfire.sandiego"
+}
+```
+</details>
+
+<details>
+<summary><strong>EIDO JSON Example #2: Monte Fire</strong></summary>
+
+```json
+{
+    "$id": "urn:uuid:1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+    "messageKind": "Alert",
+    "notesComponent": [
+        {
+            "noteText": "A brush fire is burning near the 15000 block of El Monte Road in Lakeside. An EVACUATION ORDER is in place for affected areas. This is a developing situation. Follow @CALFIRESANDIEGO, @SDSheriff, @AlertSanDiegoCo for updates.",
+            "authorReference": {
+                "$ref": "person-6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c"
+            },
+            "noteDateTimeStamp": "2024-05-15T14:30:00-07:00",
+            "componentIdentifier": "note-5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b"
+        }
+    ],
+    "agencyComponent": [
+        {
+            "$id": "agency-4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a",
+            "agencyName": "UC San Diego Police Department",
+            "agencyIdentifier": "urn:nena:agency:ucsdpd"
+        }
+    ],
+    "personComponent": [
+        {
+            "$id": "person-6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c",
+            "personNameText": "UC San Diego Police Department",
+            "personIdentifier": "urn:nena:system:ucsdalerts"
+        }
+    ],
+    "incidentComponent": [
+        {
+            "locationReference": {
+                "$ref": "loc-3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f"
+            },
+            "componentIdentifier": "inc-2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+            "lastUpdateTimeStamp": "2024-05-15T14:30:00-07:00",
+            "updatedByAgencyReference": {
+                "$ref": "agency-4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a"
+            },
+            "incidentTrackingIdentifier": "MonteFireAlert",
+            "incidentTypeCommonRegistryText": "Vegetation Fire",
+            "incidentStatusCommonRegistryText": "Active"
+        }
+    ],
+    "locationComponent": [
+        {
+            "$id": "loc-3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+            "locationByValue": "<?xml version="1.0" encoding="UTF-8"?>
+<location xmlns:gml="http://www.opengis.net/gml" xmlns:ca="urn:ietf:params:xml:ns:pidf:geopriv10:civicAddr">
+  <gml:Point srsName="urn:ogc:def:crs:EPSG::4326">
+    <gml:pos>32.8805 -116.8906</gml:pos>
+  </gml:Point>
+  <ca:civicAddress>
+    <ca:country>US</ca:country>
+    <ca:A1>CA</ca:A1>
+    <ca:A3>Lakeside</ca:A3>
+    <ca:LOC>15000 El Monte Road</ca:LOC>
+    <ca:PC>92040</ca:PC>
+  </ca:civicAddress>
+  <civicAddressText>15000 block of El Monte Road in Lakeside, CA 92040</civicAddressText>
+  <locationNotes>An EVACUATION ORDER is in place for the shaded areas in red shown in the maps. It means everyone in the impacted area must leave immediately. To see maps of the affected areas, visit: https://protect.genasys.com/zones/US-CA-XSD-SDC-1467 and http://emergencymap.sandiegocounty.gov/index.html.</locationNotes>
+</location>",
+            "componentIdentifier": "loc-3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+            "lastUpdateTimeStamp": "2024-05-15T14:30:00-07:00",
+            "updatedByAgencyReference": {
+                "$ref": "agency-4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a"
+            }
+        }
+    ],
+    "lastUpdateTimeStamp": "2024-05-15T14:30:00-07:00",
+    "eidoMessageIdentifier": "urn:uuid:1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+    "sendingSystemIdentifier": "urn:nena:agency:ucsdpd"
+}
+```
+</details>
 
 ---
 
