@@ -4,6 +4,8 @@
   <img src="static/images/logo_icon_light.png" alt="EIDO Sentinel Logo Light" width="150"/>
 </p>
 
+https://eido-sentinel.streamlit.app/
+
 EIDO Sentinel is an AI-powered platform designed to enhance emergency response by intelligently processing, correlating, and analyzing diverse emergency data streams.
 
 ---
