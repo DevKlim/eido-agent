@@ -4,6 +4,8 @@
   <img src="static/images/logo_icon_light.png" alt="EIDO Sentinel Logo Light" width="150"/>
 </p>
 
+https://eido-sentinel.streamlit.app/
+
 EIDO Sentinel is an AI-powered platform designed to enhance emergency response by intelligently processing, correlating, and analyzing diverse emergency data streams.
 
 ---
@@ -314,7 +316,7 @@ This project is fully containerized, allowing for an easy, one-command local set
     cp .env.example .env
     ```
 
-    **IMPORTANT:** You must edit the new `.env` file to provide your API keys (e.g., `GOOGLE_API_KEY`) and a unique `GEOCODING_USER_AGENT` with your email. For local use, the default URLs are fine.
+    **IMPORTANT:** You must edit the new `.env` file to provide your API keys like `GOOGLE_API_KEY` and a unique `GEOCODING_USER_AGENT` with your email. For local use, the default URLs are fine.
 
 3.  **Build and Run with Docker Compose:**
     This command builds the Docker image and starts both the backend API and the Streamlit UI services.
@@ -356,7 +358,7 @@ This project is configured for a multi-process deployment on [Fly.io](https://fl
 
 ---
 
-## Deployment to a Cloud VM (e.g., Oracle Cloud Free Tier)
+## Deployment to a Cloud VM such as Oracle Cloud Free Tier or Google Cloud Platform
 
 This guide explains how to deploy the entire application (Backend API and Streamlit UI) to a single cloud Virtual Machine using Docker.
 
