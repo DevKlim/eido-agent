@@ -1,5 +1,5 @@
 # file: Dockerfile
-FROM python:3.10-slim-buster
+FROM python:3.11-slim-bullseye
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
@@ -13,6 +13,7 @@ WORKDIR /app
 COPY requirements.txt .
 # The --extra-index-url from requirements.txt will be used here
 RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
 
 # Run the RAG indexer during the build to pre-process schema data

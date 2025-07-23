@@ -5,5 +5,19 @@
     "source": "adv_geo_nominatim_poi_for_entity_'la_jolla'",
     "notes": "Confidence: Medium. Original: 'Area affected by flood warning....'",
     "last_updated": "2025-06-22T20:05:31.284253+00:00"
+  },
+  "Lakeside, CA 92040, (15000 El Monte Road)": {
+    "lat": 32.8572719,
+    "lon": -116.9222489,
+    "source": "adv_geo_nominatim_(direct_address)",
+    "notes": "Confidence: High. Original: 'Lakeside, CA 92040, (15000 El Monte Road)...'",
+    "last_updated": "2025-07-21T08:28:04.339145+00:00"
+  },
+  "42 W Cellular Street, Wilmington, DE": {
+    "lat": 39.7084,
+    "lon": -75.3402,
+    "source": "adv_geo_llm_(direct_address)",
+    "notes": "Confidence: Medium. Original: '42 W Cellular Street, Wilmington, DE...'",
+    "last_updated": "2025-07-22T20:18:40.503585+00:00"
   }
 }

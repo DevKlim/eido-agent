@@ -43,7 +43,7 @@ app = FastAPI(
 )
 
 # --- CORS Middleware Configuration ---
-allowed_origins = []
+allowed_origins = ["*"]
 
 # 1. Add local development origins
 local_streamlit_url = f"http://localhost:{settings.streamlit_server_port}"

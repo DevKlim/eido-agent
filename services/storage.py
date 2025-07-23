@@ -30,7 +30,7 @@ class IncidentStore:
             locations_coords=[list(loc) if isinstance(loc, tuple) else loc for loc in p_incident.locations], 
             addresses=p_incident.addresses,
             zip_codes=p_incident.zip_codes,
-            trend_data=p_incident.trend_data
+
         )
 
     async def _incident_db_to_pydantic(self, db_incident: IncidentDB, reports_core_data: List[PydanticReportCoreData]) -> PydanticIncident:
@@ -50,7 +50,7 @@ class IncidentStore:
             locations=[tuple(loc) if isinstance(loc, list) else loc for loc in (db_incident.locations_coords or [])], 
             addresses=db_incident.addresses if isinstance(db_incident.addresses, list) else [],
             zip_codes=db_incident.zip_codes if isinstance(db_incident.zip_codes, list) else [],
-            trend_data=db_incident.trend_data if isinstance(db_incident.trend_data, dict) else {},
+            
             reports_core_data=reports_core_data
         )
 
@@ -122,7 +122,7 @@ class IncidentStore:
                 db_incident.locations_coords = [list(loc) if isinstance(loc, tuple) else loc for loc in p_incident.locations]
                 db_incident.addresses = p_incident.addresses
                 db_incident.zip_codes = p_incident.zip_codes
-                db_incident.trend_data = p_incident.trend_data
+                
                 logger.debug(f"Updating Incident {p_incident.incident_id[:8]} in DB.")
             else: 
                 # Create a new incident entry

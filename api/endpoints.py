@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Union, Optional as TypingOptional
 from pydantic import BaseModel, Field
 import urllib.parse  # For URL decoding path parameters
 
-from data_models.schemas import Incident as PydanticIncident
+from data_models.schemas import Incident as PydanticIncident, IncidentPublic
 from agent.agent_core import eido_agent_instance
 from services.storage import IncidentStore
 from config.settings import settings
@@ -179,10 +179,28 @@ async def ingest_alert_text_endpoint(payload: AlertTextPayload, response: Respon
 db_incident_store = IncidentStore()
 
 
-@router.get("/incidents", response_model=List[PydanticIncident], summary="List all incidents")
+@router.get("/incidents", response_model=List[IncidentPublic], summary="List all incidents")
 async def get_all_incidents_endpoint():
     app_logger.info("API request received for /incidents")
-    return await db_incident_store.get_all_incidents()
+    incidents = await db_incident_store.get_all_incidents()
+    
+    # Manually construct the response to ensure no non-serializable data is included
+    response_data = []
+    for incident in incidents:
+        response_data.append(
+            IncidentPublic(
+                incident_id=incident.incident_id,
+                name=incident.name,
+                incident_type=incident.incident_type,
+                status=incident.status,
+                created_at=incident.created_at,
+                last_updated_at=incident.last_updated_at,
+                summary=incident.summary,
+                locations=incident.locations,
+                addresses=incident.addresses,
+            )
+        )
+    return response_data
 
 
 @router.get("/incidents/active", response_model=List[PydanticIncident], summary="List active incidents")

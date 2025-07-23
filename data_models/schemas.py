@@ -28,7 +28,7 @@ class ReportCoreData(BaseModel):
     original_document_id: Optional[str] = Field(
         None, description="ID of the original EIDO message or source document.")
     original_eido_dict: Optional[Dict[str, Any]] = Field(
-        None, description="The raw EIDO dictionary if source was JSON.")
+        None, description="The raw EIDO dictionary if source was JSON.", exclude=True)
 
     @field_validator('timestamp', mode='before')
     @classmethod
@@ -57,7 +57,13 @@ class ReportCoreData(BaseModel):
             f"Invalid timestamp type '{type(v)}': {v}. Using current UTC time.")
         return datetime.now(timezone.utc)
 
-    model_config = ConfigDict(extra='allow', validate_assignment=True)
+    model_config = ConfigDict(
+        extra='allow',
+        validate_assignment=True,
+        json_encoders={
+            datetime: lambda v: v.isoformat(),
+        }
+    )
 
 
 class Incident(BaseModel):
@@ -81,9 +87,13 @@ class Incident(BaseModel):
     zip_codes: List[str] = Field(
         default_factory=list, description="List of unique ZIP codes associated.")
 
-    trend_data: Dict[str, Any] = Field(
-        default_factory=dict, description="Metrics like report count, duration, match info.")
-    model_config = ConfigDict(extra='allow', validate_assignment=True)
+    model_config = ConfigDict(
+        extra='allow',
+        validate_assignment=True,
+        json_encoders={
+            datetime: lambda v: v.isoformat(),
+        }
+    )
 
     def add_report_core_data(self, core_data: ReportCoreData, match_info: Optional[str] = None):
         if not isinstance(core_data, ReportCoreData):
@@ -124,23 +134,13 @@ class Incident(BaseModel):
             logger.debug(
                 f"Added unique ZIP code '{core_data.zip_code}' to Incident {self.incident_id[:8]}.")
 
-        self.trend_data['report_count'] = len(self.reports_core_data)
-        if self.created_at and self.last_updated_at:
-            duration_seconds = (self.last_updated_at -
-                                self.created_at).total_seconds()
-            self.trend_data['duration_minutes'] = round(
-                duration_seconds / 60.0, 1)
-        if match_info:
-            # Store latest match info
-            self.trend_data['last_match_info'] = match_info
-
         # Sensible status update: if it was 'Active' and gets a new report, it becomes 'Updated'.
         # More complex status logic (e.g., based on EIDO status fields) could be added here or in agent_core.
         if len(self.reports_core_data) > 1 and self.status == "Active":
             self.status = "Updated"
 
         logger.info(
-            f"Incident {self.incident_id[:8]} updated by Report {core_data.report_id[:8]}. Reports: {self.trend_data.get('report_count', 0)}, Status: {self.status}.")
+            f"Incident {self.incident_id[:8]} updated by Report {core_data.report_id[:8]}. Reports: {len(self.reports_core_data)}, Status: {self.status}.")
 
     def get_full_description_history(self, exclude_latest: bool = False) -> str:
         # All timestamps are guaranteed to be timezone-aware datetime objects by ReportCoreData's validator
@@ -163,3 +163,22 @@ class Incident(BaseModel):
                 history_entries.append(
                     f"[{ts_str}{source_str}{ext_id_str}]: {report.description}")
         return "\n---\n".join(history_entries) if history_entries else "No description history available."
+
+class IncidentPublic(BaseModel):
+    """ A simplified Incident model for public API responses. """
+    incident_id: str
+    name: Optional[str] = None
+    incident_type: Optional[str] = None
+    status: str
+    created_at: Optional[datetime] = None
+    last_updated_at: Optional[datetime] = None
+    summary: str
+    locations: List[Tuple[float, float]] = []
+    addresses: List[str] = []
+
+    model_config = ConfigDict(
+        extra='ignore',
+        json_encoders={
+            datetime: lambda v: v.isoformat(),
+        }
+    )
